@@ -656,6 +656,225 @@ Output ONLY the transcript text, nothing else.`;
 }
 
 // ============================================
+// WHITEBOARD ANALYSIS (Image-based gap detection)
+// ============================================
+
+export interface WhiteboardAnalysisResult {
+  should_probe: boolean;
+  gap_score: number;
+  signals: string[];
+  observation: string;
+}
+
+export interface AnalyzeWhiteboardOptions {
+  imageBase64: string;
+  problem: string;
+  promptOverrides?: UserPrompts;
+}
+
+export async function analyzeWhiteboard(
+  options: AnalyzeWhiteboardOptions
+): Promise<{ success: boolean; result?: WhiteboardAnalysisResult; error?: string }> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+
+  if (!apiKey) {
+    return { success: false, error: "OPENROUTER_API_KEY not configured" };
+  }
+
+  const prompt = `You are analyzing a student's whiteboard/drawing during a Socratic tutoring session.
+
+Problem being worked on: ${options.problem}
+
+Look at this drawing and analyze what the student is thinking. Look for:
+- Confusion or uncertainty (messy, crossed-out areas, question marks)
+- Assumptions being made (diagrams with unstated premises)
+- Gaps in reasoning (incomplete equations, missing steps)
+- Conceptual misunderstandings (incorrect relationships shown)
+- Progress or breakthroughs (organized, clear solutions)
+
+Rate the gap level from 0.0 to 1.0:
+- 0.0-0.3: Clear, confident work
+- 0.4-0.6: Some confusion or incomplete thinking
+- 0.7-1.0: Significant gaps, misconceptions, or stuck thinking
+
+Return ONLY valid JSON:
+{"should_probe": true/false, "gap_score": <0.0-1.0>, "signals": ["signal1", "signal2"], "observation": "brief description of what you see"}
+
+Max 3 signals. Use categories like: "incomplete_diagram", "misconception", "confusion", "assumption", "contradiction", "missing_step".`;
+
+  try {
+    const response = await fetch(OPENROUTER_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+        "X-Title": "Socrates",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:image/png;base64,${options.imageBase64}`,
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 300,
+        temperature: 0.3,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("OpenRouter API error:", response.status, errorText);
+      return { success: false, error: `API error: ${response.status}` };
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      return { success: false, error: "No content in response" };
+    }
+
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return { success: false, error: "No JSON in response" };
+    }
+
+    const result = JSON.parse(jsonMatch[0]) as WhiteboardAnalysisResult;
+    result.gap_score = Math.max(0, Math.min(1, result.gap_score || 0));
+    result.should_probe = result.should_probe ?? result.gap_score >= 0.5;
+    result.signals = result.signals || [];
+    result.observation = result.observation || "";
+
+    return { success: true, result };
+  } catch (error) {
+    console.error("Whiteboard analysis failed:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+// ============================================
+// NOTEBOOK ANALYSIS (Text-based gap detection)
+// ============================================
+
+export interface NotebookAnalysisResult {
+  should_probe: boolean;
+  gap_score: number;
+  signals: string[];
+  observation: string;
+}
+
+export interface AnalyzeNotebookOptions {
+  content: string;
+  problem: string;
+  promptOverrides?: UserPrompts;
+}
+
+export async function analyzeNotebook(
+  options: AnalyzeNotebookOptions
+): Promise<{ success: boolean; result?: NotebookAnalysisResult; error?: string }> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+
+  if (!apiKey) {
+    return { success: false, error: "OPENROUTER_API_KEY not configured" };
+  }
+
+  const prompt = `You are analyzing a student's written notes during a Socratic tutoring session.
+
+Problem being worked on: ${options.problem}
+
+Analyze these notes and look for gaps in the student's thinking:
+- Confusion or uncertainty (questions, doubt, "I don't know")
+- Unclear reasoning (incomplete explanations, missing connections)
+- Assumptions taken for granted without examination
+- Contradictions or inconsistencies
+- Circular thinking or looping back
+- Skipped steps in problem-solving
+- Misconceptions or incorrect understanding
+
+Rate the gap level from 0.0 to 1.0:
+- 0.0-0.3: Clear, confident reasoning in notes
+- 0.4-0.6: Some confusion or incomplete thinking shown
+- 0.7-1.0: Significant gaps, misconceptions, or stuck thinking
+
+Return ONLY valid JSON:
+{"should_probe": true/false, "gap_score": <0.0-1.0>, "signals": ["signal1", "signal2"], "observation": "brief description of what you observe in the notes"}
+
+Max 3 signals. Use categories like: "unclear_reasoning", "confusion", "assumption", "contradiction", "missing_step", "misconception".`;
+
+  try {
+    const response = await fetch(OPENROUTER_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+        "X-Title": "Socrates",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "text", text: `Here are the student's notes:\n\n${options.content}` },
+            ],
+          },
+        ],
+        max_tokens: 300,
+        temperature: 0.3,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("OpenRouter API error:", response.status, errorText);
+      return { success: false, error: `API error: ${response.status}` };
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      return { success: false, error: "No content in response" };
+    }
+
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return { success: false, error: "No JSON in response" };
+    }
+
+    const result = JSON.parse(jsonMatch[0]) as NotebookAnalysisResult;
+    result.gap_score = Math.max(0, Math.min(1, result.gap_score || 0));
+    result.should_probe = result.should_probe ?? result.gap_score >= 0.5;
+    result.signals = result.signals || [];
+    result.observation = result.observation || "";
+
+    return { success: true, result };
+  } catch (error) {
+    console.error("Notebook analysis failed:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+// ============================================
 // AVAILABLE MODELS (for user selection in Dashboard)
 // ============================================
 

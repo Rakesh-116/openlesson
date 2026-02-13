@@ -21,6 +21,7 @@ import { formatTime } from "@/lib/utils";
 import { AudioVisualizer, RecordingIndicator } from "./AudioVisualizer";
 import { ActiveProbe } from "./ActiveProbe";
 import { ObserverControls } from "./ObserverControls";
+import { WhiteboardCanvas } from "./WhiteboardCanvas";
 
 // Configuration
 const ANALYSIS_INTERVALS: Record<Frequency, number> = {
@@ -61,6 +62,20 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [endReason, setEndReason] = useState("");
 
+  // Whiteboard
+  const [showWhiteboard, setShowWhiteboard] = useState(false);
+  const [whiteboardData, setWhiteboardData] = useState<string | null>(null);
+  const [whiteboardAnalyzing, setWhiteboardAnalyzing] = useState(false);
+  const whiteboardAnalysisRef = useRef<NodeJS.Timeout | null>(null);
+  const lastWhiteboardAnalysisRef = useRef(0);
+
+  // Notebook
+  const [showNotebook, setShowNotebook] = useState(false);
+  const [notebookContent, setNotebookContent] = useState("");
+  const [notebookAnalyzing, setNotebookAnalyzing] = useState(false);
+  const notebookAnalysisRef = useRef<NodeJS.Timeout | null>(null);
+  const lastNotebookAnalysisRef = useRef(0);
+
   // Muse EEG
   const [museStatus, setMuseStatus] = useState<"disconnected" | "connecting" | "connected" | "streaming">("disconnected");
   const [museError, setMuseError] = useState<string | null>(null);
@@ -83,11 +98,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const observerModeRef = useRef(observerMode);
   const frequencyRef = useRef(frequency);
   const isMutedRef = useRef(isMuted);
+  const whiteboardDataRef = useRef(whiteboardData);
+  const notebookContentRef = useRef(notebookContent);
 
   // Keep refs in sync
   useEffect(() => { observerModeRef.current = observerMode; }, [observerMode]);
   useEffect(() => { frequencyRef.current = frequency; }, [frequency]);
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+  useEffect(() => { whiteboardDataRef.current = whiteboardData; }, [whiteboardData]);
+  useEffect(() => { notebookContentRef.current = notebookContent; }, [notebookContent]);
 
   // Scroll probe into view when it changes
   useEffect(() => {
@@ -226,7 +245,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       const gapRes = await fetch("/api/analyze-gap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audioBase64, audioFormat, problem: currentSession.problem }),
+        body: JSON.stringify({ 
+          audioBase64, 
+          audioFormat, 
+          problem: currentSession.problem,
+          whiteboardData: whiteboardDataRef.current,
+        }),
       });
 
       if (!gapRes.ok) return;
@@ -296,6 +320,171 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     }
   }, []);
 
+  // ---- Whiteboard Analysis ----
+  const analyzeWhiteboard = useCallback(async () => {
+    const currentWhiteboardData = whiteboardDataRef.current;
+    const currentSession = sessionRef.current;
+    const now = Date.now();
+
+    if (!currentWhiteboardData || !currentSession) return;
+    if (!isRecording) return;
+    if (now - lastWhiteboardAnalysisRef.current < 5000) return; // 5s cooldown
+    if (Date.now() - lastProbeTimeRef.current < COOLDOWN_AFTER_PROBE_MS) return;
+
+    lastWhiteboardAnalysisRef.current = now;
+    setWhiteboardAnalyzing(true);
+
+    try {
+      // Extract base64 data from data URL if needed
+      const base64Data = currentWhiteboardData.replace(/^data:image\/\w+;base64,/, "");
+
+      const res = await fetch("/api/analyze-whiteboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: base64Data, problem: currentSession.problem }),
+      });
+
+      if (!res.ok) return;
+      const data = await res.json();
+
+      if (data.shouldProbe && data.gapScore >= 0.5) {
+        const probeRes = await fetch("/api/generate-probe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            problem: currentSession.problem,
+            transcript: `Whiteboard observation: ${data.observation}`,
+            gapScore: data.gapScore,
+            signals: data.signals || ["whiteboard_confusion"],
+            previousProbes: currentSession.probes.map((p) => p.text),
+          }),
+        });
+
+        if (probeRes.ok) {
+          const { probe: probeText } = await probeRes.json();
+          const savedProbe = await addProbe(currentSession.id, {
+            timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
+            gapScore: data.gapScore,
+            signals: data.signals || ["whiteboard_confusion"],
+            text: probeText,
+          });
+          const updatedSession = addProbeToSession(currentSession, savedProbe);
+          setSession(updatedSession);
+          sessionRef.current = updatedSession;
+          setActiveProbe(savedProbe);
+          setViewingProbeIndex(updatedSession.probes.length - 1);
+          lastProbeTimeRef.current = Date.now();
+        }
+      }
+    } catch (err) {
+      console.error("Whiteboard analysis error:", err);
+    } finally {
+      setWhiteboardAnalyzing(false);
+    }
+  }, []);
+
+  // ---- Notebook Analysis ----
+  const analyzeNotebook = useCallback(async () => {
+    const currentNotebookContent = notebookContentRef.current;
+    const currentSession = sessionRef.current;
+    const now = Date.now();
+
+    if (!currentNotebookContent || currentNotebookContent.trim().length < 20) return;
+    if (!currentSession) return;
+    if (!isRecording) return;
+    if (now - lastNotebookAnalysisRef.current < 5000) return; // 5s cooldown
+    if (Date.now() - lastProbeTimeRef.current < COOLDOWN_AFTER_PROBE_MS) return;
+
+    lastNotebookAnalysisRef.current = now;
+    setNotebookAnalyzing(true);
+
+    try {
+      const res = await fetch("/api/analyze-notebook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          content: currentNotebookContent, 
+          problem: currentSession.problem,
+        }),
+      });
+
+      if (!res.ok) return;
+      const data = await res.json();
+
+      if (data.shouldProbe && data.gapScore >= 0.5) {
+        const probeRes = await fetch("/api/generate-probe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            problem: currentSession.problem,
+            transcript: `Notebook notes: ${data.observation}`,
+            gapScore: data.gapScore,
+            signals: data.signals || ["notebook_confusion"],
+            previousProbes: currentSession.probes.map((p) => p.text),
+          }),
+        });
+
+        if (probeRes.ok) {
+          const { probe: probeText } = await probeRes.json();
+          const savedProbe = await addProbe(currentSession.id, {
+            timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
+            gapScore: data.gapScore,
+            signals: data.signals || ["notebook_confusion"],
+            text: probeText,
+          });
+          const updatedSession = addProbeToSession(currentSession, savedProbe);
+          setSession(updatedSession);
+          sessionRef.current = updatedSession;
+          setActiveProbe(savedProbe);
+          setViewingProbeIndex(updatedSession.probes.length - 1);
+          lastProbeTimeRef.current = Date.now();
+        }
+      }
+    } catch (err) {
+      console.error("Notebook analysis error:", err);
+    } finally {
+      setNotebookAnalyzing(false);
+    }
+  }, []);
+
+  // Debounced whiteboard analysis when data changes
+  useEffect(() => {
+    if (!showWhiteboard || !whiteboardData || !isRecording) return;
+
+    if (whiteboardAnalysisRef.current) {
+      clearTimeout(whiteboardAnalysisRef.current);
+    }
+
+    whiteboardAnalysisRef.current = setTimeout(() => {
+      analyzeWhiteboard();
+    }, 2000); // Analyze 2 seconds after user stops drawing
+
+    return () => {
+      if (whiteboardAnalysisRef.current) {
+        clearTimeout(whiteboardAnalysisRef.current);
+      }
+    };
+  }, [whiteboardData, showWhiteboard, isRecording, analyzeWhiteboard]);
+
+  // Debounced notebook analysis when content changes
+  useEffect(() => {
+    if (!showNotebook || !notebookContent || !isRecording) return;
+
+    if (notebookAnalysisRef.current) {
+      clearTimeout(notebookAnalysisRef.current);
+    }
+
+    notebookAnalysisRef.current = setTimeout(() => {
+      analyzeNotebook();
+    }, 3000); // Analyze 3 seconds after user stops typing
+
+    return () => {
+      if (notebookAnalysisRef.current) {
+        clearTimeout(notebookAnalysisRef.current);
+      }
+    };
+  }, [notebookContent, showNotebook, isRecording, analyzeNotebook]);
+
   const checkMicrophone = async () => {
     setMicStatus("checking");
     setError(null);
@@ -356,8 +545,23 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     if (analysisRef.current) clearInterval(analysisRef.current);
 
     const recorder = recorderRef.current;
+    
+    console.log("[stopRecording] Recorder state:", {
+      hasRecorder: !!recorder,
+      chunkCount: recorder?.getChunkCount?.() || 0,
+      isRecording: recorder?.getIsRecording(),
+      bufferDuration: recorder?.getBufferDuration(),
+    });
+    
     const fullAudio = recorder?.getFullAudio() ?? null;
-    recorder?.stop();
+    
+    console.log("[stopRecording] Full audio:", {
+      exists: !!fullAudio,
+      size: fullAudio?.size,
+      type: fullAudio?.type,
+    });
+    
+    await recorder?.stop();
     recorderRef.current = null;
 
     if (stream) { stream.getTracks().forEach((t) => t.stop()); setStream(null); }
@@ -367,25 +571,43 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
     const finalSession = endSession(session, elapsedSeconds * 1000);
     finalSession.hasAudio = !!fullAudio;
+    finalSession.metadata = {
+      ...finalSession.metadata,
+      whiteboardData: whiteboardData || undefined,
+      notebookData: notebookContent || undefined,
+    };
 
     // Persist to Supabase
     await saveSession(finalSession);
 
-    // Navigate immediately — audio/EEG saves continue in background
-    router.push(`/results?id=${finalSession.id}`);
-
-    // Save audio and EEG in background (non-blocking)
+    // Save audio first before navigating - it needs to be done before results page loads
     if (fullAudio) {
-      saveSessionAudio(finalSession.id, fullAudio).catch(() => {});
+      console.log("[stopRecording] Saving audio:", { 
+        hasAudio: !!fullAudio, 
+        size: fullAudio.size, 
+        type: fullAudio.type 
+      });
+      await saveSessionAudio(finalSession.id, fullAudio);
+      console.log("[stopRecording] Audio saved successfully");
+    } else {
+      console.log("[stopRecording] No audio to save - fullAudio is null");
     }
 
+    // Save EEG data before navigating
     if (museStatus === "streaming" && eegBufferRef.current.size > 0) {
+      console.log("[stopRecording] Saving EEG data...");
       const channels: Record<string, number[]> = {};
       for (const [ch, samples] of eegBufferRef.current.entries()) {
         channels[ch] = samples;
       }
-      saveSessionEEG(finalSession.id, { channels, bandPowers }, museClientRef.current?.deviceName).catch(() => {});
+      await saveSessionEEG(finalSession.id, { channels, bandPowers }, museClientRef.current?.deviceName);
+      console.log("[stopRecording] EEG data saved successfully");
     }
+
+    handleDisconnectMuse();
+
+    // Navigate after all data is saved
+    router.push(`/results?id=${finalSession.id}`);
 
     handleDisconnectMuse();
   };
@@ -416,7 +638,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         const gapRes = await fetch("/api/analyze-gap", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ audioBase64, audioFormat, problem: currentSession.problem }),
+          body: JSON.stringify({ 
+            audioBase64, 
+            audioFormat, 
+            problem: currentSession.problem,
+            whiteboardData: whiteboardDataRef.current,
+          }),
         });
         if (gapRes.ok) {
           const gapData = await gapRes.json();
@@ -559,13 +786,41 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             <span className="text-neutral-700 shrink-0 hidden sm:inline">&middot;</span>
             <p className="text-xs sm:text-sm text-neutral-500 truncate hidden sm:block">{session.problem}</p>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {isAnalyzing && (
               <div className="flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                 <span className="text-[11px] text-blue-400 hidden sm:inline">Observing</span>
               </div>
             )}
+            <button
+              onClick={() => setShowWhiteboard(!showWhiteboard)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-lg border transition-colors ${
+                showWhiteboard
+                  ? "bg-purple-500/20 border-purple-500/40 text-purple-400"
+                  : "bg-neutral-800 border-neutral-700 text-neutral-300 hover:border-neutral-600"
+              }`}
+              title="Toggle Whiteboard"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              <span className="hidden sm:inline">Canvas</span>
+            </button>
+            <button
+              onClick={() => setShowNotebook(!showNotebook)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-lg border transition-colors ${
+                showNotebook
+                  ? "bg-amber-500/20 border-amber-500/40 text-amber-400"
+                  : "bg-neutral-800 border-neutral-700 text-neutral-300 hover:border-neutral-600"
+              }`}
+              title="Toggle Notebook"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              <span className="hidden sm:inline">Notes</span>
+            </button>
             <div className="text-xs sm:text-sm font-mono text-neutral-300 tabular-nums bg-neutral-900/50 px-2 sm:px-2.5 py-1 rounded-lg border border-neutral-800">
               {formatTime(elapsedSeconds)}
             </div>
@@ -576,7 +831,82 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       {/* Main Content */}
       <div className={`max-w-5xl mx-auto w-full px-3 sm:px-6 overflow-x-hidden ${isRecording ? "flex-1 flex flex-col min-h-0 py-2 gap-2" : "py-4 sm:py-5"}`}>
 
-        {isRecording ? (
+        {showWhiteboard ? (
+          <div className="flex-1 min-h-0 flex flex-col gap-2">
+            {/* Mini probe card when whiteboard is active */}
+            {activeProbe && (
+              <div className="shrink-0 rounded-lg border border-neutral-800 bg-neutral-900/70 p-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-[10px] uppercase tracking-wider font-medium text-purple-400">Current Question</span>
+                  {activeProbe && (
+                    <button
+                      onClick={() => handleToggleStar(activeProbe.id, !activeProbe.starred)}
+                      className="ml-auto p-1 hover:bg-neutral-800 rounded transition-colors"
+                    >
+                      <StarIcon filled={activeProbe.starred} />
+                    </button>
+                  )}
+                </div>
+                <p className="text-sm text-white leading-relaxed">{activeProbe.text}</p>
+              </div>
+            )}
+            <div className="flex-1 min-h-0">
+              <WhiteboardCanvas
+                initialData={whiteboardData || undefined}
+                onCanvasChange={(dataUrl) => {
+                  setWhiteboardData(dataUrl);
+                  if (sessionRef.current) {
+                    sessionRef.current = {
+                      ...sessionRef.current,
+                      metadata: { ...sessionRef.current.metadata, whiteboardData: dataUrl },
+                    };
+                  }
+                }}
+              />
+            </div>
+          </div>
+        ) : showNotebook ? (
+          <div className="flex-1 min-h-0 flex flex-col gap-2">
+            {/* Mini probe card when notebook is active */}
+            {activeProbe && (
+              <div className="shrink-0 rounded-lg border border-neutral-800 bg-neutral-900/70 p-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-[10px] uppercase tracking-wider font-medium text-amber-400">Current Question</span>
+                  {activeProbe && (
+                    <button
+                      onClick={() => handleToggleStar(activeProbe.id, !activeProbe.starred)}
+                      className="ml-auto p-1 hover:bg-neutral-800 rounded transition-colors"
+                    >
+                      <StarIcon filled={activeProbe.starred} />
+                    </button>
+                  )}
+                </div>
+                <p className="text-sm text-white leading-relaxed">{activeProbe.text}</p>
+              </div>
+            )}
+            <div className="flex-1 min-h-0">
+              <div className="h-full rounded-lg border border-neutral-800 bg-neutral-900/50 flex flex-col">
+                <textarea
+                  value={notebookContent}
+                  onChange={(e) => setNotebookContent(e.target.value)}
+                  placeholder="Jot down your thoughts, ideas, and reflections here...&#10;&#10;Type freely and let your thoughts flow. The tutor will analyze your notes to generate relevant probes."
+                  className="flex-1 w-full bg-transparent border-none resize-none p-4 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-0"
+                />
+                <div className="shrink-0 px-3 py-2 border-t border-neutral-800 flex items-center justify-between">
+                  <span className="text-[10px] text-neutral-600">
+                    {notebookContent.length} characters
+                  </span>
+                  {notebookAnalyzing && (
+                    <span className="text-[10px] text-amber-400 flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                      Analyzing...
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : isRecording ? (
           <>
             {/* Question card — fills remaining space */}
             <div className="flex-1 min-h-0 overflow-y-auto" ref={probeContainerRef}>
@@ -1025,6 +1355,18 @@ function SpeakerIcon() {
   return (
     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+    </svg>
+  );
+}
+
+function StarIcon({ filled }: { filled?: boolean }) {
+  return filled ? (
+    <svg className="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+    </svg>
+  ) : (
+    <svg className="w-4 h-4 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
     </svg>
   );
 }

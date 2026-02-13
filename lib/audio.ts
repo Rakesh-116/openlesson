@@ -94,16 +94,33 @@ export class AudioRecorder {
     }
   }
 
-  stop(): void {
-    if (!this.isRecording) return;
+  stop(): Promise<void> {
+    return new Promise((resolve) => {
+      if (!this.isRecording) {
+        resolve();
+        return;
+      }
 
-    this.isRecording = false;
+      this.isRecording = false;
 
-    if (this.mediaRecorder && this.mediaRecorder.state !== "inactive") {
-      this.mediaRecorder.stop();
-    }
-
-    this.cleanup();
+      if (this.mediaRecorder && this.mediaRecorder.state !== "inactive") {
+        const finalDataHandler = (event: Event) => {
+          const blobEvent = event as BlobEvent;
+          if (blobEvent.data && blobEvent.data.size > 0) {
+            this.allChunks.push(blobEvent.data);
+          }
+          this.mediaRecorder?.removeEventListener("dataavailable", finalDataHandler);
+          this.cleanup();
+          resolve();
+        };
+        
+        this.mediaRecorder.addEventListener("dataavailable", finalDataHandler);
+        this.mediaRecorder.stop();
+      } else {
+        this.cleanup();
+        resolve();
+      }
+    });
   }
 
   private cleanup(): void {
@@ -184,6 +201,10 @@ export class AudioRecorder {
 
   getBufferDuration(): number {
     return this.chunks.length * this.config.chunkDurationMs;
+  }
+
+  getChunkCount(): number {
+    return this.chunks.length;
   }
 }
 

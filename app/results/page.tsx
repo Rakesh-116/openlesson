@@ -22,7 +22,6 @@ function ResultsContent() {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [loading, setLoading] = useState(true);
   const [reportLoading, setReportLoading] = useState(false);
-  const [transcriptLoading, setTranscriptLoading] = useState(false);
   const [showStarredOnly, setShowStarredOnly] = useState(false);
 
   useEffect(() => {
@@ -35,17 +34,29 @@ function ResultsContent() {
       const s = await getSession(sessionId);
       setSession(s);
 
+      console.log("[Results] Session loaded:", { 
+        id: s?.id, 
+        hasAudio: s?.hasAudio, 
+        audioPath: s?.audioPath,
+        metadata: s?.metadata 
+      });
+
       if (s?.hasAudio) {
+        console.log("[Results] Session has audio, loading...");
         const audio = await getSessionAudio(sessionId);
+        console.log("[Results] Loaded audio:", { 
+          exists: !!audio, 
+          size: audio?.size, 
+          type: audio?.type 
+        });
         setAudioBlob(audio);
       }
 
       setLoading(false);
 
       if (s && s.status !== "active") {
-        // Generate report and transcript in parallel if missing
+        // Generate report if missing
         if (!s.report) generateAndSaveReport(s);
-        if (!s.transcript && s.hasAudio) generateAndSaveTranscript(s);
       }
     };
 
@@ -104,33 +115,6 @@ function ResultsContent() {
     }
   };
 
-  const generateAndSaveTranscript = async (s: Session) => {
-    setTranscriptLoading(true);
-    try {
-      const res = await fetch("/api/generate-transcript", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: s.id,
-          problem: s.problem,
-        }),
-      });
-
-      if (res.ok) {
-        const { transcript } = await res.json();
-        if (transcript) {
-          setSession((prev) =>
-            prev ? { ...prev, transcript } : prev
-          );
-        }
-      }
-    } catch (err) {
-      console.error("Transcript generation failed:", err);
-    } finally {
-      setTranscriptLoading(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a]">
@@ -159,6 +143,8 @@ function ResultsContent() {
   const stats = getSessionStats(session);
   const durationFormatted = formatTime(Math.floor(session.durationMs / 1000));
   const eegSummary = session.metadata?.eegSummary;
+  const whiteboardData = session.metadata?.whiteboardData;
+  const notebookData = session.metadata?.notebookData;
 
   const handleDownloadAudio = () => {
     if (audioBlob) {
@@ -263,44 +249,37 @@ function ResultsContent() {
           )}
         </div>
 
-        {/* Transcript */}
-        {session.transcript ? (
+        {/* Whiteboard */}
+        {whiteboardData && (
           <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-neutral-300">Session Transcript</h3>
-              <button
-                onClick={() => {
-                  if (session.transcript) {
-                    const blob = new Blob([session.transcript], { type: "text/plain" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `socrates-transcript-${session.id.substring(0, 8)}.txt`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg border border-neutral-700 transition-colors"
-              >
-                <DownloadIcon />
-                Download
-              </button>
+            <div className="flex items-center gap-2 mb-4">
+              <CanvasIcon />
+              <h3 className="text-sm font-medium text-neutral-300">Whiteboard</h3>
             </div>
-            <div className="max-h-80 overflow-y-auto rounded-lg bg-[#0a0a0a] border border-neutral-800 p-4">
+            <div className="rounded-lg overflow-hidden border border-neutral-800 bg-[#0a0a0a]">
+              <img 
+                src={whiteboardData} 
+                alt="Session whiteboard" 
+                className="w-full h-auto max-h-96 object-contain"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Notebook */}
+        {notebookData && (
+          <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <NotebookIcon />
+              <h3 className="text-sm font-medium text-neutral-300">Notes</h3>
+            </div>
+            <div className="rounded-lg overflow-hidden border border-neutral-800 bg-[#0a0a0a] p-4">
               <p className="text-sm text-neutral-400 leading-relaxed whitespace-pre-wrap font-mono">
-                {session.transcript}
+                {notebookData}
               </p>
             </div>
           </div>
-        ) : transcriptLoading ? (
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 mb-6">
-            <h3 className="text-sm font-medium text-neutral-300 mb-3">Session Transcript</h3>
-            <div className="flex items-center gap-3 py-6 justify-center">
-              <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full" />
-              <p className="text-sm text-neutral-500">Transcribing session audio...</p>
-            </div>
-          </div>
-        ) : null}
+        )}
 
         {/* Muse EEG Data */}
         <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 mb-6">
@@ -548,6 +527,22 @@ function BrainIcon() {
   return (
     <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+    </svg>
+  );
+}
+
+function CanvasIcon() {
+  return (
+    <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+    </svg>
+  );
+}
+
+function NotebookIcon() {
+  return (
+    <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
     </svg>
   );
 }

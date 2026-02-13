@@ -38,6 +38,8 @@ export interface Session {
     observerMode?: ObserverMode;
     frequency?: Frequency;
     eegSummary?: Record<string, number> | null;
+    whiteboardData?: string | null;
+    notebookData?: string | null;
   };
 }
 
@@ -95,11 +97,13 @@ export async function createSession(problem: string): Promise<Session> {
 export async function getSession(id: string): Promise<Session | null> {
   const supabase = createClient();
 
-  const { data: sessionRow } = await supabase
+  const { data: sessionRow, error } = await supabase
     .from("sessions")
     .select("*")
     .eq("id", id)
     .single();
+
+  console.log("[getSession] DB row:", { id, error, hasAudio: sessionRow?.audio_path });
 
   if (!sessionRow) return null;
 
@@ -272,21 +276,36 @@ export async function saveSessionAudio(
   if (!user) throw new Error("Not authenticated");
 
   const path = `${user.id}/${sessionId}.webm`;
+  const contentType = audioBlob.type || "audio/webm";
+
+  console.log("[saveSessionAudio] Saving audio:", { sessionId, path, contentType, size: audioBlob.size });
 
   const { error } = await supabase.storage
     .from("session-audio")
     .upload(path, audioBlob, {
-      contentType: "audio/webm",
+      contentType,
       upsert: true,
     });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error("[saveSessionAudio] Upload error:", error);
+    throw new Error(error.message);
+  }
+
+  console.log("[saveSessionAudio] Upload success, updating session...");
 
   // Update session with audio path
-  await supabase
+  const { error: updateError } = await supabase
     .from("sessions")
     .update({ audio_path: path })
     .eq("id", sessionId);
+
+  if (updateError) {
+    console.error("[saveSessionAudio] Update session error:", updateError);
+    throw new Error(updateError.message);
+  }
+
+  console.log("[saveSessionAudio] Done!");
 
   return path;
 }
@@ -324,6 +343,8 @@ export async function saveSessionEEG(
   const path = `${user.id}/${sessionId}_eeg.json`;
   const blob = new Blob([JSON.stringify(eegData)], { type: "application/json" });
 
+  console.log("[saveSessionEEG] Saving:", { sessionId, path, deviceName, channels: Object.keys(eegData.channels) });
+
   await supabase.storage
     .from("session-eeg")
     .upload(path, blob, { contentType: "application/json", upsert: true });
@@ -353,6 +374,8 @@ export async function saveSessionEEG(
       .update({ metadata: { ...existingMeta, eegSummary: eegData.bandPowers } })
       .eq("id", sessionId);
   }
+  
+  console.log("[saveSessionEEG] Done!");
 }
 
 // ---- Analytics Helpers ----
