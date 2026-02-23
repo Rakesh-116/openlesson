@@ -9,7 +9,6 @@ const ENDPOINTS = [
     method: "POST",
     path: "/api/agent/plan",
     description: "Generate a learning plan for a given topic",
-    price: "$0.50",
     params: [
       { name: "topic", type: "string", required: true, example: "Machine Learning" },
       { name: "days", type: "number", required: false, example: "30" },
@@ -20,12 +19,6 @@ const ENDPOINTS = [
       topic: "string",
       days: "number",
       nodes: "array",
-      pricing: {
-        planGeneration: "$0.50",
-        perSession: "$1.00",
-        estimatedSessions: "number",
-        totalEstimatedCost: "total",
-      },
     },
   },
   {
@@ -33,7 +26,6 @@ const ENDPOINTS = [
     method: "POST",
     path: "/api/agent/session/start",
     description: "Start a new Socratic session",
-    price: "$1.00",
     params: [
       { name: "problem", type: "string", required: true, example: "Explain how backpropagation works" },
       { name: "plan_node_id", type: "string", required: false, example: "uuid" },
@@ -49,7 +41,6 @@ const ENDPOINTS = [
     method: "POST",
     path: "/api/agent/session/analyze",
     description: "Submit audio chunk for analysis (audio-only)",
-    price: "Bundled",
     params: [
       { name: "session_id", type: "string", required: true, example: "uuid" },
       { name: "audio_base64", type: "string", required: true, example: "base64-encoded-audio" },
@@ -153,7 +144,6 @@ export function AgenticModeSelect() {
       <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6 mb-8">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-white">API Endpoints</h3>
-          <span className="text-xs text-neutral-500">All prices in USD</span>
         </div>
 
         <div className="space-y-6">
@@ -171,9 +161,6 @@ export function AgenticModeSelect() {
                   </div>
                   <p className="text-sm text-neutral-400 mt-1">{endpoint.description}</p>
                 </div>
-                <span className="px-3 py-1 text-sm font-medium bg-green-500/20 text-green-400 rounded-lg">
-                  {endpoint.price}
-                </span>
               </div>
 
               <div className="text-xs">

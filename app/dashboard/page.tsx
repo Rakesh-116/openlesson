@@ -62,6 +62,8 @@ export default function DashboardPage() {
   const [apiKeys, setApiKeys] = useState<AgentApiKey[]>([]);
   const [creatingKey, setCreatingKey] = useState(false);
   const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [keyCopied, setKeyCopied] = useState(false);
 
   // Config tab
   const [availableModels, setAvailableModels] = useState<OpenRouterModel[]>([]);
@@ -285,12 +287,18 @@ export default function DashboardPage() {
   };
 
   const handleCreateApiKey = async () => {
+    // Check if user is Pro or admin
+    if (user?.plan !== "pro" && !user?.isAdmin) {
+      alert("API Keys are only available on the Pro plan. Upgrade to Pro to create API keys.");
+      return;
+    }
+    if (!newKeyName.trim()) return;
     setCreatingKey(true);
     try {
       const res = await fetch("/api/agent/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: "My API Key" }),
+        body: JSON.stringify({ label: newKeyName.trim() }),
       });
       const data = await res.json();
       if (data.key) {
@@ -724,8 +732,31 @@ export default function DashboardPage() {
           <div className="space-y-8">
             {/* API Keys Section */}
             <div>
+              {user?.plan !== "pro" && !user?.isAdmin && (
+                <div className="mb-4 p-4 rounded-lg border border-yellow-500/30 bg-yellow-500/5">
+                  <p className="text-sm text-yellow-400">
+                    API Keys are available on the Pro plan.{" "}
+                    <button
+                      onClick={() => window.location.href = "/pricing"}
+                      className="underline hover:text-yellow-300"
+                    >
+                      Upgrade to Pro
+                    </button>{" "}
+                    to create API keys.
+                  </p>
+                </div>
+              )}
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold">API Keys</h2>
+              </div>
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  placeholder="Enter key name"
+                  className="flex-1 px-3 py-1.5 text-sm bg-neutral-900 border border-neutral-700 rounded-lg focus:outline-none focus:border-blue-600"
+                />
                 <button
                   onClick={handleCreateApiKey}
                   disabled={creatingKey}
@@ -738,9 +769,21 @@ export default function DashboardPage() {
               {/* New Key Display */}
               {newKeyValue && (
                 <div className="mb-4 p-4 rounded-lg border border-green-500/30 bg-green-500/5">
-                  <p className="text-sm text-green-400 mb-2">
-                    Your new API key (copy now - won't be shown again):
-                  </p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm text-green-400">
+                      Your new API key (copy now - won't be shown again):
+                    </p>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(newKeyValue);
+                        setKeyCopied(true);
+                        setTimeout(() => setKeyCopied(false), 2000);
+                      }}
+                      className="text-xs px-2 py-1 bg-green-600 hover:bg-green-500 rounded transition-colors"
+                    >
+                      {keyCopied ? "Copied!" : "Copy"}
+                    </button>
+                  </div>
                   <code className="block text-xs text-neutral-300 bg-neutral-900 p-2 rounded font-mono break-all">
                     {newKeyValue}
                   </code>
@@ -750,12 +793,6 @@ export default function DashboardPage() {
               {apiKeys.length === 0 ? (
                 <div className="text-center py-12 text-neutral-500 border border-neutral-800 rounded-lg">
                   <p>No API keys yet.</p>
-                  <button
-                    onClick={handleCreateApiKey}
-                    className="text-blue-400 hover:underline mt-2 inline-block"
-                  >
-                    Create your first key
-                  </button>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -819,9 +856,12 @@ export default function DashboardPage() {
               <h2 className="text-lg font-semibold mb-4">Model Selection</h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
-                  <label className="block text-sm font-medium text-neutral-300 mb-2">
-                    Tutor Model (Socratic Probing)
+                  <label className="block text-sm font-medium text-neutral-300 mb-1">
+                    Tutor Model
                   </label>
+                  <p className="text-xs text-neutral-500 mb-3">
+                    The model that observes and guides your lesson
+                  </p>
                   <select
                     value={tutorModel}
                     onChange={(e) => setTutorModel(e.target.value)}
@@ -838,15 +878,15 @@ export default function DashboardPage() {
                       ))
                     )}
                   </select>
-                  <p className="text-xs text-neutral-600 mt-2">
-                    Model used for generating Socratic questions during sessions.
-                  </p>
                 </div>
 
                 <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
-                  <label className="block text-sm font-medium text-neutral-300 mb-2">
-                    Asking Model (Direct Q&A)
+                  <label className="block text-sm font-medium text-neutral-300 mb-1">
+                    Asking Model
                   </label>
+                  <p className="text-xs text-neutral-500 mb-3">
+                    The model that answers direct questions from you
+                  </p>
                   <select
                     value={askModel}
                     onChange={(e) => setAskModel(e.target.value)}
@@ -863,9 +903,6 @@ export default function DashboardPage() {
                       ))
                     )}
                   </select>
-                  <p className="text-xs text-neutral-600 mt-2">
-                    Model used when you ask direct questions during a session.
-                  </p>
                 </div>
               </div>
 

@@ -1000,3 +1000,56 @@ export async function askQuestion(options: {
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
 }
+
+// ============================================
+// EMBEDDINGS GENERATION (for RAG)
+// ============================================
+
+const EMBEDDING_URL = "https://openrouter.ai/api/v1/embeddings";
+const EMBEDDING_MODEL = "google/gemini-embedding-001";
+
+export async function generateEmbeddings(
+  texts: string[]
+): Promise<{ success: boolean; embedding?: number[][]; error?: string }> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+
+  if (!apiKey) {
+    return { success: false, error: "OPENROUTER_API_KEY not configured" };
+  }
+
+  if (!texts || texts.length === 0) {
+    return { success: true, embedding: [] };
+  }
+
+  try {
+    const response = await fetch(EMBEDDING_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: EMBEDDING_MODEL,
+        input: texts,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[generateEmbeddings] API error:", response.status, errorText);
+      return { success: false, error: `API error: ${response.status}` };
+    }
+
+    const data = await response.json();
+    const embeddings = data.data?.map((item: { embedding: number[] }) => item.embedding) || [];
+
+    if (embeddings.length === 0) {
+      return { success: false, error: "No embeddings returned" };
+    }
+
+    return { success: true, embedding: embeddings };
+  } catch (error) {
+    console.error("[generateEmbeddings] Failed:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}

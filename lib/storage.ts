@@ -17,7 +17,7 @@ export interface Probe {
   starred?: boolean;
 }
 
-export type SessionStatus = "active" | "completed" | "ended_by_tutor";
+export type SessionStatus = "planning" | "active" | "completed" | "ended_by_tutor";
 export type ObserverMode = "off" | "passive" | "active";
 export type Frequency = "rare" | "balanced" | "frequent";
 
@@ -440,6 +440,27 @@ export async function retrieveRelevantChunks(
   // Use provided supabase client or create new one
   const supabase = supabaseClient || createClient();
 
+  console.log("[retrieveRelevantChunks] Query:", query);
+  console.log("[retrieveRelevantChunks] UserId:", userId);
+  console.log("[retrieveRelevantChunks] SessionId:", sessionId);
+
+  // Check if any transcript chunks exist for this user
+  const { count, error: countError } = await supabase
+    .from("transcript_chunks")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId);
+  
+  console.log("[retrieveRelevantChunks] Total chunks for user:", count, "error:", countError);
+
+  // Check how many have embeddings
+  const { count: embedCount, error: embedError } = await supabase
+    .from("transcript_chunks")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .not("embedding", "is", null);
+  
+  console.log("[retrieveRelevantChunks] Chunks with embeddings:", embedCount, "error:", embedError);
+
   // Generate embedding for the query
   const embedding = await generateEmbedding(query);
   if (!embedding) {
@@ -447,29 +468,93 @@ export async function retrieveRelevantChunks(
     return [];
   }
 
-  // Call the match_transcript_chunks RPC
-  const { data: chunks, error } = await supabase.rpc("match_transcript_chunks", {
-    query_embedding: embedding,
-    match_user_id: userId,
-    match_session_id: sessionId || null,
-    match_limit: limit,
-  });
+  console.log("[retrieveRelevantChunks] Generated embedding, length:", embedding.length);
 
-  if (error) {
-    console.error("[retrieveRelevantChunks] RPC error:", error);
-    return [];
-  }
+  // Get all chunks with embeddings for this user (skip session filter for now to debug)
+  const { data: chunks, error } = await supabase
+    .from("transcript_chunks")
+    .select("id, session_id, content, created_at, embedding")
+    .eq("user_id", userId)
+    .not("embedding", "is", null)
+    .limit(limit * 3);
+
+  console.log("[retrieveRelevantChunks] Query result:", { count: chunks?.length, error });
+
+  console.log("[retrieveRelevantChunks] Query result:", { count: chunks?.length, error, sessionIdProvided: !!sessionId });
 
   if (!chunks || chunks.length === 0) {
-    return [];
+    console.log("[retrieveRelevantChunks] No chunks with embeddings, falling back to recent chunks");
+    
+    const { data: recentChunks, error: recentError } = await supabase
+      .from("transcript_chunks")
+      .select("id, session_id, content, created_at")
+      .eq("user_id", userId)
+      .neq("session_id", sessionId || "")
+      .not("content", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    
+    if (recentError) {
+      console.error("[retrieveRelevantChunks] Fallback query error:", recentError);
+      return [];
+    }
+    
+    if (!recentChunks || recentChunks.length === 0) {
+      return [];
+    }
+    
+    return recentChunks.map((c: { id: string; content: string; session_id: string; created_at: string }) => ({
+      id: c.id,
+      content: c.content,
+      sessionId: c.session_id,
+      createdAt: c.created_at,
+      metadata: { similarity: 0, fallback: true },
+    }));
   }
 
-  return chunks.map((c: { id: string; content: string; session_id: string | null; created_at: string; similarity?: number }) => ({
+  // Calculate cosine similarity manually
+  function cosineSimilarity(a: number[], b: number[]): number {
+    const dotProduct = a.reduce((sum: number, val: number, i: number) => sum + val * b[i], 0);
+    const magA = Math.sqrt(a.reduce((sum: number, val: number) => sum + val * val, 0));
+    const magB = Math.sqrt(b.reduce((sum: number, val: number) => sum + val * val, 0));
+    return dotProduct / (magA * magB);
+  }
+
+  const chunksWithSimilarity = chunks
+    .map((c: { id: string; content: string; session_id: string; created_at: string; embedding: unknown }): { id: string; content: string; sessionId: string; createdAt: string; similarity: number } | null => {
+      let emb: number[] = [];
+      if (Array.isArray(c.embedding)) {
+        emb = c.embedding as number[];
+      } else if (typeof c.embedding === "string") {
+        try {
+          emb = JSON.parse(c.embedding);
+        } catch {
+          console.warn("[retrieveRelevantChunks] Failed to parse embedding:", c.id);
+        }
+      }
+      if (emb.length === 0) return null;
+      const sim = cosineSimilarity(embedding, emb);
+      console.log("[retrieveRelevantChunks] Similarity for chunk:", c.id.slice(0, 8), "len:", emb.length, "sim:", sim);
+      return {
+        id: c.id,
+        content: c.content,
+        sessionId: c.session_id,
+        createdAt: c.created_at,
+        similarity: sim,
+      };
+    })
+    .filter((c: { id: string; content: string; sessionId: string; createdAt: string; similarity: number } | null): c is { id: string; content: string; sessionId: string; createdAt: string; similarity: number } => c !== null)
+    .sort((a: { similarity: number }, b: { similarity: number }) => b.similarity - a.similarity)
+    .slice(0, limit);
+
+  console.log("[retrieveRelevantChunks] Vector search result:", chunksWithSimilarity.length, "top similarity:", chunksWithSimilarity[0]?.similarity);
+
+  return chunksWithSimilarity.map((c: { id: string; content: string; sessionId: string; createdAt: string; similarity: number }) => ({
     id: c.id,
     content: c.content,
-    sessionId: c.session_id,
-    createdAt: c.created_at,
-    metadata: { similarity: c.similarity || 0 },
+    sessionId: c.sessionId,
+    createdAt: c.createdAt,
+    metadata: { similarity: c.similarity },
   }));
 }
 

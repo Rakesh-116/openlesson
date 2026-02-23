@@ -1,6 +1,6 @@
 -- Create the vector similarity search function for RAG
 CREATE OR REPLACE FUNCTION match_transcript_chunks(
-  query_embedding vector(1536),
+  query_embedding vector(3072),
   match_user_id uuid,
   match_session_id uuid DEFAULT null,
   match_limit int DEFAULT 5

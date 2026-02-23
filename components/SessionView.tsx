@@ -65,6 +65,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   // RAG / Calibration (session prep)
   const [calibrationLoading, setCalibrationLoading] = useState(false);
+  const [calibrationAttempted, setCalibrationAttempted] = useState(false);
   const [ragChunks, setRagChunks] = useState<Array<{
     id: string;
     content: string;
@@ -72,6 +73,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     createdAt: string;
     topic?: string;
   }>>([]);
+  const [selectedChunks, setSelectedChunks] = useState<Set<string>>(new Set());
   const [showRagChunks, setShowRagChunks] = useState(false);
 
   // Prep material cards
@@ -197,12 +199,17 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             chunkCount: data.relevantChunkCount,
             problem: session.problem 
           });
-          setRagChunks(data.chunks || []);
+          const chunks = data.chunks || [];
+          setRagChunks(chunks);
+          // Pre-select chunks with similarity > 70%
+          const highRelevance = new Set<string>(chunks.filter((c: { similarity: number }) => c.similarity > 0.7).map((c: { id: string }) => c.id));
+          setSelectedChunks(highRelevance);
         }
       } catch (err) {
         console.error("Calibration error:", err);
       } finally {
         setCalibrationLoading(false);
+        setCalibrationAttempted(true);
       }
     }
     if (session?.problem) {
@@ -228,6 +235,23 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       console.error("Prep material error:", err);
     } finally {
       setPrepLoading(null);
+    }
+  };
+
+  // Save selected RAG chunks to session when selection changes
+  const saveSelectedRagChunks = async (chunkIds: string[]) => {
+    if (!session?.id) return;
+    try {
+      await fetch("/api/save-session-rag-chunks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          sessionId: session.id, 
+          chunkIds 
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to save RAG chunks:", err);
     }
   };
 
@@ -1208,7 +1232,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           </div>
 
           {/* RAG Past Sessions */}
-          {(calibrationLoading || ragChunks.length > 0) && (
+          {(calibrationLoading || calibrationAttempted) && (
             <div className="pt-2">
               <button
                 onClick={() => setShowRagChunks(!showRagChunks)}
@@ -1235,15 +1259,44 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               
               {showRagChunks && ragChunks.length > 0 && (
                 <div className="mt-2 space-y-2">
-                  {ragChunks.map((chunk) => (
-                    <div key={chunk.id} className="p-3 rounded-lg border border-neutral-800 bg-neutral-900/20">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[10px] text-neutral-500">{chunk.topic || 'Previous session'}</span>
-                        <span className="text-[10px] text-emerald-400 font-mono">{Math.round(chunk.similarity * 100)}%</span>
+                  {ragChunks.map((chunk) => {
+                    const isSelected = selectedChunks.has(chunk.id);
+                    return (
+                      <div 
+                        key={chunk.id} 
+                        className={`p-3 rounded-lg border bg-neutral-900/20 cursor-pointer transition-colors ${isSelected ? 'border-emerald-600/50' : 'border-neutral-800'}`}
+                        onClick={() => {
+                          const newSelected = new Set(selectedChunks);
+                          if (isSelected) {
+                            newSelected.delete(chunk.id);
+                          } else {
+                            newSelected.add(chunk.id);
+                          }
+                          setSelectedChunks(newSelected);
+                          saveSelectedRagChunks(Array.from(newSelected));
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="checkbox" 
+                              checked={isSelected}
+                              onChange={() => {}}
+                              className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-0"
+                            />
+                            <span className="text-[10px] text-neutral-500">{chunk.topic || 'Previous session'}</span>
+                          </div>
+                          <span className={`text-[10px] font-mono ${chunk.similarity > 0.7 ? 'text-emerald-400' : 'text-neutral-500'}`}>
+                            {Math.round(chunk.similarity * 100)}%
+                          </span>
+                        </div>
+                        <p className="text-xs text-neutral-400 leading-relaxed line-clamp-2">{chunk.content}</p>
                       </div>
-                      <p className="text-xs text-neutral-400 leading-relaxed line-clamp-2">{chunk.content}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
+                  <p className="text-[10px] text-neutral-600 text-center">
+                    {selectedChunks.size} of {ragChunks.length} selected for context
+                  </p>
                 </div>
               )}
             </div>

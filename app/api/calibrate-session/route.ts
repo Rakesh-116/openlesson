@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       sessionId,
       supabaseClient: supabase,
     });
-    console.log("[calibrate-session] Retrieved chunks:", relevantChunks.length);
+    console.log("[calibrate-session] Retrieved chunks:", relevantChunks.length, "details:", JSON.stringify(relevantChunks.map(c => ({ id: c.id, similarity: c.metadata?.similarity, content: c.content?.slice(0, 50) }))));
 
     // Generate calibration context string
     let calibrationContext = "";
