@@ -25,11 +25,13 @@ export async function POST(request: NextRequest) {
     const calibration = await getUserCalibration(user.id, supabase);
 
     // Retrieve relevant chunks from past sessions (pass server client to bypass RLS)
+    console.log("[calibrate-session] Calling retrieveRelevantChunks for:", problem);
     const relevantChunks = await retrieveRelevantChunks(user.id, problem, {
       limit: 3,
       sessionId,
       supabaseClient: supabase,
     });
+    console.log("[calibrate-session] Retrieved chunks:", relevantChunks.length);
 
     // Generate calibration context string
     let calibrationContext = "";

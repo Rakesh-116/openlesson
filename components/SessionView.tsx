@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import ReactMarkdown from "react-markdown";
 import { AudioRecorder, blobToBase64 } from "@/lib/audio";
 import {
   getSession,
@@ -61,6 +62,21 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // Tutor-end dialog
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [endReason, setEndReason] = useState("");
+
+  // RAG / Calibration (session prep)
+  const [calibrationLoading, setCalibrationLoading] = useState(false);
+  const [ragChunks, setRagChunks] = useState<Array<{
+    id: string;
+    content: string;
+    similarity: number;
+    createdAt: string;
+    topic?: string;
+  }>>([]);
+  const [showRagChunks, setShowRagChunks] = useState(false);
+
+  // Prep material cards
+  const [prepCards, setPrepCards] = useState<Array<{ id: string; title: string; content: string }>>([]);
+  const [prepLoading, setPrepLoading] = useState<string | null>(null);
 
   // Whiteboard
   const [showWhiteboard, setShowWhiteboard] = useState(false);
@@ -162,6 +178,58 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     load();
     return () => { cancelled = true; };
   }, [sessionId, router]);
+
+  // Load RAG chunks on mount
+  useEffect(() => {
+    async function loadCalibration() {
+      if (!session?.problem) return;
+      setCalibrationLoading(true);
+      try {
+        const response = await fetch("/api/calibrate-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ problem: session.problem, sessionId: session.id }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          console.log("[SessionView] Calibration response:", { 
+            chunks: data.chunks?.length, 
+            chunkCount: data.relevantChunkCount,
+            problem: session.problem 
+          });
+          setRagChunks(data.chunks || []);
+        }
+      } catch (err) {
+        console.error("Calibration error:", err);
+      } finally {
+        setCalibrationLoading(false);
+      }
+    }
+    if (session?.problem) {
+      loadCalibration();
+    }
+  }, [session?.problem, session?.id]);
+
+  // Load prep material
+  const loadPrepMaterial = async (type: string) => {
+    if (!session?.problem) return;
+    setPrepLoading(type);
+    try {
+      const response = await fetch(`/api/prep-material?topic=${encodeURIComponent(session.problem)}&type=${type}`);
+      if (response.ok) {
+        const data = await response.json();
+        // Add card to list (avoid duplicates)
+        setPrepCards(prev => {
+          if (prev.some(c => c.id === type)) return prev;
+          return [...prev, { id: type, title: data.title, content: data.content }];
+        });
+      }
+    } catch (err) {
+      console.error("Prep material error:", err);
+    } finally {
+      setPrepLoading(null);
+    }
+  };
 
   // ---- Muse EEG ----
   const handleConnectMuse = async () => {
@@ -1138,6 +1206,140 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               <p className="text-neutral-600 text-sm text-center">Ready to begin</p>
             )}
           </div>
+
+          {/* RAG Past Sessions */}
+          {(calibrationLoading || ragChunks.length > 0) && (
+            <div className="pt-2">
+              <button
+                onClick={() => setShowRagChunks(!showRagChunks)}
+                className="flex items-center justify-between w-full p-3 rounded-lg border border-neutral-800 bg-neutral-900/30 hover:bg-neutral-800/30 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm text-neutral-300">Related past sessions</span>
+                  {calibrationLoading && (
+                    <div className="w-3 h-3 border border-neutral-600 border-t-emerald-400 rounded-full animate-spin" />
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {!calibrationLoading && (
+                    <span className="text-xs text-neutral-500">{ragChunks.length} matches</span>
+                  )}
+                  <svg className={`w-4 h-4 text-neutral-500 transition-transform ${showRagChunks ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </button>
+              
+              {showRagChunks && ragChunks.length > 0 && (
+                <div className="mt-2 space-y-2">
+                  {ragChunks.map((chunk) => (
+                    <div key={chunk.id} className="p-3 rounded-lg border border-neutral-800 bg-neutral-900/20">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] text-neutral-500">{chunk.topic || 'Previous session'}</span>
+                        <span className="text-[10px] text-emerald-400 font-mono">{Math.round(chunk.similarity * 100)}%</span>
+                      </div>
+                      <p className="text-xs text-neutral-400 leading-relaxed line-clamp-2">{chunk.content}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Prep Buttons */}
+          <div className="pt-2">
+            <p className="text-[11px] uppercase tracking-wider text-neutral-500 mb-3">Prep for your session</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <button
+                onClick={() => loadPrepMaterial("reading")}
+                disabled={prepLoading !== null}
+                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-neutral-700 bg-neutral-800/50 hover:bg-neutral-800 text-neutral-300 text-sm font-medium transition-all hover:border-neutral-600 disabled:opacity-50"
+              >
+                {prepLoading === "reading" ? (
+                  <div className="w-4 h-4 border-2 border-neutral-500 border-t-cyan-400 rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                )}
+                <span className="hidden sm:inline">Reading</span>
+              </button>
+              
+              <button
+                onClick={() => loadPrepMaterial("exercise")}
+                disabled={prepLoading !== null}
+                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-neutral-700 bg-neutral-800/50 hover:bg-neutral-800 text-neutral-300 text-sm font-medium transition-all hover:border-neutral-600 disabled:opacity-50"
+              >
+                {prepLoading === "exercise" ? (
+                  <div className="w-4 h-4 border-2 border-neutral-500 border-t-cyan-400 rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                )}
+                <span className="hidden sm:inline">Exercise</span>
+              </button>
+              
+              <button
+                onClick={() => loadPrepMaterial("resources")}
+                disabled={prepLoading !== null}
+                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-neutral-700 bg-neutral-800/50 hover:bg-neutral-800 text-neutral-300 text-sm font-medium transition-all hover:border-neutral-600 disabled:opacity-50"
+              >
+                {prepLoading === "resources" ? (
+                  <div className="w-4 h-4 border-2 border-neutral-500 border-t-cyan-400 rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                )}
+                <span className="hidden sm:inline">Resources</span>
+              </button>
+              
+              <a
+                href={`https://grokipedia.com/search?q=${encodeURIComponent(session?.problem || "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-neutral-700 bg-neutral-800/50 hover:bg-neutral-800 text-neutral-300 text-sm font-medium transition-all hover:border-neutral-600"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
+                <span className="hidden sm:inline">Grokipedia</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Prep Material Cards (inside pre-session card) */}
+          {prepCards.map(card => (
+            <div key={card.id} className="mt-4 p-4 rounded-xl border border-neutral-800 bg-neutral-900/30">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-[11px] uppercase tracking-wider font-semibold text-cyan-400">{card.title}</h3>
+                <button
+                  onClick={() => setPrepCards(prev => prev.filter(c => c.id !== card.id))}
+                  className="p-1 hover:bg-neutral-800 rounded-lg transition-colors"
+                >
+                  <svg className="w-4 h-4 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="prose prose-invert prose-sm max-w-none text-neutral-300">
+                <ReactMarkdown components={{
+                  p: ({ children }) => <p className="mb-3">{children}</p>,
+                  ul: ({ children }) => <ul className="mb-3 list-disc pl-4 space-y-1">{children}</ul>,
+                  ol: ({ children }) => <ol className="mb-3 list-decimal pl-4 space-y-1">{children}</ol>,
+                  li: ({ children }) => <li className="ml-2">{children}</li>,
+                }}>{card.content}</ReactMarkdown>
+              </div>
+            </div>
+          ))}
+
+          {/* Divider */}
+          <div className="border-t border-neutral-800 my-4" />
 
           {/* Status + Controls Row */}
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-3">

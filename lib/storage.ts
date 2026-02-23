@@ -240,6 +240,14 @@ export async function toggleProbeStarred(probeId: string, starred: boolean): Pro
     .eq("id", probeId);
 }
 
+export async function startSession(sessionId: string): Promise<void> {
+  const supabase = createClient();
+  await supabase
+    .from("sessions")
+    .update({ status: "active" })
+    .eq("id", sessionId);
+}
+
 // ---- In-memory session helpers (for active recording) ----
 
 export function addProbeToSession(
@@ -633,4 +641,101 @@ function calculateAvgGap(sessions: { probes: { gap_score: number }[] }[]): numbe
     }
   }
   return count > 0 ? total / count : 0.5;
+}
+
+// ---- Learning Plans ----
+
+export interface LearningPlan {
+  id: string;
+  title: string;
+  root_topic: string;
+  status: "active" | "completed" | "paused";
+  created_at: string;
+}
+
+export interface PlanNode {
+  id: string;
+  plan_id: string;
+  title: string;
+  description: string;
+  is_start: boolean;
+  next_node_ids: string[];
+  status: "not_started" | "in_progress" | "completed";
+}
+
+export async function getLearningPlans(): Promise<LearningPlan[]> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await supabase
+    .from("learning_plans")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  return (data || []).map((p: any) => ({
+    id: p.id,
+    title: p.root_topic,
+    root_topic: p.root_topic,
+    status: p.status || "active",
+    created_at: p.created_at,
+  }));
+}
+
+export async function getPlanNodes(planId: string): Promise<PlanNode[]> {
+  const supabase = createClient();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await supabase
+    .from("plan_nodes")
+    .select("*")
+    .eq("plan_id", planId);
+
+  return (data || []).map((n: any) => ({
+    id: n.id,
+    plan_id: n.plan_id,
+    title: n.title,
+    description: n.description || "",
+    is_start: n.is_start || false,
+    next_node_ids: n.next_node_ids || [],
+    status: n.status || "not_started",
+  }));
+}
+
+export async function getIncompleteNodes(): Promise<(PlanNode & { planTitle: string })[]> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: plans } = await supabase
+    .from("learning_plans")
+    .select("id, root_topic")
+    .eq("user_id", user.id)
+    .eq("status", "active");
+
+  if (!plans || plans.length === 0) return [];
+
+  const planIds = plans.map((p: any) => p.id);
+  const planTitles = new Map(plans.map((p: any) => [p.id, p.root_topic]));
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: nodes } = await supabase
+    .from("plan_nodes")
+    .select("*")
+    .in("plan_id", planIds)
+    .in("status", ["not_started", "in_progress"]);
+
+  return (nodes || []).map((n: any) => ({
+    id: n.id,
+    plan_id: n.plan_id,
+    title: n.title,
+    description: n.description || "",
+    is_start: n.is_start || false,
+    next_node_ids: n.next_node_ids || [],
+    status: n.status || "not_started",
+    planTitle: planTitles.get(n.plan_id) || "",
+  }));
 }
