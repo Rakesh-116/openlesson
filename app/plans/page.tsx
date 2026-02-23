@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
+import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
 
 interface LearningPlan {
@@ -70,23 +71,12 @@ export default function PlansPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
-      <header className="border-b border-neutral-800/60 px-4 sm:px-6 py-4 backdrop-blur-sm bg-[#0a0a0a]/80 sticky top-0 z-20">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-xl font-bold tracking-tight">
-              openLesson
-            </Link>
-            <span className="text-neutral-600">/</span>
-            <span className="text-neutral-400">Learning Plans</span>
-          </div>
-          <Link 
-            href="/" 
-            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors"
-          >
-            New Plan
-          </Link>
-        </div>
-      </header>
+      <Navbar 
+        breadcrumbs={[
+          { label: "Learning Plans" }
+        ]}
+        showNav={false}
+      />
 
       <main className="max-w-4xl mx-auto p-6">
         {plans.length === 0 ? (

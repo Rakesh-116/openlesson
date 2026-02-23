@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import Link from "next/link";
 import { HexPlanView } from "@/components/HexPlanView";
+import { Navbar } from "@/components/Navbar";
 
 interface PlanNode {
   id: string;
@@ -99,21 +100,7 @@ export default function PlanPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
-      <header className="border-b border-neutral-800/60 px-4 sm:px-6 py-4 backdrop-blur-sm bg-[#0a0a0a]/80 sticky top-0 z-20">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-xl font-bold tracking-tight">
-              openLesson
-            </Link>
-            <span className="text-neutral-600">/</span>
-            <Link href="/plans" className="text-neutral-400 hover:text-white text-sm">
-              Plans
-            </Link>
-            <span className="text-neutral-600">/</span>
-            <span className="text-neutral-400 text-sm">{plan.root_topic}</span>
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
       <main className="flex-1 p-4 overflow-hidden">
         <HexPlanView plan={plan} nodes={nodes} />

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Footer } from "@/components/Footer";
+import { Navbar } from "@/components/Navbar";
 
 export const metadata = {
   title: "Legal Notice - openLesson",
@@ -9,12 +10,10 @@ export const metadata = {
 export default function LegalPage() {
   return (
     <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
-      <header className="border-b border-neutral-800/60 px-4 sm:px-6 py-4 backdrop-blur-sm bg-[#0a0a0a]/80 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto flex items-center gap-3">
-          <Link href="/" className="text-base sm:text-lg font-semibold text-white tracking-tight">openLesson</Link>
-          <span className="text-[10px] text-neutral-600 font-medium uppercase tracking-widest">Legal Notice</span>
-        </div>
-      </header>
+      <Navbar 
+        breadcrumbs={[{ label: "Legal Notice" }]}
+        showNav={false}
+      />
 
       <div className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-12">
         <h1 className="text-2xl font-bold text-white mb-2">Legal Notice</h1>

@@ -1,73 +1,100 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { getSessions, deleteSession, getSessionStats, type Session } from "@/lib/storage";
-// All storage is now Supabase-only (no localStorage fallback)
-import { formatTime } from "@/lib/utils";
-import { EEGWaveView } from "@/components/EEGWaveView";
-import { BrainStateBar } from "@/components/BrainStateBar";
-import { DEFAULT_PROMPTS, PROMPT_META, AVAILABLE_MODELS, type PromptKey, type UserPrompts } from "@/lib/openrouter";
+import { getSessions, deleteSession, getLearningPlans, getIncompleteNodes, type Session, type LearningPlan, type PlanNode } from "@/lib/storage";
+import { DEFAULT_PROMPTS, PROMPT_META, type PromptKey, type UserPrompts } from "@/lib/openrouter";
 
-type Tab = "sessions" | "transcripts" | "devices" | "prompts" | "data";
+type Tab = "sessions" | "plans" | "agentic" | "config";
 
-type DataSharingPrefs = {
-  share_transcripts: boolean;
-  share_audio: boolean;
-};
+interface OpenRouterModel {
+  id: string;
+  label: string;
+  description: string;
+}
+
+interface AgentApiKey {
+  id: string;
+  key_prefix: string;
+  label: string | null;
+  rate_limit: number;
+  is_active: boolean;
+  created_at: string;
+  last_used_at: string | null;
+  usage_count: number;
+}
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState<{ email?: string; username?: string; plan?: string; isAdmin?: boolean; extraLessons?: number; sessionsThisMonth?: number } | null>(null);
-  const [buyingExtra, setBuyingExtra] = useState(false);
-  const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("sessions");
 
-  // Transcripts
-  const [transcripts, setTranscripts] = useState<TranscriptFile[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // User state
+  const [user, setUser] = useState<{
+    email?: string;
+    username?: string;
+    plan?: string;
+    isAdmin?: boolean;
+    extraLessons?: number;
+  } | null>(null);
 
-  // Muse
-  const [museStatus, setMuseStatus] = useState<"disconnected" | "connecting" | "connected" | "streaming">("disconnected");
-  const [museDeviceName, setMuseDeviceName] = useState<string | null>(null);
-  const [museError, setMuseError] = useState<string | null>(null);
-  const [eegChannelData, setEegChannelData] = useState<Map<string, number[]>>(new Map());
-  const [bandPowers, setBandPowers] = useState<{ delta: number; theta: number; alpha: number; beta: number; gamma: number } | null>(null);
-  const museClientRef = useRef<InstanceType<typeof import("@/lib/muse-athena").MuseAthenaClient> | null>(null);
-  const eegIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const bandIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const eegBufferRef = useRef<Map<string, number[]>>(new Map());
+  // Sessions tab
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
+  const [viewingProbes, setViewingProbes] = useState<string | null>(null);
+  const [sessionSearch, setSessionSearch] = useState("");
+  const [sessionStatusFilter, setSessionStatusFilter] = useState<string>("all");
+  const [sessionPage, setSessionPage] = useState(1);
+  const sessionPageSize = 10;
 
-  // Prompts
+  // Plans tab
+  const [learningPlans, setLearningPlans] = useState<LearningPlan[]>([]);
+  const [incompleteNodes, setIncompleteNodes] = useState<(PlanNode & { planTitle: string })[]>([]);
+  const [planSearch, setPlanSearch] = useState("");
+  const [planStatusFilter, setPlanStatusFilter] = useState<string>("all");
+  const [planPage, setPlanPage] = useState(1);
+  const planPageSize = 10;
+
+  // Agentic tab
+  const [apiKeys, setApiKeys] = useState<AgentApiKey[]>([]);
+  const [creatingKey, setCreatingKey] = useState(false);
+  const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
+
+  // Config tab
+  const [availableModels, setAvailableModels] = useState<OpenRouterModel[]>([]);
+  const [tutorModel, setTutorModel] = useState<string>("");
+  const [askModel, setAskModel] = useState<string>("");
+  const [modelsLoading, setModelsLoading] = useState(true);
+  const [modelSaving, setModelSaving] = useState(false);
+  const [modelSaved, setModelSaved] = useState(false);
+
   const [userPrompts, setUserPrompts] = useState<UserPrompts>({});
   const [promptsSaving, setPromptsSaving] = useState(false);
   const [promptsSaved, setPromptsSaved] = useState(false);
 
-  // Ask Model
-  const [askModel, setAskModel] = useState<string>(AVAILABLE_MODELS[0].id);
-  const [modelSaving, setModelSaving] = useState(false);
-  const [modelSaved, setModelSaved] = useState(false);
-
-  // Data & Privacy
-  const [dataPrefs, setDataPrefs] = useState<DataSharingPrefs>({ share_transcripts: false, share_audio: false });
-  const [dataPrefsSaving, setDataPrefsSaving] = useState(false);
-  const [dataPrefsSaved, setDataPrefsSaved] = useState(false);
+  const supabase = createClient();
 
   useEffect(() => {
     loadData();
   }, []);
 
+  // Reset page when search or filter changes
+  useEffect(() => {
+    setSessionPage(1);
+  }, [sessionSearch, sessionStatusFilter]);
+
+  useEffect(() => {
+    setPlanPage(1);
+  }, [planSearch, planStatusFilter]);
+
   const loadData = async () => {
     try {
-      const supabase = createClient();
       const { data: { user: authUser } } = await supabase.auth.getUser();
 
       if (!authUser) {
-        // Dashboard requires auth — redirect
         router.push("/login");
         return;
       }
@@ -89,40 +116,81 @@ export default function DashboardPage() {
           isAdmin: profile.is_admin || false,
           extraLessons: profile.extra_lessons || 0,
         });
-        if (profile.metadata?.muse_device_name) {
-          setMuseDeviceName(profile.metadata.muse_device_name);
-        }
+
         if (profile.metadata?.prompts) {
           setUserPrompts(profile.metadata.prompts as UserPrompts);
+        }
+        if (profile.metadata?.tutor_model) {
+          setTutorModel(profile.metadata.tutor_model as string);
         }
         if (profile.metadata?.ask_model) {
           setAskModel(profile.metadata.ask_model as string);
         }
-        if (profile.metadata?.data_sharing) {
-          setDataPrefs(profile.metadata.data_sharing as DataSharingPrefs);
-        }
       }
 
-      // Load sessions from Supabase (with probes)
+      // Load sessions
       const loadedSessions = await getSessions();
       setSessions(loadedSessions);
 
-      // Load transcripts
-      const { data: ts } = await supabase
-        .from("user_transcripts")
-        .select("*")
+      // Load learning plans
+      const plans = await getLearningPlans();
+      setLearningPlans(plans);
+
+      // Load incomplete nodes
+      const nodes = await getIncompleteNodes();
+      setIncompleteNodes(nodes);
+
+      // Load API keys
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: keys } = await supabase
+        .from("agent_api_keys")
+        .select(`
+          id,
+          key_prefix,
+          label,
+          rate_limit,
+          is_active,
+          created_at,
+          last_used_at
+        `)
         .eq("user_id", authUser.id)
         .order("created_at", { ascending: false });
 
-      if (ts) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setTranscripts(ts.map((t: any) => ({
-          id: t.id,
-          filename: t.filename,
-          status: t.status,
-          chunkCount: t.chunk_count,
-          createdAt: t.created_at,
-        })));
+      if (keys) {
+        const keysWithUsage = await Promise.all(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          keys.map(async (key: any) => {
+            const { count } = await supabase
+              .from("sessions")
+              .select("*", { count: "exact", head: true })
+              .eq("agent_api_key_id", key.id);
+
+            return {
+              ...key,
+              usage_count: count || 0,
+            } as AgentApiKey;
+          })
+        );
+        setApiKeys(keysWithUsage);
+      }
+
+      // Load available models
+      try {
+        const modelsRes = await fetch("/api/openrouter/models");
+        const modelsData = await modelsRes.json();
+        if (modelsData.models) {
+          setAvailableModels(modelsData.models);
+          setModelsLoading(false);
+          if (!profile?.metadata?.tutor_model && modelsData.models.length > 0) {
+            setTutorModel(modelsData.models[0].id);
+          }
+          if (!profile?.metadata?.ask_model && modelsData.models.length > 0) {
+            setAskModel(modelsData.models[0].id);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load models:", e);
+        setModelsLoading(false);
       }
     } catch (err) {
       console.error("Dashboard load error:", err);
@@ -137,216 +205,70 @@ export default function DashboardPage() {
     setSessions((prev) => prev.filter((s) => s.id !== id));
   };
 
-  const handleSignOut = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/");
-    router.refresh();
-  };
-
-  const handleUploadTranscript = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    try {
-      const supabase = createClient();
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) return;
-
-      const transcriptId = crypto.randomUUID();
-      const filePath = `${authUser.id}/${transcriptId}.txt`;
-
-      // Upload file to storage
-      const { error: uploadError } = await supabase.storage
-        .from("user-transcripts")
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      // Create DB entry
-      const { error: dbError } = await supabase
-        .from("user_transcripts")
-        .insert({
-          id: transcriptId,
-          user_id: authUser.id,
-          filename: file.name,
-          file_path: filePath,
-          status: "pending",
-        });
-
-      if (dbError) throw dbError;
-
-      // Process transcript
-      await fetch("/api/process-transcript", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcriptId }),
-      });
-
-      loadData();
-    } catch (err) {
-      console.error("Upload failed:", err);
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
-  const handleDeleteTranscript = async (id: string) => {
-    if (!confirm("Delete this transcript?")) return;
-    try {
-      const supabase = createClient();
-      await supabase.from("user_transcripts").delete().eq("id", id);
-      setTranscripts((prev) => prev.filter((t) => t.id !== id));
-    } catch {}
-  };
-
-  const handleConnectMuse = async () => {
-    // Disconnect any existing connection first
-    handleDisconnectMuse();
-
-    setMuseStatus("connecting");
-    setMuseError(null);
-    try {
-      const { MuseAthenaClient, EEG_CHANNELS } = await import("@/lib/muse-athena");
-      const muse = new MuseAthenaClient();
-
-      // Subscribe to EEG data for waveform
-      muse.onEEG((sample) => {
-        for (const [channelName, samples] of Object.entries(sample.channels)) {
-          const existing = eegBufferRef.current.get(channelName) || [];
-          existing.push(...samples);
-          // Keep last 512 samples (~2s at 256Hz)
-          if (existing.length > 512) {
-            eegBufferRef.current.set(channelName, existing.slice(-512));
-          } else {
-            eegBufferRef.current.set(channelName, existing);
-          }
-        }
-      });
-
-      await muse.connect();
-      museClientRef.current = muse;
-      const name = muse.deviceName || "Muse Device";
-      setMuseDeviceName(name);
-      setMuseStatus("connected");
-
-      // Save device name to profile
-      const supabase = createClient();
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (authUser) {
-        await supabase
-          .from("profiles")
-          .update({ metadata: { muse_device_name: name } })
-          .eq("id", authUser.id);
-      }
-
-      // Start streaming
-      await muse.startStreaming();
-      setMuseStatus("streaming");
-
-      // Poll EEG buffer to update React state for waveform rendering (~10fps)
-      eegIntervalRef.current = setInterval(() => {
-        setEegChannelData(new Map(eegBufferRef.current));
-      }, 100);
-
-      // Compute band powers from the raw EEG samples every second
-      bandIntervalRef.current = setInterval(() => {
-        const af7 = eegBufferRef.current.get("AF7");
-        const af8 = eegBufferRef.current.get("AF8");
-        if (!af7 || af7.length < 256 || !af8 || af8.length < 256) return;
-
-        const powers = computeBandPowers(af7.slice(-256), af8.slice(-256));
-        setBandPowers(powers);
-      }, 1000);
-
-    } catch (err: unknown) {
-      setMuseStatus("disconnected");
-      const error = err as Error;
-      if (error?.name === "NotFoundError" && error?.message?.includes("cancelled")) {
-        return;
-      }
-      setMuseError(error?.message || "Connection failed. Make sure your Muse is powered on and in pairing mode.");
-    }
-  };
-
-  const handleDisconnectMuse = () => {
-    if (museClientRef.current) {
-      try { museClientRef.current.disconnect(); } catch {}
-      museClientRef.current = null;
-    }
-    if (eegIntervalRef.current) {
-      clearInterval(eegIntervalRef.current);
-      eegIntervalRef.current = null;
-    }
-    if (bandIntervalRef.current) {
-      clearInterval(bandIntervalRef.current);
-      bandIntervalRef.current = null;
-    }
-    eegBufferRef.current.clear();
-    setEegChannelData(new Map());
-    setBandPowers(null);
-    setMuseStatus("disconnected");
-  };
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      handleDisconnectMuse();
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleSavePrompts = async () => {
-    setPromptsSaving(true);
-    setPromptsSaved(false);
-    try {
-      const res = await fetch("/api/save-prompts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompts: userPrompts }),
-      });
-      if (res.ok) {
-        setPromptsSaved(true);
-        setTimeout(() => setPromptsSaved(false), 3000);
-      }
-    } catch {
-      // silent
-    } finally {
-      setPromptsSaving(false);
-    }
-  };
-
-  const handleSaveModel = async (modelId: string) => {
-    setAskModel(modelId);
+  const handleSaveModels = async () => {
     setModelSaving(true);
-    setModelSaved(false);
     try {
-      const supabase = createClient();
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
 
-      // Fetch current metadata to merge
       const { data: profile } = await supabase
         .from("profiles")
         .select("metadata")
         .eq("id", authUser.id)
         .single();
 
-      const currentMeta = profile?.metadata || {};
+      const currentMetadata = profile?.metadata || {};
 
       await supabase
         .from("profiles")
-        .update({ metadata: { ...currentMeta, ask_model: modelId } })
+        .update({
+          metadata: {
+            ...currentMetadata,
+            tutor_model: tutorModel,
+            ask_model: askModel,
+          },
+        })
         .eq("id", authUser.id);
 
       setModelSaved(true);
-      setTimeout(() => setModelSaved(false), 3000);
-    } catch {
-      // silent
+      setTimeout(() => setModelSaved(false), 2000);
+    } catch (err) {
+      console.error("Failed to save models:", err);
     } finally {
       setModelSaving(false);
+    }
+  };
+
+  const handleSavePrompts = async () => {
+    setPromptsSaving(true);
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("metadata")
+        .eq("id", authUser.id)
+        .single();
+
+      const currentMetadata = profile?.metadata || {};
+
+      await supabase
+        .from("profiles")
+        .update({
+          metadata: {
+            ...currentMetadata,
+            prompts: userPrompts,
+          },
+        })
+        .eq("id", authUser.id);
+
+      setPromptsSaved(true);
+      setTimeout(() => setPromptsSaved(false), 2000);
+    } catch (err) {
+      console.error("Failed to save prompts:", err);
+    } finally {
+      setPromptsSaving(false);
     }
   };
 
@@ -362,872 +284,673 @@ export default function DashboardPage() {
     setUserPrompts({});
   };
 
-  const handleSaveDataPrefs = async () => {
-    setDataPrefsSaving(true);
-    setDataPrefsSaved(false);
+  const handleCreateApiKey = async () => {
+    setCreatingKey(true);
     try {
-      const res = await fetch("/api/save-data-preferences", {
+      const res = await fetch("/api/agent/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data_sharing: dataPrefs }),
-      });
-      if (res.ok) {
-        setDataPrefsSaved(true);
-        setTimeout(() => setDataPrefsSaved(false), 3000);
-      }
-    } catch {
-      // silent
-    } finally {
-      setDataPrefsSaving(false);
-    }
-  };
-
-  const handleBuyExtraLesson = async () => {
-    setBuyingExtra(true);
-    try {
-      const res = await fetch("/api/stripe/create-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ priceType: "extra_lesson" }),
+        body: JSON.stringify({ label: "My API Key" }),
       });
       const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
+      if (data.key) {
+        setApiKeys((prev) => [
+          {
+            id: data.key.id,
+            key_prefix: data.key.key_prefix,
+            label: data.key.label,
+            rate_limit: data.key.rate_limit,
+            is_active: data.key.is_active,
+            created_at: data.key.created_at,
+            last_used_at: null,
+            usage_count: 0,
+          },
+          ...prev,
+        ]);
+        setNewKeyValue(data.key.key);
+        setTimeout(() => setNewKeyValue(null), 30000);
       }
     } catch (err) {
-      console.error("Buy extra lesson error:", err);
+      console.error("Failed to create key:", err);
     } finally {
-      setBuyingExtra(false);
+      setCreatingKey(false);
     }
   };
 
-  // Compute aggregate stats
-  const totalSessions = sessions.length;
-  const totalMinutes = Math.round(sessions.reduce((s, sess) => s + sess.durationMs, 0) / 60000);
-  const allProbes = sessions.reduce((s, sess) => s + sess.probes.length, 0);
+  const handleDeleteApiKey = async (id: string) => {
+    if (!confirm("Delete this API key? This cannot be undone.")) return;
+    try {
+      await fetch(`/api/agent/keys/${id}`, { method: "DELETE" });
+      setApiKeys((prev) => prev.filter((k) => k.id !== id));
+    } catch (err) {
+      console.error("Failed to delete key:", err);
+    }
+  };
+
+  const formatDuration = (ms: number) => {
+    const mins = Math.floor(ms / 60000);
+    const secs = Math.floor((ms % 60000) / 1000);
+    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  // Filter and paginate sessions
+  const filteredSessions = sessions.filter((s) => {
+    const matchesSearch = sessionSearch === "" || 
+      s.problem.toLowerCase().includes(sessionSearch.toLowerCase());
+    const matchesStatus = sessionStatusFilter === "all" || s.status === sessionStatusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const totalSessionPages = Math.ceil(filteredSessions.length / sessionPageSize);
+  const paginatedSessions = filteredSessions.slice(
+    (sessionPage - 1) * sessionPageSize,
+    sessionPage * sessionPageSize
+  );
+
+  // Filter and paginate plans
+  const filteredPlans = learningPlans.filter((p) => {
+    const matchesSearch = planSearch === "" || 
+      p.root_topic.toLowerCase().includes(planSearch.toLowerCase());
+    const matchesStatus = planStatusFilter === "all" || p.status === planStatusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const totalPlanPages = Math.ceil(filteredPlans.length / planPageSize);
+  const paginatedPlans = filteredPlans.slice(
+    (planPage - 1) * planPageSize,
+    planPage * planPageSize
+  );
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="text-neutral-400">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
-      {/* Header */}
-      <header className="border-b border-neutral-800/60 px-3 sm:px-6 py-3 sm:py-4 backdrop-blur-sm bg-[#0a0a0a]/80 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <Link href="/" className="text-base sm:text-lg font-semibold text-white tracking-tight shrink-0">openLesson</Link>
-            <span className="text-[10px] text-neutral-600 font-medium uppercase tracking-widest hidden sm:inline">Dashboard</span>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-            <Link href="/pricing" className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors hidden sm:inline">
-              Pricing
-            </Link>
-            <Link href="/coaching" className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors hidden sm:inline">
-              Coaching
-            </Link>
-            {user && (
-              <span className="text-xs sm:text-sm text-neutral-500 truncate max-w-[100px] sm:max-w-none hidden sm:inline">
-                {user.username || user.email}
-              </span>
-            )}
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
+      <Navbar />
+
+      {/* Tabs */}
+      <div className="border-b border-neutral-800/60">
+        <div className="max-w-5xl mx-auto flex gap-1 px-4 sm:px-6">
+          {[
+            { id: "sessions", label: "Sessions" },
+            { id: "plans", label: "Plans" },
+            { id: "agentic", label: "Agentic Usage" },
+            { id: "config", label: "Configuration" },
+          ].map((tab) => (
             <button
-              onClick={handleSignOut}
-              className="text-xs text-neutral-600 hover:text-white transition-colors"
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as Tab)}
+              className={`px-4 py-3 text-sm font-medium transition-colors relative ${
+                activeTab === tab.id
+                  ? "text-white"
+                  : "text-neutral-500 hover:text-neutral-300"
+              }`}
             >
-              Sign Out
+              {tab.label}
+              {activeTab === tab.id && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
+              )}
             </button>
-          </div>
+          ))}
         </div>
-      </header>
+      </div>
 
-      <div className="flex-1 max-w-5xl mx-auto w-full px-3 sm:px-6 py-5 sm:py-8">
-        {/* Stats + New Session Row */}
-        <div className="flex flex-col gap-4 mb-6 sm:mb-8">
-          <div className="grid grid-cols-4 gap-2 sm:flex sm:items-center sm:gap-6">
-            <div className="text-center sm:text-left">
-              <p className="text-[10px] sm:text-[11px] text-neutral-600 uppercase tracking-wider">Sessions</p>
-              <p className="text-lg sm:text-2xl font-bold text-white">{totalSessions}</p>
-            </div>
-            <div className="text-center sm:text-left">
-              <p className="text-[10px] sm:text-[11px] text-neutral-600 uppercase tracking-wider">Time</p>
-              <p className="text-lg sm:text-2xl font-bold text-white">{totalMinutes}m</p>
-            </div>
-            <div className="text-center sm:text-left">
-              <p className="text-[10px] sm:text-[11px] text-neutral-600 uppercase tracking-wider">Probes</p>
-              <p className="text-lg sm:text-2xl font-bold text-white">{allProbes}</p>
-            </div>
-            <div className="text-center sm:text-left">
-              <p className="text-[10px] sm:text-[11px] text-neutral-600 uppercase tracking-wider">Avg Gap</p>
-              <p className="text-lg sm:text-2xl font-bold text-white">
-                {sessions.length > 0
-                  ? `${Math.round(
-                      (sessions.reduce((s, sess) => {
-                        const stats = getSessionStats(sess);
-                        return s + stats.avgGapScore;
-                      }, 0) / sessions.length) * 100
-                    )}%`
-                  : "—"}
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            {/* Plan badge + Buy extra */}
-            {user && !user.isAdmin && user.plan !== "pro" && (
-              <button
-                onClick={handleBuyExtraLesson}
-                disabled={buyingExtra}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs text-amber-400 border border-amber-500/30 hover:border-amber-500/50 hover:bg-amber-500/5 disabled:opacity-50 rounded-lg transition-colors"
-              >
-                <BoltIcon />
-                {buyingExtra ? "Redirecting..." : "Buy extra lesson — $1.99"}
-              </button>
-            )}
-            {user && (
-              <span className={`px-2 py-1 text-[10px] uppercase tracking-wider font-medium rounded-md border ${
-                user.isAdmin
-                  ? "text-purple-400 border-purple-500/30 bg-purple-500/10"
-                  : user.plan === "pro"
-                  ? "text-green-400 border-green-500/30 bg-green-500/10"
-                  : user.plan === "regular"
-                  ? "text-blue-400 border-blue-500/30 bg-blue-500/10"
-                  : "text-neutral-500 border-neutral-700 bg-neutral-800/50"
-              }`}>
-                {user.isAdmin ? "Admin" : user.plan || "Free"}
-              </span>
-            )}
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/15 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              <PlusIcon />
-              New Session
-            </Link>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-1.5 mb-6 overflow-x-auto pb-1 scrollbar-hide">
-          {(["sessions", "transcripts", "devices", "prompts", "data"] as Tab[]).map((tab) => {
-            const tabLabels: Record<Tab, string> = {
-              sessions: "Sessions",
-              transcripts: "Think-Aloud Data",
-              devices: "Devices",
-              prompts: "Prompts",
-              data: "Data & Privacy",
-            };
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`shrink-0 px-3.5 py-1.5 text-xs rounded-full border transition-colors ${
-                  activeTab === tab
-                    ? "bg-white text-black border-white"
-                    : "text-neutral-400 border-neutral-700 hover:border-neutral-500 hover:text-white"
-                }`}
-              >
-                {tabLabels[tab]}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Tab Content */}
+      {/* Content */}
+      <main className="max-w-5xl mx-auto p-4 sm:px-6 py-8">
+        {/* Sessions Tab */}
         {activeTab === "sessions" && (
           <div className="space-y-4">
-            {sessions.length === 0 ? (
-              <EmptyState
-                title="No sessions yet"
-                description="Start your first Socratic session to see it here."
-              />
-            ) : (
-              sessions.map((session) => (
-                <SessionCard
-                  key={session.id}
-                  session={session}
-                  onDelete={() => handleDeleteSession(session.id)}
-                />
-              ))
-            )}
-          </div>
-        )}
-
-        {activeTab === "transcripts" && (
-          <div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-              <div>
-                <p className="text-xs sm:text-sm text-neutral-400">
-                  Upload recordings of yourself thinking through problems. Your tutor
-                  will learn your reasoning patterns.
-                </p>
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".txt,.md"
-                onChange={handleUploadTranscript}
-                className="hidden"
-                id="transcript-upload"
-              />
-              <label
-                htmlFor="transcript-upload"
-                className={`shrink-0 inline-flex items-center gap-2 px-3.5 py-1.5 text-xs rounded-lg cursor-pointer transition-colors ${
-                  uploading
-                    ? "bg-neutral-800 text-neutral-500"
-                    : "bg-white/10 hover:bg-white/15 text-white"
-                }`}
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Session History</h2>
+              <Link
+                href="/"
+                className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
               >
-                <UploadIcon />
-                {uploading ? "Uploading..." : "Upload"}
-              </label>
+                Start new session
+              </Link>
             </div>
 
-            <div className="space-y-2">
-              {transcripts.length === 0 ? (
-                <EmptyState
-                  title="No transcripts uploaded"
-                  description="Upload think-aloud transcripts to personalize your Socratic experience."
+            {/* Search and Filter */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  placeholder="Search sessions..."
+                  value={sessionSearch}
+                  onChange={(e) => setSessionSearch(e.target.value)}
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:border-neutral-600"
                 />
-              ) : (
-                transcripts.map((t) => (
-                  <div
-                    key={t.id}
-                    className="group flex items-center justify-between gap-2 p-3 sm:p-3.5 rounded-xl border border-neutral-800 bg-neutral-900/50 hover:bg-neutral-800/50 hover:border-neutral-700 transition-all duration-200"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm text-neutral-200 truncate">{t.filename}</p>
-                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1 text-[11px] text-neutral-600">
-                        <StatusBadge status={t.status} />
-                        <span>{t.chunkCount} chunks</span>
-                        <span>{new Date(t.createdAt).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleDeleteTranscript(t.id)}
-                      className="p-1.5 text-neutral-700 hover:text-red-400 transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100 shrink-0"
-                    >
-                      <TrashIcon />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "devices" && (
-          <div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-              <p className="text-xs sm:text-sm text-neutral-400">
-                Connect a Muse EEG headband to record brain activity during sessions.
-              </p>
-              {museStatus === "disconnected" || museStatus === "connecting" ? (
-                <button
-                  onClick={handleConnectMuse}
-                  disabled={museStatus === "connecting"}
-                  className="shrink-0 inline-flex items-center gap-2 px-3.5 py-1.5 text-xs bg-white/10 hover:bg-white/15 disabled:opacity-50 text-white rounded-lg transition-colors"
-                >
-                  <BluetoothIcon />
-                  {museStatus === "connecting" ? "Connecting..." : "Connect Muse"}
-                </button>
-              ) : (
-                <button
-                  onClick={handleDisconnectMuse}
-                  className="shrink-0 inline-flex items-center gap-2 px-3.5 py-1.5 text-xs text-neutral-400 border border-neutral-700 hover:border-neutral-500 hover:text-white rounded-lg transition-colors"
-                >
-                  Disconnect
-                </button>
-              )}
+              </div>
+              <select
+                value={sessionStatusFilter}
+                onChange={(e) => setSessionStatusFilter(e.target.value)}
+                className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-neutral-600"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="completed">Completed</option>
+                <option value="ended_by_tutor">Ended by Tutor</option>
+              </select>
             </div>
 
-            {typeof navigator !== "undefined" && !("bluetooth" in navigator) ? (
-              <div className="p-3.5 bg-amber-500/5 border border-amber-500/20 rounded-xl text-amber-400/80 text-xs">
-                Web Bluetooth not supported in this browser. Use Chrome or Edge.
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Status bar */}
-                <div className="flex items-center gap-3 p-3.5 rounded-xl border border-neutral-800 bg-neutral-900/50">
-                  <div
-                    className={`w-2.5 h-2.5 rounded-full ${
-                      museStatus === "streaming"
-                        ? "bg-green-500 animate-pulse"
-                        : museStatus === "connected"
-                        ? "bg-green-500"
-                        : museStatus === "connecting"
-                        ? "bg-yellow-500 animate-pulse"
-                        : "bg-neutral-700"
-                    }`}
-                  />
-                  <span className="text-xs text-neutral-400 capitalize">{museStatus}</span>
-                  {museDeviceName && museStatus !== "disconnected" && (
-                    <>
-                      <span className="text-neutral-800">·</span>
-                      <span className="text-xs text-neutral-500">{museDeviceName}</span>
-                    </>
-                  )}
-                  {museDeviceName && museStatus === "disconnected" && (
-                    <span className="text-xs text-neutral-600">
-                      Last: {museDeviceName}
-                    </span>
-                  )}
-                </div>
-
-                {museError && (
-                  <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-xl text-red-400 text-xs">
-                    {museError}
-                  </div>
-                )}
-
-                {/* Live EEG Waveform */}
-                {museStatus === "streaming" && (
-                  <div className="space-y-3 p-4 rounded-xl border border-neutral-800 bg-neutral-900/50">
-                    <div>
-                      <p className="text-[11px] text-neutral-600 mb-2">Live EEG — 4 channels at 256 Hz</p>
-                      <EEGWaveView
-                        channelData={eegChannelData}
-                        visibleSamples={512}
-                        traceHeight={40}
-                        channels={["TP9", "AF7", "AF8", "TP10"]}
-                      />
-                    </div>
-                    <div>
-                      <p className="text-[11px] text-neutral-600 mb-1">Band powers</p>
-                      <BrainStateBar powers={bandPowers} isConnected={true} />
-                      {!bandPowers && (
-                        <p className="text-[11px] text-neutral-700 mt-1">Waiting for enough samples...</p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "prompts" && (
-          <div className="space-y-5">
-            {/* Model selector for Ask feature */}
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h4 className="text-sm font-medium text-neutral-200">Ask Model</h4>
-                  <p className="text-[11px] text-neutral-600 mt-0.5">
-                    Choose which LLM answers your &ldquo;Ask&rdquo; questions during sessions.
-                  </p>
-                </div>
-                {modelSaved && (
-                  <span className="text-xs text-green-400">Saved!</span>
-                )}
-                {modelSaving && (
-                  <span className="text-xs text-neutral-500">Saving...</span>
-                )}
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {AVAILABLE_MODELS.map((model) => (
-                  <button
-                    key={model.id}
-                    onClick={() => handleSaveModel(model.id)}
-                    className={`text-left p-3 rounded-lg border transition-all duration-200 ${
-                      askModel === model.id
-                        ? "border-emerald-500/40 bg-emerald-500/10 shadow-[0_0_12px_rgba(16,185,129,0.1)]"
-                        : "border-neutral-800 hover:border-neutral-600 hover:bg-neutral-800/50"
-                    }`}
-                  >
-                    <p className={`text-xs font-medium ${
-                      askModel === model.id ? "text-emerald-400" : "text-neutral-300"
-                    }`}>
-                      {model.label}
-                    </p>
-                    <p className="text-[10px] text-neutral-600 mt-0.5">{model.description}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <p className="text-xs sm:text-sm text-neutral-400">
-                Customize how your tutor behaves. Edit any prompt below or reset to defaults.
-              </p>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={handleResetAllPrompts}
-                  className="px-3 py-1.5 text-xs text-neutral-500 hover:text-white border border-neutral-700 hover:border-neutral-500 rounded-lg transition-colors"
-                >
-                  Reset all
-                </button>
-                <button
-                  onClick={handleSavePrompts}
-                  disabled={promptsSaving}
-                  className="px-3.5 py-1.5 text-xs bg-white/10 hover:bg-white/15 disabled:opacity-50 text-white rounded-lg transition-colors"
-                >
-                  {promptsSaving ? "Saving..." : promptsSaved ? "Saved!" : "Save changes"}
-                </button>
-              </div>
-            </div>
-
-            {(Object.keys(DEFAULT_PROMPTS) as PromptKey[]).map((key) => {
-              const meta = PROMPT_META[key];
-              const isCustomized = key in userPrompts && userPrompts[key] !== undefined;
-              return (
-                <div
-                  key={key}
-                  className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4"
-                >
-                  <div className="flex items-start justify-between mb-2.5">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm text-neutral-200 font-medium">{meta.label}</h4>
-                        {isCustomized && (
-                          <span className="px-1.5 py-0.5 text-[10px] rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                            customized
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-neutral-600 mt-0.5">{meta.description}</p>
-                    </div>
-                    {isCustomized && (
-                      <button
-                        onClick={() => handleResetPrompt(key)}
-                        className="text-[11px] text-neutral-600 hover:text-white transition-colors whitespace-nowrap"
-                      >
-                        Reset
-                      </button>
-                    )}
-                  </div>
-                  <textarea
-                    value={userPrompts[key] ?? DEFAULT_PROMPTS[key]}
-                    onChange={(e) =>
-                      setUserPrompts((prev) => ({
-                        ...prev,
-                        [key]: e.target.value === DEFAULT_PROMPTS[key] ? undefined : e.target.value,
-                      }))
-                    }
-                    rows={8}
-                    spellCheck={false}
-                    className="w-full bg-[#0a0a0a] border border-neutral-800 rounded-lg p-3 text-xs text-neutral-300 font-mono leading-relaxed resize-y focus:outline-none focus:border-neutral-600 placeholder:text-neutral-700"
-                  />
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {activeTab === "data" && (
-          <div className="space-y-6">
-            {/* Explanation note */}
-            <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5">
-              <div className="flex items-start gap-3">
-                <div className="shrink-0 mt-0.5">
-                  <ShieldIcon />
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-amber-300 mb-1.5">About data collection</h4>
-                  <p className="text-xs text-amber-200/70 leading-relaxed">
-                    We collect <strong className="text-amber-200">anonymized</strong> think-aloud data from Socratic
-                    sessions to build AI training, fine-tuning, and context engineering datasets. This data helps
-                    us improve the quality of Socratic tutoring for everyone. All personally identifiable information
-                    is stripped before the data enters any dataset. You are in full control of what you share.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Data sharing options */}
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5">
-              <h4 className="text-sm font-medium text-neutral-200 mb-1">Data sharing preferences</h4>
-              <p className="text-[11px] text-neutral-600 mb-5">
-                Choose what anonymized data from your sessions can be used for research and AI training datasets.
-              </p>
-
-              <div className="space-y-3">
-                {/* Option: No data sharing */}
-                <label
-                  className={`flex items-start gap-3.5 p-3.5 rounded-lg border cursor-pointer transition-all duration-200 ${
-                    !dataPrefs.share_transcripts && !dataPrefs.share_audio
-                      ? "border-white/20 bg-white/5"
-                      : "border-neutral-800 hover:border-neutral-700"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="data-sharing"
-                    checked={!dataPrefs.share_transcripts && !dataPrefs.share_audio}
-                    onChange={() => setDataPrefs({ share_transcripts: false, share_audio: false })}
-                    className="mt-0.5 accent-white"
-                  />
-                  <div>
-                    <p className="text-sm text-neutral-200 font-medium">No data sharing</p>
-                    <p className="text-[11px] text-neutral-600 mt-0.5">
-                      Your session data will not be used for AI training datasets.
-                    </p>
-                  </div>
-                </label>
-
-                {/* Option: Transcripts only */}
-                <label
-                  className={`flex items-start gap-3.5 p-3.5 rounded-lg border cursor-pointer transition-all duration-200 ${
-                    dataPrefs.share_transcripts && !dataPrefs.share_audio
-                      ? "border-blue-500/30 bg-blue-500/5"
-                      : "border-neutral-800 hover:border-neutral-700"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="data-sharing"
-                    checked={dataPrefs.share_transcripts && !dataPrefs.share_audio}
-                    onChange={() => setDataPrefs({ share_transcripts: true, share_audio: false })}
-                    className="mt-0.5 accent-blue-500"
-                  />
-                  <div>
-                    <p className="text-sm text-neutral-200 font-medium">Transcripts only</p>
-                    <p className="text-[11px] text-neutral-600 mt-0.5">
-                      Only anonymized text transcripts of your think-aloud sessions will be included.
-                      No audio recordings will be shared.
-                    </p>
-                  </div>
-                </label>
-
-                {/* Option: Transcripts + Audio */}
-                <label
-                  className={`flex items-start gap-3.5 p-3.5 rounded-lg border cursor-pointer transition-all duration-200 ${
-                    dataPrefs.share_transcripts && dataPrefs.share_audio
-                      ? "border-green-500/30 bg-green-500/5"
-                      : "border-neutral-800 hover:border-neutral-700"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="data-sharing"
-                    checked={dataPrefs.share_transcripts && dataPrefs.share_audio}
-                    onChange={() => setDataPrefs({ share_transcripts: true, share_audio: true })}
-                    className="mt-0.5 accent-green-500"
-                  />
-                  <div>
-                    <p className="text-sm text-neutral-200 font-medium">Transcripts and audio</p>
-                    <p className="text-[11px] text-neutral-600 mt-0.5">
-                      Both anonymized text transcripts and audio recordings from your sessions will be
-                      included. Audio data provides richer signals for AI training (pauses, hesitation,
-                      tone shifts).
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-5 pt-4 border-t border-neutral-800/60">
-                <p className="text-[11px] text-neutral-700">
-                  You can change this at any time. Changes apply to future sessions only.
-                </p>
-                <button
-                  onClick={handleSaveDataPrefs}
-                  disabled={dataPrefsSaving}
-                  className="shrink-0 px-3.5 py-1.5 text-xs bg-white/10 hover:bg-white/15 disabled:opacity-50 text-white rounded-lg transition-colors"
-                >
-                  {dataPrefsSaving ? "Saving..." : dataPrefsSaved ? "Saved!" : "Save preferences"}
-                </button>
-              </div>
-            </div>
-
-            {/* What data is collected */}
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5">
-              <h4 className="text-sm font-medium text-neutral-200 mb-3">What gets anonymized?</h4>
-              <div className="space-y-2.5 text-xs text-neutral-500">
-                <div className="flex items-start gap-2.5">
-                  <span className="text-green-500 mt-px shrink-0">&#10003;</span>
-                  <p>All names, emails, and personally identifiable information are removed</p>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <span className="text-green-500 mt-px shrink-0">&#10003;</span>
-                  <p>Session metadata (timestamps, user IDs) is stripped or hashed</p>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <span className="text-green-500 mt-px shrink-0">&#10003;</span>
-                  <p>Think-aloud reasoning patterns and probe interactions are preserved (these are what make the data valuable)</p>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <span className="text-green-500 mt-px shrink-0">&#10003;</span>
-                  <p>Audio is used only for speech pattern analysis — voice fingerprints are not stored</p>
-                </div>
-              </div>
-              <div className="mt-4 pt-3 border-t border-neutral-800/60">
-                <Link
-                  href="/privacy"
-                  className="text-xs text-neutral-600 hover:text-white transition-colors"
-                >
-                  Read our full Privacy Policy &rarr;
+            {filteredSessions.length === 0 ? (
+              <div className="text-center py-12 text-neutral-500">
+                <p>No sessions yet.</p>
+                <Link href="/" className="text-blue-400 hover:underline mt-2 inline-block">
+                  Start your first session
                 </Link>
               </div>
+            ) : (
+              <div className="space-y-2">
+                {paginatedSessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className="rounded-lg border border-neutral-800 bg-neutral-900/50 overflow-hidden"
+                  >
+                    <div
+                      className="flex items-center justify-between p-4 cursor-pointer hover:bg-neutral-800/30 transition-colors"
+                      onClick={() => setExpandedSessionId(
+                        expandedSessionId === session.id ? null : session.id
+                      )}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-neutral-200 truncate">
+                          {session.problem}
+                        </p>
+                        <p className="text-xs text-neutral-500 mt-1">
+                          {formatDate(session.startedAt)} · {formatDuration(session.durationMs)} ·{" "}
+                          <span
+                            className={`inline-flex px-1.5 py-0.5 rounded text-[10px] ${
+                              session.status === "completed"
+                                ? "bg-green-900/30 text-green-400"
+                                : session.status === "active"
+                                ? "bg-blue-900/30 text-blue-400"
+                                : "bg-neutral-700 text-neutral-400"
+                            }`}
+                          >
+                            {session.status}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 ml-4">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setViewingProbes(viewingProbes === session.id ? null : session.id);
+                          }}
+                          className="px-2.5 py-1 text-xs text-neutral-400 hover:text-white border border-neutral-700 hover:border-neutral-600 rounded transition-colors"
+                        >
+                          {viewingProbes === session.id ? "Hide Probes" : "View Probes"}
+                        </button>
+                        <Link
+                          href={`/results?id=${session.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="px-2.5 py-1 text-xs text-neutral-400 hover:text-white border border-neutral-700 hover:border-neutral-600 rounded transition-colors"
+                        >
+                          Summary
+                        </Link>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSession(session.id);
+                          }}
+                          className="p-1.5 text-neutral-600 hover:text-red-400 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Expanded: Session Report */}
+                    {expandedSessionId === session.id && session.report && (
+                      <div className="px-4 pb-4 border-t border-neutral-800/60 pt-4">
+                        <h4 className="text-xs font-medium text-neutral-400 mb-2">Session Report</h4>
+                        <div className="text-sm text-neutral-300 whitespace-pre-wrap prose prose-invert prose-sm max-w-none">
+                          {session.report}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Expanded: Probes List */}
+                    {viewingProbes === session.id && (
+                      <div className="border-t border-neutral-800/60">
+                        <div className="px-4 py-3 bg-neutral-800/30">
+                          <h4 className="text-xs font-medium text-neutral-400">Probes ({session.probes.length})</h4>
+                        </div>
+                        {session.probes.length === 0 ? (
+                          <p className="px-4 py-4 text-sm text-neutral-500">No probes in this session.</p>
+                        ) : (
+                          <div className="divide-y divide-neutral-800/60">
+                            {session.probes.map((probe, idx) => (
+                              <div key={probe.id} className="px-4 py-3">
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm text-neutral-200">{probe.text}</p>
+                                    <p className="text-xs text-neutral-500 mt-1">
+                                      {formatDuration(probe.timestamp)} · Gap: {probe.gapScore.toFixed(2)} ·{" "}
+                                      {probe.signals.join(", ") || "no signals"}
+                                    </p>
+                                  </div>
+                                  <span className="text-xs text-neutral-600">#{idx + 1}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalSessionPages > 1 && (
+              <div className="flex items-center justify-between pt-4 border-t border-neutral-800/60">
+                <p className="text-xs text-neutral-500">
+                  Showing {(sessionPage - 1) * sessionPageSize + 1}-{Math.min(sessionPage * sessionPageSize, filteredSessions.length)} of {filteredSessions.length}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSessionPage((p) => Math.max(1, p - 1))}
+                    disabled={sessionPage === 1}
+                    className="px-3 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-700 rounded transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setSessionPage((p) => Math.min(totalSessionPages, p + 1))}
+                    disabled={sessionPage === totalSessionPages}
+                    className="px-3 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-700 rounded transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Plans Tab */}
+        {activeTab === "plans" && (
+          <div className="space-y-8">
+            {/* Continue Issues Section */}
+            {incompleteNodes.length > 0 && (
+              <div>
+                <h2 className="text-lg font-semibold mb-4">Continue Issues</h2>
+                <div className="space-y-2">
+                  {incompleteNodes.map((node) => (
+                    <Link
+                      key={node.id}
+                      href={`/plan/${node.plan_id}?node=${node.id}`}
+                      className="flex items-center justify-between p-4 rounded-lg border border-neutral-800 bg-neutral-900/50 hover:bg-neutral-800/30 transition-colors"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-neutral-200">{node.title}</p>
+                        <p className="text-xs text-neutral-500 mt-0.5">{node.planTitle}</p>
+                      </div>
+                      <span
+                        className={`text-xs px-2 py-1 rounded ${
+                          node.status === "in_progress"
+                            ? "bg-blue-900/30 text-blue-400"
+                            : "bg-neutral-700 text-neutral-400"
+                        }`}
+                      >
+                        {node.status === "in_progress" ? "In Progress" : "Not Started"}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Learning Plans List */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Learning Plans</h2>
+                <Link
+                  href="/"
+                  className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  Create new plan
+                </Link>
+              </div>
+
+              {/* Search and Filter */}
+              <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    placeholder="Search plans..."
+                    value={planSearch}
+                    onChange={(e) => setPlanSearch(e.target.value)}
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:border-neutral-600"
+                  />
+                </div>
+                <select
+                  value={planStatusFilter}
+                  onChange={(e) => setPlanStatusFilter(e.target.value)}
+                  className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-neutral-600"
+                >
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="completed">Completed</option>
+                  <option value="paused">Paused</option>
+                </select>
+              </div>
+
+              {filteredPlans.length === 0 ? (
+                <div className="text-center py-12 text-neutral-500">
+                  <p>No learning plans yet.</p>
+                  <Link href="/" className="text-blue-400 hover:underline mt-2 inline-block">
+                    Create your first plan
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {paginatedPlans.map((plan) => (
+                    <Link
+                      key={plan.id}
+                      href={`/plan/${plan.id}`}
+                      className="flex items-center justify-between p-4 rounded-lg border border-neutral-800 bg-neutral-900/50 hover:bg-neutral-800/30 transition-colors"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-neutral-200">{plan.root_topic}</p>
+                        <p className="text-xs text-neutral-500 mt-0.5">
+                          Created {formatDate(plan.created_at)}
+                        </p>
+                      </div>
+                      <span
+                        className={`text-xs px-2 py-1 rounded ${
+                          plan.status === "active"
+                            ? "bg-blue-900/30 text-blue-400"
+                            : plan.status === "completed"
+                            ? "bg-green-900/30 text-green-400"
+                            : "bg-neutral-700 text-neutral-400"
+                        }`}
+                      >
+                        {plan.status}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {/* Pagination */}
+              {totalPlanPages > 1 && (
+                <div className="flex items-center justify-between pt-4 border-t border-neutral-800/60">
+                  <p className="text-xs text-neutral-500">
+                    Showing {(planPage - 1) * planPageSize + 1}-{Math.min(planPage * planPageSize, filteredPlans.length)} of {filteredPlans.length}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setPlanPage((p) => Math.max(1, p - 1))}
+                      disabled={planPage === 1}
+                      className="px-3 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-700 rounded transition-colors"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setPlanPage((p) => Math.min(totalPlanPages, p + 1))}
+                      disabled={planPage === totalPlanPages}
+                      className="px-3 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-700 rounded transition-colors"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
 
-// ---- Sub-components ----
+        {/* Agentic Usage Tab */}
+        {activeTab === "agentic" && (
+          <div className="space-y-8">
+            {/* API Keys Section */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">API Keys</h2>
+                <button
+                  onClick={handleCreateApiKey}
+                  disabled={creatingKey}
+                  className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-lg transition-colors"
+                >
+                  {creatingKey ? "Creating..." : "Create New Key"}
+                </button>
+              </div>
 
-interface TranscriptFile {
-  id: string;
-  filename: string;
-  status: string;
-  chunkCount: number;
-  createdAt: string;
-}
+              {/* New Key Display */}
+              {newKeyValue && (
+                <div className="mb-4 p-4 rounded-lg border border-green-500/30 bg-green-500/5">
+                  <p className="text-sm text-green-400 mb-2">
+                    Your new API key (copy now - won't be shown again):
+                  </p>
+                  <code className="block text-xs text-neutral-300 bg-neutral-900 p-2 rounded font-mono break-all">
+                    {newKeyValue}
+                  </code>
+                </div>
+              )}
 
-function SessionCard({ session, onDelete }: { session: Session; onDelete: () => void }) {
-  const stats = getSessionStats(session);
-  const durationFormatted = formatTime(Math.floor(session.durationMs / 1000));
+              {apiKeys.length === 0 ? (
+                <div className="text-center py-12 text-neutral-500 border border-neutral-800 rounded-lg">
+                  <p>No API keys yet.</p>
+                  <button
+                    onClick={handleCreateApiKey}
+                    className="text-blue-400 hover:underline mt-2 inline-block"
+                  >
+                    Create your first key
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {apiKeys.map((key) => (
+                    <div
+                      key={key.id}
+                      className="flex items-center justify-between p-4 rounded-lg border border-neutral-800 bg-neutral-900/50"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-neutral-200">
+                          {key.label || "Unnamed Key"}
+                        </p>
+                        <p className="text-xs text-neutral-500 mt-0.5 font-mono">
+                          sk_{key.key_prefix}...
+                        </p>
+                        <p className="text-xs text-neutral-600 mt-1">
+                          {key.usage_count} requests · Created {formatDate(key.created_at)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteApiKey(key.id)}
+                        className="p-2 text-neutral-600 hover:text-red-400 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-  return (
-    <div className={`group p-3 sm:p-4 rounded-xl border transition-all duration-200 ${
-      session.status === "active"
-        ? "border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10 hover:border-blue-500/40"
-        : "border-neutral-800 bg-neutral-900/50 hover:bg-neutral-800/50 hover:border-neutral-700"
-    }`}>
-      <div className="flex items-start justify-between gap-2 sm:gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-            <Link
-              href={session.status === "active" ? `/session?id=${session.id}` : `/results?id=${session.id}`}
-              className="text-sm sm:text-[15px] font-medium text-neutral-200 group-hover:text-white transition-colors line-clamp-2 sm:line-clamp-1"
-            >
-              {session.problem}
-            </Link>
-            {session.status === "active" && (
-              <span className="text-[11px] text-blue-400 shrink-0">— tap to resume</span>
-            )}
-            {session.status === "ended_by_tutor" && (
-              <span className="shrink-0 self-start px-1.5 py-0.5 text-[10px] rounded bg-amber-500/15 text-amber-400 border border-amber-500/20">
-                Ended by tutor
-              </span>
-            )}
+            {/* API Usage Info */}
+            <div>
+              <h2 className="text-lg font-semibold mb-4">API Usage</h2>
+              <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
+                <p className="text-sm text-neutral-400 mb-3">
+                  Use your API key to access Socratic tutoring programmatically.
+                </p>
+                <div className="bg-neutral-950 rounded-lg p-4 font-mono text-xs text-neutral-300 overflow-x-auto">
+                  <p className="text-neutral-500 mb-2">// Example request</p>
+                  <p>curl -X POST https://socrates.example.com/api/agent/session/analyze \</p>
+                  <p className="pl-4">-H "Authorization: Bearer YOUR_API_KEY" \</p>
+                  <p className="pl-4">-H "Content-Type: application/json" \</p>
+                  <p className="pl-4">-d '{`{"problem": "your problem", "audio": "base64..."}`}'</p>
+                </div>
+                <p className="text-xs text-neutral-600 mt-3">
+                  Each API key is rate-limited to 100 requests per minute.
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-x-2 sm:gap-x-3 gap-y-0.5 mt-1.5 sm:mt-2 text-[11px] sm:text-xs text-neutral-600">
-            <span>
-              {new Date(session.startedAt).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
-            <span className="text-neutral-800">·</span>
-            <span>{durationFormatted}</span>
-            <span className="text-neutral-800">·</span>
-            <span>{stats.probeCount} probes</span>
-            {stats.avgGapScore > 0 && (
-              <>
-                <span className="text-neutral-800">·</span>
-                <span>Gap {Math.round(stats.avgGapScore * 100)}%</span>
-              </>
-            )}
-            {session.report && (
-              <>
-                <span className="text-neutral-800">·</span>
-                <span className="text-blue-500">Report</span>
-              </>
-            )}
+        )}
+
+        {/* Configuration Tab */}
+        {activeTab === "config" && (
+          <div className="space-y-8">
+            {/* Model Selection */}
+            <div>
+              <h2 className="text-lg font-semibold mb-4">Model Selection</h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
+                  <label className="block text-sm font-medium text-neutral-300 mb-2">
+                    Tutor Model (Socratic Probing)
+                  </label>
+                  <select
+                    value={tutorModel}
+                    onChange={(e) => setTutorModel(e.target.value)}
+                    disabled={modelsLoading}
+                    className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-neutral-500"
+                  >
+                    {modelsLoading ? (
+                      <option>Loading models...</option>
+                    ) : (
+                      availableModels.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.label}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <p className="text-xs text-neutral-600 mt-2">
+                    Model used for generating Socratic questions during sessions.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
+                  <label className="block text-sm font-medium text-neutral-300 mb-2">
+                    Asking Model (Direct Q&A)
+                  </label>
+                  <select
+                    value={askModel}
+                    onChange={(e) => setAskModel(e.target.value)}
+                    disabled={modelsLoading}
+                    className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-neutral-500"
+                  >
+                    {modelsLoading ? (
+                      <option>Loading models...</option>
+                    ) : (
+                      availableModels.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.label}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <p className="text-xs text-neutral-600 mt-2">
+                    Model used when you ask direct questions during a session.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={handleSaveModels}
+                  disabled={modelSaving}
+                  className="px-4 py-2 text-sm bg-white/10 hover:bg-white/15 disabled:opacity-50 rounded-lg transition-colors"
+                >
+                  {modelSaving ? "Saving..." : modelSaved ? "Saved!" : "Save Models"}
+                </button>
+              </div>
+            </div>
+
+            {/* Prompt Customization */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Prompt Modifications</h2>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleResetAllPrompts}
+                    className="px-3 py-1.5 text-xs text-neutral-500 hover:text-white border border-neutral-700 hover:border-neutral-600 rounded-lg transition-colors"
+                  >
+                    Reset all
+                  </button>
+                  <button
+                    onClick={handleSavePrompts}
+                    disabled={promptsSaving}
+                    className="px-3.5 py-1.5 text-xs bg-white/10 hover:bg-white/15 disabled:opacity-50 text-white rounded-lg transition-colors"
+                  >
+                    {promptsSaving ? "Saving..." : promptsSaved ? "Saved!" : "Save changes"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {(Object.keys(DEFAULT_PROMPTS) as PromptKey[]).map((key) => {
+                  const meta = PROMPT_META[key];
+                  const isCustomized = key in userPrompts && userPrompts[key] !== undefined;
+                  return (
+                    <div
+                      key={key}
+                      className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4"
+                    >
+                      <div className="flex items-start justify-between mb-2.5">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm text-neutral-200 font-medium">{meta.label}</h4>
+                            {isCustomized && (
+                              <span className="px-1.5 py-0.5 text-[10px] rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                customized
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-neutral-600 mt-0.5">{meta.description}</p>
+                        </div>
+                        {isCustomized && (
+                          <button
+                            onClick={() => handleResetPrompt(key)}
+                            className="text-[11px] text-neutral-600 hover:text-white transition-colors whitespace-nowrap"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                      <textarea
+                        value={userPrompts[key] ?? DEFAULT_PROMPTS[key]}
+                        onChange={(e) =>
+                          setUserPrompts((prev) => ({
+                            ...prev,
+                            [key]: e.target.value === DEFAULT_PROMPTS[key] ? undefined : e.target.value,
+                          }))
+                        }
+                        rows={8}
+                        spellCheck={false}
+                        className="w-full bg-[#0a0a0a] border border-neutral-800 rounded-lg p-3 text-xs text-neutral-300 font-mono leading-relaxed resize-y focus:outline-none focus:border-neutral-600 placeholder:text-neutral-700"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        </div>
-        <button
-          onClick={onDelete}
-          className="p-1.5 text-neutral-700 hover:text-red-400 transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
-          title="Delete session"
-        >
-          <TrashIcon />
-        </button>
-      </div>
+        )}
+      </main>
     </div>
-  );
-}
-
-function Stat({ icon, text, className }: { icon: React.ReactNode; text: string; className?: string }) {
-  return (
-    <div className={`flex items-center gap-2 text-xs ${className || "text-neutral-500"}`}>
-      {icon}
-      <span>{text}</span>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    pending: "bg-yellow-500/20 text-yellow-300",
-    processing: "bg-blue-500/20 text-blue-300",
-    ready: "bg-green-500/20 text-green-300",
-    error: "bg-red-500/20 text-red-300",
-  };
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-xs ${colors[status] || "bg-neutral-700 text-neutral-300"}`}>
-      {status}
-    </span>
-  );
-}
-
-function EmptyState({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="text-center py-16 rounded-xl border border-dashed border-neutral-800">
-      <p className="text-sm text-neutral-500 mb-1">{title}</p>
-      <p className="text-xs text-neutral-700">{description}</p>
-    </div>
-  );
-}
-
-// ---- Band Power Computation (simple DFT for dashboard preview) ----
-
-function computeBandPowers(af7: number[], af8: number[]) {
-  const n = 256;
-  const sampleRate = 256;
-
-  const bandRanges: Record<string, [number, number]> = {
-    delta: [1, 4],
-    theta: [4, 8],
-    alpha: [8, 13],
-    beta: [13, 30],
-    gamma: [30, 44],
-  };
-
-  function channelBands(samples: number[]) {
-    // Hanning window
-    const windowed = samples.map((s, i) =>
-      s * (0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (n - 1)))
-    );
-
-    const powers: Record<string, number> = {};
-    for (const [band, [fLow, fHigh]] of Object.entries(bandRanges)) {
-      let power = 0;
-      const binLow = Math.floor((fLow * n) / sampleRate);
-      const binHigh = Math.min(Math.ceil((fHigh * n) / sampleRate), n / 2);
-      for (let k = binLow; k <= binHigh; k++) {
-        let re = 0, im = 0;
-        for (let j = 0; j < n; j++) {
-          const angle = (2 * Math.PI * k * j) / n;
-          re += windowed[j] * Math.cos(angle);
-          im -= windowed[j] * Math.sin(angle);
-        }
-        power += (re * re + im * im) / (n * n);
-      }
-      powers[band] = power;
-    }
-    return powers;
-  }
-
-  const p1 = channelBands(af7.slice(-n));
-  const p2 = channelBands(af8.slice(-n));
-
-  const avg: Record<string, number> = {};
-  for (const band of Object.keys(bandRanges)) {
-    avg[band] = ((p1[band] || 0) + (p2[band] || 0)) / 2;
-  }
-
-  // Normalize to relative powers
-  const total = Object.values(avg).reduce((s, v) => s + v, 0);
-  if (total > 0) {
-    for (const band of Object.keys(avg)) {
-      avg[band] /= total;
-    }
-  }
-
-  return {
-    delta: avg.delta || 0,
-    theta: avg.theta || 0,
-    alpha: avg.alpha || 0,
-    beta: avg.beta || 0,
-    gamma: avg.gamma || 0,
-  };
-}
-
-// ---- Icons ----
-
-function PlusIcon() {
-  return (
-    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-    </svg>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  );
-}
-
-function QuestionIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  );
-}
-
-function ChartIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-    </svg>
-  );
-}
-
-function MicIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-    </svg>
-  );
-}
-
-function ReportIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-    </svg>
-  );
-}
-
-function UploadIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-    </svg>
-  );
-}
-
-function BluetoothIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7l10 10-5 5V2l5 5L7 17" />
-    </svg>
-  );
-}
-
-function BoltIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-    </svg>
-  );
-}
-
-function ShieldIcon() {
-  return (
-    <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-    </svg>
   );
 }

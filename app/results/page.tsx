@@ -13,6 +13,7 @@ import {
 import { formatTime } from "@/lib/utils";
 import { downloadAudio } from "@/lib/audio";
 import { ProbeCard } from "@/components/ProbeCard";
+import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 
 function ResultsContent() {
@@ -155,29 +156,11 @@ function ResultsContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
-      {/* Header */}
-      <header className="border-b border-neutral-800/60 px-4 sm:px-6 py-4 backdrop-blur-sm bg-[#0a0a0a]/80 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Link href="/" className="text-base sm:text-lg font-semibold text-white tracking-tight hover:text-neutral-300 transition-colors">
-              openLesson
-            </Link>
-            <span className="text-neutral-700 hidden sm:inline">&middot;</span>
-            <span className="text-[10px] text-neutral-600 font-medium uppercase tracking-widest hidden sm:inline">Results</span>
-          </div>
-          <div className="flex items-center gap-3 sm:gap-4">
-            <Link href="/coaching" className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors">
-              Coaching
-            </Link>
-            <Link href="/dashboard" className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors">
-              Dashboard
-            </Link>
-            <Link href="/" className="px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm bg-white/10 hover:bg-white/15 text-white rounded-lg transition-colors">
-              New Session
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Navbar 
+        breadcrumbs={[
+          { label: "Results" }
+        ]}
+      />
 
       <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8">
         {/* Topic + Status */}

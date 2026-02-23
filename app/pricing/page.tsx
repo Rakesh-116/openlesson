@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { Navbar } from "@/components/Navbar";
 import { PLANS, type PlanId } from "@/lib/plans";
 import { Footer } from "@/components/Footer";
 import { createClient } from "@/lib/supabase/client";
@@ -71,25 +72,7 @@ export default function PricingPage() {
 
   return (
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
-      {/* Header */}
-      <header className="border-b border-neutral-800/60 px-4 sm:px-6 py-4 backdrop-blur-sm bg-[#0a0a0a]/80 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <Link href="/" className="text-base sm:text-lg font-semibold text-white tracking-tight">
-            openLesson
-          </Link>
-          <div className="flex items-center gap-3 sm:gap-4">
-            <Link href="/" className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors">
-              Home
-            </Link>
-            <Link href="/coaching" className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors">
-              Coaching
-            </Link>
-            <Link href="/dashboard" className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors">
-              Dashboard
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
       <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-12">
         {/* Open Source Banner */}
@@ -103,8 +86,8 @@ export default function PricingPage() {
           </h1>
           <p className="text-neutral-500 text-base max-w-lg mx-auto leading-relaxed">
             openLesson is free to use and{" "}
-            <a
-              href="https://github.com/dncolomer/socrates"
+              <a
+              href="https://github.com/dncolomer/openLesson"
               target="_blank"
               rel="noopener noreferrer"
               className="text-neutral-300 hover:text-white underline underline-offset-2 transition-colors"

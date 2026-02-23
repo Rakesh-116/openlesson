@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 
 export const metadata = {
@@ -49,25 +50,7 @@ const VIDEOS = [
 export default function CoachingPage() {
   return (
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
-      {/* Header */}
-      <header className="border-b border-neutral-800/60 px-4 sm:px-6 py-4 backdrop-blur-sm bg-[#0a0a0a]/80 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <Link href="/" className="text-base sm:text-lg font-semibold text-white tracking-tight hover:text-neutral-300 transition-colors">
-            openLesson
-          </Link>
-          <div className="flex items-center gap-3 sm:gap-4">
-            <Link href="/" className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors">
-              Home
-            </Link>
-            <Link href="/pricing" className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors">
-              Pricing
-            </Link>
-            <Link href="/dashboard" className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors">
-              Dashboard
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
       <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-12">
         {/* Hero */}

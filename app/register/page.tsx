@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { Navbar } from "@/components/Navbar";
 
 export default function RegisterPage() {
   const [username, setUsername] = useState("");
@@ -44,13 +45,7 @@ export default function RegisterPage() {
 
   return (
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
-      <header className="border-b border-neutral-800/60 px-6 py-4 backdrop-blur-sm bg-[#0a0a0a]/80 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto">
-          <Link href="/" className="text-lg font-semibold text-white tracking-tight">
-            openLesson
-          </Link>
-        </div>
-      </header>
+      <Navbar showNav={false} />
 
       <div className="flex-1 flex items-center justify-center px-6">
         <div className="w-full max-w-sm">

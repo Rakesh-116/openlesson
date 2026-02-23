@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Navbar } from "@/components/Navbar";
 
 export default function PricingSuccessPage() {
   const router = useRouter();
@@ -16,13 +17,7 @@ export default function PricingSuccessPage() {
 
   return (
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
-      <header className="border-b border-neutral-800/60 px-6 py-4 backdrop-blur-sm bg-[#0a0a0a]/80 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto">
-          <Link href="/" className="text-lg font-semibold text-white tracking-tight">
-            openLesson
-          </Link>
-        </div>
-      </header>
+      <Navbar showNav={false} />
 
       <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 mb-6">
