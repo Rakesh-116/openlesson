@@ -589,6 +589,28 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       });
       await saveSessionAudio(finalSession.id, fullAudio);
       console.log("[stopRecording] Audio saved successfully");
+
+      // Trigger transcription for RAG
+      console.log("[stopRecording] Starting transcription for RAG...");
+      const audioBase64 = await blobToBase64(fullAudio);
+      try {
+        const transcriptResponse = await fetch("/api/process-session-transcript", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: finalSession.id,
+            audioBase64,
+            audioFormat: fullAudio.type.split("/")[1] || "webm",
+          }),
+        });
+        if (transcriptResponse.ok) {
+          console.log("[stopRecording] Transcription completed successfully");
+        } else {
+          console.warn("[stopRecording] Transcription failed:", await transcriptResponse.text());
+        }
+      } catch (transcribeErr) {
+        console.error("[stopRecording] Transcription error:", transcribeErr);
+      }
     } else {
       console.log("[stopRecording] No audio to save - fullAudio is null");
     }
@@ -782,7 +804,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       <header className="border-b border-neutral-800/60 px-3 sm:px-4 py-3 backdrop-blur-sm bg-[#0a0a0a]/80 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <a href="/" className="text-base sm:text-lg font-semibold text-white tracking-tight shrink-0 hover:text-neutral-300 transition-colors">Socratic Lesson</a>
+            <a href="/" className="text-base sm:text-lg font-semibold text-white tracking-tight shrink-0 hover:text-neutral-300 transition-colors">openLesson</a>
             <span className="text-neutral-700 shrink-0 hidden sm:inline">&middot;</span>
             <p className="text-xs sm:text-sm text-neutral-500 truncate hidden sm:block">{session.problem}</p>
           </div>

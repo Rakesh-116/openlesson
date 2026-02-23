@@ -144,7 +144,7 @@ Rules:
         Authorization: `Bearer ${apiKey2}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Socrates",
+        "X-Title": "openLesson",
       },
       body: JSON.stringify({
         model: MODEL,

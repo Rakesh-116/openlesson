@@ -52,7 +52,7 @@ export function Footer() {
             daniel@uncertain.systems
           </a>
           <a
-            href="https://github.com/dncolomer/socrates"
+            href="https://github.com/dncolomer/openlesson"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-neutral-800 text-neutral-400 text-xs font-medium hover:bg-white/10 hover:text-white transition-colors"

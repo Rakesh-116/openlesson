@@ -29,6 +29,12 @@ export function PlanningView({ sessionId }: { sessionId: string }) {
   const [preparingSession, setPreparingSession] = useState(false);
   const [preparedMaterial, setPreparedMaterial] = useState<string | null>(null);
   const [showMaterial, setShowMaterial] = useState(false);
+  const [relevantChunks, setRelevantChunks] = useState<Array<{
+    id: string;
+    preview: string;
+    sessionId: string | null;
+  }>>([]);
+  const [selectedChunks, setSelectedChunks] = useState<string[]>([]);
 
   // Calibration (RAG)
   const [calibrationLoading, setCalibrationLoading] = useState(true);
@@ -139,16 +145,22 @@ export function PlanningView({ sessionId }: { sessionId: string }) {
     if (!session?.problem) return;
     setPreparingSession(true);
     setPreparedMaterial(null);
+    setRelevantChunks([]);
+    setSelectedChunks([]);
     setShowMaterial(true);
     try {
       const response = await fetch("/api/learning-plan/prepare-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: session.problem }),
+        body: JSON.stringify({ topic: session.problem, planNodeId: session.id }),
       });
       if (response.ok) {
         const data = await response.json();
         setPreparedMaterial(data.content);
+        if (data.relevantChunks && data.relevantChunks.length > 0) {
+          setRelevantChunks(data.relevantChunks);
+          setSelectedChunks(data.relevantChunks.map((c: { id: string }) => c.id));
+        }
       } else {
         setPreparedMaterial("Failed to generate preparation material. Please try again.");
       }
@@ -170,6 +182,17 @@ export function PlanningView({ sessionId }: { sessionId: string }) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionId: session.id, probeText }),
+        });
+      }
+      // Save selected RAG chunks to session metadata
+      if (selectedChunks.length > 0) {
+        await fetch("/api/save-session-rag-chunks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            sessionId: session.id, 
+            chunkIds: selectedChunks 
+          }),
         });
       }
       await startSession(session.id);
@@ -415,8 +438,43 @@ export function PlanningView({ sessionId }: { sessionId: string }) {
                   <p className="text-neutral-400">Generating your preparation material...</p>
                 </div>
               ) : preparedMaterial ? (
-                <div className="prose prose-invert prose-sm max-w-none">
-                  <ReactMarkdown>{preparedMaterial}</ReactMarkdown>
+                <div className="space-y-6">
+                  {relevantChunks.length > 0 && (
+                    <div className="border border-neutral-800 rounded-lg p-4 bg-neutral-900/30">
+                      <div className="flex items-center gap-2 mb-3">
+                        <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span className="text-sm font-medium text-neutral-300">Relevant past sessions</span>
+                        <span className="text-xs text-neutral-500">(select to include)</span>
+                      </div>
+                      <div className="space-y-2">
+                        {relevantChunks.map((chunk) => (
+                          <label
+                            key={chunk.id}
+                            className="flex items-start gap-3 p-2 rounded hover:bg-neutral-800/50 cursor-pointer transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedChunks.includes(chunk.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedChunks([...selectedChunks, chunk.id]);
+                                } else {
+                                  setSelectedChunks(selectedChunks.filter(id => id !== chunk.id));
+                                }
+                              }}
+                              className="mt-1 w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-cyan-500 focus:ring-cyan-500/50"
+                            />
+                            <span className="text-xs text-neutral-400">{chunk.preview}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="prose prose-invert prose-sm max-w-none">
+                    <ReactMarkdown>{preparedMaterial}</ReactMarkdown>
+                  </div>
                 </div>
               ) : (
                 <p className="text-neutral-500">No material available</p>

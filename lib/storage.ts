@@ -404,3 +404,233 @@ export function getSessionStats(session: Session) {
     peakGapTime: peakProbe.timestamp,
   };
 }
+
+// ---- RAG: Retrieve Relevant Transcript Chunks ----
+
+export interface RetrievedChunk {
+  id: string;
+  content: string;
+  sessionId: string | null;
+  createdAt: string;
+  metadata: Record<string, unknown>;
+}
+
+interface RetrieveOptions {
+  limit?: number;
+  sessionId?: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseClient?: any;
+}
+
+export async function retrieveRelevantChunks(
+  userId: string,
+  query: string,
+  options: RetrieveOptions = {}
+): Promise<RetrievedChunk[]> {
+  const { limit = 3, sessionId = null, supabaseClient } = options;
+
+  // Use provided supabase client or create new one
+  const supabase = supabaseClient || createClient();
+
+  // Generate embedding for the query
+  const embedding = await generateEmbedding(query);
+  if (!embedding) {
+    console.warn("[retrieveRelevantChunks] Failed to generate embedding");
+    return [];
+  }
+
+  // Call the match_transcript_chunks RPC
+  const { data: chunks, error } = await supabase.rpc("match_transcript_chunks", {
+    query_embedding: embedding,
+    match_user_id: userId,
+    match_session_id: sessionId || null,
+    match_limit: limit,
+  });
+
+  if (error) {
+    console.error("[retrieveRelevantChunks] RPC error:", error);
+    return [];
+  }
+
+  if (!chunks || chunks.length === 0) {
+    return [];
+  }
+
+  return chunks.map((c: { id: string; content: string; session_id: string | null; created_at: string; similarity?: number }) => ({
+    id: c.id,
+    content: c.content,
+    sessionId: c.session_id,
+    createdAt: c.created_at,
+    metadata: { similarity: c.similarity || 0 },
+  }));
+}
+
+// ---- RAG: Generate Embedding ----
+
+const EMBEDDING_URL = "https://openrouter.ai/api/v1/embeddings";
+const EMBEDDING_MODEL = "google/gemini-embedding-001";
+
+async function generateEmbedding(text: string): Promise<number[] | null> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    console.warn("[generateEmbedding] No API key configured");
+    return null;
+  }
+
+  try {
+    const response = await fetch(EMBEDDING_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: EMBEDDING_MODEL,
+        input: text,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("[generateEmbedding] API error:", response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.data?.[0]?.embedding || null;
+  } catch (err) {
+    console.error("[generateEmbedding] Exception:", err);
+    return null;
+  }
+}
+
+// ---- RAG: Get User Calibration ----
+
+export interface UserCalibration {
+  sessionCount: number;
+  avgGapScore: number;
+  trend: "improving" | "declining" | "stable";
+  recentTopics: string[];
+  commonGaps: string[];
+}
+
+export async function getUserCalibration(
+  userId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseClient?: any
+): Promise<UserCalibration> {
+  const supabase = supabaseClient || createClient();
+
+  // Get all user's sessions with probes
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: sessions, error } = await supabase
+    .from("sessions")
+    .select(`
+      id,
+      problem,
+      created_at,
+      probes (gap_score, signals)
+    `)
+    .eq("user_id", userId)
+    .eq("status", "completed")
+    .order("created_at", { ascending: false })
+    .limit(20) as { data: Array<{ id: string; problem: string; created_at: string; probes: Array<{ gap_score: number; signals: string[] }> }> | null; error: Error | null };
+
+  if (error || !sessions) {
+    console.warn("[getUserCalibration] Failed to fetch sessions:", error);
+    return {
+      sessionCount: 0,
+      avgGapScore: 0.5,
+      trend: "stable",
+      recentTopics: [],
+      commonGaps: [],
+    };
+  }
+
+  const sessionCount = sessions.length;
+
+  if (sessionCount === 0) {
+    return {
+      sessionCount: 0,
+      avgGapScore: 0.5,
+      trend: "stable",
+      recentTopics: [],
+      commonGaps: [],
+    };
+  }
+
+  // Calculate average gap score
+  let totalGapScore = 0;
+  let probeCount = 0;
+  const allSignals: string[] = [];
+
+  for (const session of sessions) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const probes = session.probes as any[];
+    if (probes) {
+      for (const probe of probes) {
+        totalGapScore += probe.gap_score || 0;
+        probeCount++;
+        if (probe.signals) {
+          allSignals.push(...probe.signals);
+        }
+      }
+    }
+  }
+
+  const avgGapScore = probeCount > 0 ? totalGapScore / probeCount : 0.5;
+
+  // Determine trend by comparing recent sessions to older ones
+  let trend: "improving" | "declining" | "stable" = "stable";
+  
+  if (sessionCount >= 4) {
+    const recentSessions = sessions.slice(0, Math.floor(sessionCount / 2));
+    const olderSessions = sessions.slice(Math.floor(sessionCount / 2));
+
+    const recentAvg = calculateAvgGap(recentSessions);
+    const olderAvg = calculateAvgGap(olderSessions);
+
+    if (recentAvg < olderAvg - 0.1) {
+      trend = "improving"; // Lower gap = better understanding
+    } else if (recentAvg > olderAvg + 0.1) {
+      trend = "declining";
+    }
+  }
+
+  // Get recent topics
+  const recentTopics = sessions.slice(0, 5).map(s => s.problem);
+
+  // Get common gaps (most frequent signals)
+  const signalCounts = new Map<string, number>();
+  for (const signal of allSignals) {
+    signalCounts.set(signal, (signalCounts.get(signal) || 0) + 1);
+  }
+  const commonGaps = Array.from(signalCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([signal]) => signal);
+
+  return {
+    sessionCount,
+    avgGapScore: Math.round(avgGapScore * 100) / 100,
+    trend,
+    recentTopics,
+    commonGaps,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function calculateAvgGap(sessions: { probes: { gap_score: number }[] }[]): number {
+  let total = 0;
+  let count = 0;
+  for (const session of sessions) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const probes = session.probes as any[];
+    if (probes) {
+      for (const probe of probes) {
+        total += probe.gap_score || 0;
+        count++;
+      }
+    }
+  }
+  return count > 0 ? total / count : 0.5;
+}

@@ -160,7 +160,7 @@ function ResultsContent() {
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
             <Link href="/" className="text-base sm:text-lg font-semibold text-white tracking-tight hover:text-neutral-300 transition-colors">
-              Socratic Lesson
+              openLesson
             </Link>
             <span className="text-neutral-700 hidden sm:inline">&middot;</span>
             <span className="text-[10px] text-neutral-600 font-medium uppercase tracking-widest hidden sm:inline">Results</span>

@@ -3,27 +3,27 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Socratic Lesson",
+  title: "openLesson",
   description: "Think out loud. AI-powered Socratic tutoring that listens to you reason and asks the right questions at the right time.",
-  metadataBase: new URL("https://socraticlesson.com"),
+  metadataBase: new URL("https://openlesson.academy"),
   openGraph: {
-    title: "Socratic Lesson — Think Out Loud",
+    title: "openLesson — Think Out Loud",
     description: "An AI tutor that listens to you think out loud and asks Socratic questions when it spots gaps in your reasoning. Free and open source.",
-    url: "https://socraticlesson.com",
-    siteName: "Socratic Lesson",
+    url: "https://openlesson.academy",
+    siteName: "openLesson",
     images: [
       {
         url: "/og-default.png",
         width: 1024,
         height: 536,
-        alt: "Socratic Lesson — Think Out Loud. AI-powered Socratic tutoring for problem solving.",
+        alt: "openLesson — Think Out Loud. AI-powered Socratic tutoring for problem solving.",
       },
     ],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Socratic Lesson — Think Out Loud",
+    title: "openLesson — Think Out Loud",
     description: "An AI tutor that listens to you think out loud and asks Socratic questions when it spots gaps in your reasoning.",
     images: ["/og-default.png"],
     creator: "@uncertainsys",

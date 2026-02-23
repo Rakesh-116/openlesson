@@ -74,7 +74,7 @@ export default function PlansPage() {
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="text-xl font-bold tracking-tight">
-              Socrates
+              openLesson
             </Link>
             <span className="text-neutral-600">/</span>
             <span className="text-neutral-400">Learning Plans</span>

@@ -232,7 +232,7 @@ export async function analyzeGap(
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Socrates",
+        "X-Title": "openLesson",
       },
       body: JSON.stringify({
         model: MODEL,
@@ -313,7 +313,7 @@ export async function generateOpeningProbe(
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Socrates",
+        "X-Title": "openLesson",
       },
       body: JSON.stringify({
         model: MODEL,
@@ -408,7 +408,7 @@ export async function generateProbe(
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Socrates",
+        "X-Title": "openLesson",
       },
       body: JSON.stringify({
         model: MODEL,
@@ -476,7 +476,7 @@ export async function checkSessionEnd(options: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Socrates",
+        "X-Title": "openLesson",
       },
       body: JSON.stringify({
         model: MODEL,
@@ -544,7 +544,7 @@ export async function generateReport(options: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Socrates",
+        "X-Title": "openLesson",
       },
       body: JSON.stringify({
         model: MODEL,
@@ -608,7 +608,7 @@ Output ONLY the transcript text, nothing else.`;
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Socrates",
+        "X-Title": "openLesson",
       },
       body: JSON.stringify({
         model: MODEL,
@@ -709,7 +709,7 @@ Max 3 signals. Use categories like: "incomplete_diagram", "misconception", "conf
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Socrates",
+        "X-Title": "openLesson",
       },
       body: JSON.stringify({
         model: MODEL,
@@ -822,7 +822,7 @@ Max 3 signals. Use categories like: "unclear_reasoning", "confusion", "assumptio
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Socrates",
+        "X-Title": "openLesson",
       },
       body: JSON.stringify({
         model: MODEL,
@@ -914,7 +914,7 @@ export async function expandProbe(options: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Socrates",
+        "X-Title": "openLesson",
       },
       body: JSON.stringify({
         model: MODEL,
@@ -973,7 +973,7 @@ export async function askQuestion(options: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Socrates",
+        "X-Title": "openLesson",
       },
       body: JSON.stringify({
         model: selectedModel,

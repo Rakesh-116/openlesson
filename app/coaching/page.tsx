@@ -2,19 +2,19 @@ import Link from "next/link";
 import { Footer } from "@/components/Footer";
 
 export const metadata = {
-  title: "Coaching - Socratic Lesson",
+  title: "Coaching - openLesson",
   description: "Learn to think through anything. 1-on-1 coaching on solving the hardest problems in math, physics, and beyond — no shortcuts, just thinking. $199.",
   openGraph: {
     title: "Learn to think through anything",
     description: "1-on-1 problem solving coaching. From competition math to quantum physics — build the thinking skills to tackle any problem. $199 session.",
-    url: "https://socraticlesson.com/coaching",
-    siteName: "Socratic Lesson",
+    url: "https://openlesson.academy/coaching",
+    siteName: "openLesson",
     images: [
       {
         url: "/coaching-og.png",
         width: 1024,
         height: 536,
-        alt: "Socratic Lesson — Learn to think through anything. 1-on-1 problem solving coaching.",
+        alt: "openLesson — Learn to think through anything. 1-on-1 problem solving coaching.",
       },
     ],
     type: "website",
@@ -53,7 +53,7 @@ export default function CoachingPage() {
       <header className="border-b border-neutral-800/60 px-4 sm:px-6 py-4 backdrop-blur-sm bg-[#0a0a0a]/80 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <Link href="/" className="text-base sm:text-lg font-semibold text-white tracking-tight hover:text-neutral-300 transition-colors">
-            Socratic Lesson
+            openLesson
           </Link>
           <div className="flex items-center gap-3 sm:gap-4">
             <Link href="/" className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors">

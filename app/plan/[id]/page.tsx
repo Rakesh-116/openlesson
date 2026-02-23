@@ -103,7 +103,7 @@ export default function PlanPage() {
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="text-xl font-bold tracking-tight">
-              Socrates
+              openLesson
             </Link>
             <span className="text-neutral-600">/</span>
             <Link href="/plans" className="text-neutral-400 hover:text-white text-sm">
