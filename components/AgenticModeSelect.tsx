@@ -20,6 +20,10 @@ const ENDPOINTS = [
       days: "number",
       nodes: "array",
     },
+    curl: `curl -X POST https://openlesson.academy/api/agent/plan \\
+  -H "Authorization: Bearer sk_YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"topic": "Machine Learning", "days": 30}'`,
   },
   {
     name: "Start Session",
@@ -35,6 +39,10 @@ const ENDPOINTS = [
       problem: "string",
       status: "active",
     },
+    curl: `curl -X POST https://openlesson.academy/api/agent/session/start \\
+  -H "Authorization: Bearer sk_YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"problem": "Explain how backpropagation works", "plan_node_id": "uuid-from-plan"}'`,
   },
   {
     name: "Analyze Audio",
@@ -53,6 +61,48 @@ const ENDPOINTS = [
       followUpQuestion: "string",
       requiresFollowUp: "boolean",
     },
+    curl: `curl -X POST https://openlesson.academy/api/agent/session/analyze \\
+  -H "Authorization: Bearer sk_YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"session_id": "uuid", "audio_base64": "BASE64_AUDIO", "audio_format": "webm"}'`,
+  },
+  {
+    name: "End Session",
+    method: "POST",
+    path: "/api/agent/session/end",
+    description: "End a session and generate a summary report",
+    params: [
+      { name: "session_id", type: "string", required: true, example: "uuid" },
+    ],
+    response: {
+      success: "boolean",
+      sessionId: "uuid",
+      message: "string",
+      chunkCount: "number",
+      wordCount: "number",
+    },
+    curl: `curl -X POST https://openlesson.academy/api/agent/session/end \\
+  -H "Authorization: Bearer sk_YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"session_id": "uuid"}'`,
+  },
+  {
+    name: "Get Report",
+    method: "GET",
+    path: "/api/agent/session/summary?session_id=xxx",
+    description: "Retrieve the summary report of a completed session",
+    params: [
+      { name: "session_id", type: "string", required: true, example: "uuid" },
+    ],
+    response: {
+      ready: "boolean",
+      sessionId: "uuid",
+      report: "string (markdown)",
+      createdAt: "timestamp",
+      status: "string",
+    },
+    curl: `curl "https://openlesson.academy/api/agent/session/summary?session_id=uuid" \\
+  -H "Authorization: Bearer sk_YOUR_API_KEY"`,
   },
 ];
 
@@ -61,14 +111,13 @@ const CURL_EXAMPLE = `# Agentic Mode - Complete Workflow Example
 
 # Step 1: Generate a learning plan
 # Use 'days' to specify plan duration (7, 14, 30, 60, 90, 180)
-curl -X POST https://openlesson.academy/api/agent/plan \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
+curl -X POST https://openlesson.academy/api/agent/plan \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
   -d '{
     "topic": "Machine Learning Fundamentals",
     "days": 30
   }'
-# Returns 402 if payment required - see payment flow below
 
 # Step 2: Start a session for a specific node
 curl -X POST https://openlesson.academy/api/agent/session/start \\
@@ -89,21 +138,15 @@ curl -X POST https://openlesson.academy/api/agent/session/analyze \\
     "audio_format": "webm"
   }'
 
-# === x402 Payment Flow ===
-# If request returns 402, get payment requirements and pay:
-
-# 1. Get payment requirements:
-curl https://openlesson.academy/api/agent/payment-requirements
-
-# 2. Server returns 402 with paymentRequirements:
-# {"paymentRequirements": {"scheme": "exact", "network": "base-sepolia", ...}}
-
-# 3. Use x402 client to create payment, then retry with header:
-curl -X POST https://openlesson.academy/api/agent/plan \\
+# Step 4: End session and generate report
+curl -X POST https://openlesson.academy/api/agent/session/end \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "x402-payment: <base64-encoded-payment>" \\
   -H "Content-Type: application/json" \\
-  -d '{"topic": "Machine Learning"}'`;
+  -d '{"session_id": "session-uuid"}'
+
+# Step 5: Get the session report
+curl "https://openlesson.academy/api/agent/summary?session_id=session-uuid" \
+  -H "Authorization: Bearer YOUR_API_KEY"`;
 
 export function AgenticModeSelect() {
   const [copiedEndpoint, setCopiedEndpoint] = useState<string | null>(null);
@@ -227,7 +270,7 @@ export function AgenticModeSelect() {
                 </div>
               </div>
 
-              <div className="text-xs">
+              <div className="text-xs mb-3">
                 <span className="text-neutral-500">Parameters: </span>
                 {endpoint.params.map((p, i) => (
                   <span key={i} className={p.required ? "text-white" : "text-neutral-400"}>
@@ -238,11 +281,15 @@ export function AgenticModeSelect() {
                 ))}
               </div>
 
+              <div className="bg-black/40 rounded-lg p-3 overflow-x-auto">
+                <pre className="text-xs font-mono text-neutral-300 whitespace-pre-wrap break-all">{endpoint.curl}</pre>
+              </div>
+              
               <button
-                onClick={() => copyToClipboard(endpoint.path, `endpoint-${idx}`)}
+                onClick={() => copyToClipboard(endpoint.curl, `curl-${idx}`)}
                 className="mt-2 text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
               >
-                {copiedEndpoint === `endpoint-${idx}` ? "✓ Copied" : "Copy path"}
+                {copiedEndpoint === `curl-${idx}` ? "✓ Copied curl" : "Copy curl"}
               </button>
             </div>
           ))}
@@ -273,13 +320,6 @@ export function AgenticModeSelect() {
             <span>
               <span className="text-white font-medium">Days:</span> Use numeric days (7, 14, 30, 60, 90, 180) to constrain plan size. 
               Default: 30 days.
-            </span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-yellow-400">•</span>
-            <span>
-              <span className="text-white font-medium">Payment:</span> x402 protocol (USDC on Base). 
-              Requests return 402 if not paid. Include <code className="text-green-400">x402-payment</code> header with payment.
             </span>
           </li>
           <li className="flex items-start gap-2">

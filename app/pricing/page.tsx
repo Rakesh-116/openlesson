@@ -13,6 +13,7 @@ interface UserState {
   isAdmin: boolean;
   walletVerified: boolean;
   tokenTier: string | null;
+  tokenValidityExpiresAt: string | null;
 }
 
 export default function PricingPage() {
@@ -31,12 +32,12 @@ export default function PricingPage() {
         const supabase = createClient();
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (!authUser) {
-          setUser({ authenticated: false, plan: "free", isAdmin: false, walletVerified: false, tokenTier: null });
+          setUser({ authenticated: false, plan: "free", isAdmin: false, walletVerified: false, tokenTier: null, tokenValidityExpiresAt: null });
           return;
         }
         const { data: profile } = await supabase
           .from("profiles")
-          .select("plan, is_admin, wallet_address, token_tier")
+          .select("plan, is_admin, wallet_address, token_tier, token_validity_expires_at")
           .eq("id", authUser.id)
           .single();
 
@@ -46,9 +47,10 @@ export default function PricingPage() {
           isAdmin: profile?.is_admin ?? false,
           walletVerified: !!profile?.wallet_address,
           tokenTier: profile?.token_tier ?? null,
+          tokenValidityExpiresAt: profile?.token_validity_expires_at ?? null,
         });
       } catch {
-        setUser({ authenticated: false, plan: "free", isAdmin: false, walletVerified: false, tokenTier: null });
+        setUser({ authenticated: false, plan: "free", isAdmin: false, walletVerified: false, tokenTier: null, tokenValidityExpiresAt: null });
       }
     };
     load();
@@ -113,7 +115,7 @@ export default function PricingPage() {
         setWalletError("No $UNSYS tokens found in this wallet");
         return;
       }
-      setUser((prev) => prev ? { ...prev, walletVerified: true, tokenTier: data.tier } : null);
+      setUser((prev) => prev ? { ...prev, walletVerified: true, tokenTier: data.tier, tokenValidityExpiresAt: data.expiresAt } : null);
     } catch (err) {
       console.error("Verify error:", err);
       setWalletError("Failed to verify wallet");
@@ -301,10 +303,18 @@ export default function PricingPage() {
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
                     Lifetime Access
                   </div>
+                  <div className="flex justify-center mb-4">
+                    <img 
+                      src="https://images.pump.fun/coin-image/Dza3Bey5tvyYiPgcGRKoXKU6rNrdoNrWNVmjqePcpump?variant=600x600&ipfs=bafybeigjzyjou2spcdbaknnxjzp2gxqdof4ezyedxxajr2wpxwbbgqmj5a&src=https%3A%2F%2Fipfs.io%2Fipfs%2Fbafybeigjzyjou2spcdbaknnxjzp2gxqdof4ezyedxxajr2wpxwbbgqmj5a" 
+                      alt="$UNSYS Token" 
+                      className="w-16 h-16 rounded-full"
+                    />
+                  </div>
                   <h2 className="text-2xl font-bold text-white mb-2">Hold $UNSYS Tokens</h2>
                   <p className="text-neutral-400 text-sm">
                     Get lifetime access to openLesson by holding $UNSYS tokens in your Solana wallet.
-                    You don't need to send us anything — just prove you own the tokens.
+                    You don't need to send us anything — just prove you own the tokens. Validated holdings
+                    must be reconfirmed every 3 months to maintain access.
                   </p>
                 </div>
 
@@ -312,7 +322,7 @@ export default function PricingPage() {
                   <h3 className="text-sm font-medium text-white mb-3">Token Tier Mapping</h3>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-neutral-400">Any $UNSYS balance</span>
+                      <span className="text-sm text-neutral-400">2M+ $UNSYS</span>
                       <span className="text-sm font-medium text-blue-400">Regular Tier</span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -337,22 +347,33 @@ export default function PricingPage() {
                       <span className="text-neutral-600">3.</span>
                       Your account is upgraded — tokens stay in your wallet!
                     </li>
+                    <li className="flex gap-2">
+                      <span className="text-neutral-600">4.</span>
+                      Re-verify every 3 months to maintain access
+                    </li>
                   </ol>
                 </div>
 
                 {user?.walletVerified && user.tokenTier ? (
                   <div className="text-center">
-                    <div className="inline-flex items-center gap-3 bg-neutral-950 rounded-xl px-4 py-3">
-                      <span className="text-sm text-neutral-400">Verified</span>
-                      <span
-                        className={`inline-flex px-3 py-1 rounded-lg text-sm font-medium ${
-                          user.tokenTier === "pro"
-                            ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
-                            : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                        }`}
-                      >
-                        {user.tokenTier === "pro" ? "Pro" : "Regular"} Tier
-                      </span>
+                    <div className="inline-flex flex-col items-center gap-3 bg-neutral-950 rounded-xl px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-neutral-400">Verified</span>
+                        <span
+                          className={`inline-flex px-3 py-1 rounded-lg text-sm font-medium ${
+                            user.tokenTier === "pro"
+                              ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                              : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                          }`}
+                        >
+                          {user.tokenTier === "pro" ? "Pro" : "Regular"} Tier
+                        </span>
+                      </div>
+                      {user.tokenValidityExpiresAt && (
+                        <span className="text-xs text-neutral-500">
+                          Valid until {new Date(user.tokenValidityExpiresAt).toLocaleDateString()}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ) : (

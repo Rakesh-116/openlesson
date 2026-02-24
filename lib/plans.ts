@@ -71,6 +71,8 @@ export interface UserProfile {
   extra_lessons: number;
   subscription_status: string;
   current_period_end: string | null;
+  token_tier: string | null;
+  token_validity_expires_at: string | null;
 }
 
 export interface UsageCheckResult {
@@ -90,7 +92,7 @@ export function canStartSession(
   profile: UserProfile,
   sessionCount: number
 ): UsageCheckResult {
-  const { plan, is_admin, extra_lessons, subscription_status } = profile;
+  const { plan, is_admin, extra_lessons, subscription_status, token_tier, token_validity_expires_at } = profile;
 
   // Admins always pass
   if (is_admin) {
@@ -98,6 +100,30 @@ export function canStartSession(
   }
 
   const planDef = PLANS[plan] || PLANS.free;
+
+  // Check token tier validity (3-month validation)
+  const isTokenValid = token_tier && token_validity_expires_at && new Date(token_validity_expires_at) > new Date();
+  
+  // If token tier is valid and better than current plan, use token tier
+  if (isTokenValid) {
+    if (token_tier === "pro") {
+      return { allowed: true, plan: "pro", used: sessionCount, limit: null, isAdmin: false };
+    }
+    if (token_tier === "regular") {
+      const tokenLimit = 5;
+      if (sessionCount >= tokenLimit) {
+        return {
+          allowed: false,
+          reason: `Token tier expired or insufficient. Re-verify your wallet at /pricing to continue.`,
+          plan: "regular",
+          used: sessionCount,
+          limit: tokenLimit,
+          isAdmin: false,
+        };
+      }
+      return { allowed: true, plan: "regular", used: sessionCount, limit: tokenLimit, isAdmin: false };
+    }
+  }
 
   // Pro = unlimited
   if (plan === "pro" && subscription_status === "active") {

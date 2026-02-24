@@ -67,7 +67,7 @@ export async function GET() {
     // Load profile
     const { data: profile } = await supabase
       .from("profiles")
-      .select("plan, is_admin, extra_lessons, subscription_status, current_period_end")
+      .select("plan, is_admin, extra_lessons, subscription_status, current_period_end, token_tier, token_validity_expires_at")
       .eq("id", user.id)
       .single();
 
@@ -111,6 +111,8 @@ export async function GET() {
         extra_lessons: profile.extra_lessons ?? 0,
         subscription_status: profile.subscription_status ?? "inactive",
         current_period_end: profile.current_period_end,
+        token_tier: profile.token_tier,
+        token_validity_expires_at: profile.token_validity_expires_at,
       },
       sessionCount
     );

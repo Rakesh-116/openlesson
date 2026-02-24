@@ -18,6 +18,7 @@ interface NavbarProps {
 export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -45,6 +46,13 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
     router.refresh();
   };
 
+  const navLinks = [
+    { href: "/use-cases", label: "Use Cases" },
+    { href: "/pricing", label: "Pricing" },
+    { href: "/coaching", label: "Coaching" },
+    { href: "/dashboard", label: "Dashboard" },
+  ];
+
   return (
     <header className="border-b border-neutral-800/60 px-4 sm:px-6 py-4 backdrop-blur-sm bg-[#0a0a0a]/80 sticky top-0 z-20">
       <div className="max-w-5xl mx-auto flex items-center justify-between">
@@ -55,7 +63,7 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
           
           {breadcrumbs.length > 0 && (
             <>
-              <span className="text-neutral-600">/</span>
+              <span className="text-neutral-600 hidden sm:inline">/</span>
               {breadcrumbs.map((item, index) => (
                 <div key={index} className="flex items-center gap-2">
                   {item.href ? (
@@ -65,27 +73,25 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
                   ) : (
                     <span className="text-neutral-400 text-sm">{item.label}</span>
                   )}
-                  {index < breadcrumbs.length - 1 && <span className="text-neutral-600">/</span>}
+                  {index < breadcrumbs.length - 1 && <span className="text-neutral-600 hidden sm:inline">/</span>}
                 </div>
               ))}
             </>
           )}
         </div>
 
+        {/* Desktop Navigation */}
         {showNav && (
-          <div className="flex items-center gap-3 sm:gap-4">
-            <Link href="/use-cases" className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors">
-              Use Cases
-            </Link>
-            <Link href="/pricing" className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors">
-              Pricing
-            </Link>
-            <Link href="/coaching" className="text-xs sm:text-sm text-neutral-400 hover:text-white text-sm transition-colors">
-              Coaching
-            </Link>
-            <Link href="/dashboard" className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors">
-              Dashboard
-            </Link>
+          <div className="hidden md:flex items-center gap-4">
+            {navLinks.map((link) => (
+              <Link 
+                key={link.href} 
+                href={link.href} 
+                className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors"
+              >
+                {link.label}
+              </Link>
+            ))}
             
             {isLoggedIn === true ? (
               <button
@@ -101,7 +107,64 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
             )}
           </div>
         )}
+
+        {/* Mobile Menu Button */}
+        {showNav && (
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 text-neutral-400 hover:text-white transition-colors"
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? (
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
+          </button>
+        )}
       </div>
+
+      {/* Mobile Menu Dropdown */}
+      {showNav && mobileMenuOpen && (
+        <div className="md:hidden mt-4 pb-4 border-t border-neutral-800 pt-4">
+          <nav className="flex flex-col gap-4">
+            {navLinks.map((link) => (
+              <Link 
+                key={link.href} 
+                href={link.href} 
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-sm text-neutral-400 hover:text-white transition-colors"
+              >
+                {link.label}
+              </Link>
+            ))}
+            
+            {isLoggedIn === true ? (
+              <button
+                onClick={() => {
+                  handleSignOut();
+                  setMobileMenuOpen(false);
+                }}
+                className="text-sm text-neutral-400 hover:text-white transition-colors text-left"
+              >
+                Sign out
+              </button>
+            ) : isLoggedIn === false && (
+              <Link 
+                href="/login" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-sm text-neutral-400 hover:text-white transition-colors"
+              >
+                Sign In
+              </Link>
+            )}
+          </nav>
+        </div>
+      )}
     </header>
   );
 }
