@@ -224,6 +224,15 @@ export function AgenticModeSelect() {
           <p className="text-sm text-neutral-400">
             Turn your OpenClaw agent into an openLesson-powered personal tutor.
           </p>
+          <a 
+            href="https://clawhub.ai/dncolomer/open-lesson" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            View on ClawHub →
+          </a>
         </a>
 
         {/* Any Agent Card */}
