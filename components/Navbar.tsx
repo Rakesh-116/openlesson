@@ -74,6 +74,9 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
 
         {showNav && (
           <div className="flex items-center gap-3 sm:gap-4">
+            <Link href="/use-cases" className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors">
+              Use Cases
+            </Link>
             <Link href="/pricing" className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors">
               Pricing
             </Link>

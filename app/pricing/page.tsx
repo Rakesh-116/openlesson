@@ -11,11 +11,19 @@ interface UserState {
   authenticated: boolean;
   plan: PlanId;
   isAdmin: boolean;
+  walletVerified: boolean;
+  tokenTier: string | null;
 }
 
 export default function PricingPage() {
   const [user, setUser] = useState<UserState | null>(null);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"regular" | "lifetime">("regular");
+  
+  // Wallet verification state
+  const [walletAddress, setWalletAddress] = useState("");
+  const [verifyingWallet, setVerifyingWallet] = useState(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -23,12 +31,12 @@ export default function PricingPage() {
         const supabase = createClient();
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (!authUser) {
-          setUser({ authenticated: false, plan: "free", isAdmin: false });
+          setUser({ authenticated: false, plan: "free", isAdmin: false, walletVerified: false, tokenTier: null });
           return;
         }
         const { data: profile } = await supabase
           .from("profiles")
-          .select("plan, is_admin")
+          .select("plan, is_admin, wallet_address, token_tier")
           .eq("id", authUser.id)
           .single();
 
@@ -36,9 +44,11 @@ export default function PricingPage() {
           authenticated: true,
           plan: (profile?.plan || "free") as PlanId,
           isAdmin: profile?.is_admin ?? false,
+          walletVerified: !!profile?.wallet_address,
+          tokenTier: profile?.token_tier ?? null,
         });
       } catch {
-        setUser({ authenticated: false, plan: "free", isAdmin: false });
+        setUser({ authenticated: false, plan: "free", isAdmin: false, walletVerified: false, tokenTier: null });
       }
     };
     load();
@@ -70,6 +80,45 @@ export default function PricingPage() {
   const isCurrentPlan = (planId: PlanId) =>
     user?.authenticated && user.plan === planId;
 
+  const handleVerifyWallet = async () => {
+    console.log("Verify wallet clicked, user:", user, "address:", walletAddress);
+    if (!user?.authenticated) {
+      window.location.href = "/login?redirect=/pricing";
+      return;
+    }
+    if (!walletAddress.trim()) {
+      setWalletError("Please enter a wallet address");
+      return;
+    }
+    setVerifyingWallet(true);
+    setWalletError(null);
+    try {
+      const trimmedAddress = walletAddress.trim();
+      console.log("Calling API with address:", trimmedAddress);
+      const res = await fetch("/api/verify-wallet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletAddress: trimmedAddress }),
+      });
+      const data = await res.json();
+      console.log("API response:", res.status, data);
+      if (!res.ok) {
+        setWalletError(data.error || "Verification failed");
+        return;
+      }
+      if (data.tier === null) {
+        setWalletError("No $UNSYS tokens found in this wallet");
+        return;
+      }
+      setUser((prev) => prev ? { ...prev, walletVerified: true, tokenTier: data.tier } : null);
+    } catch (err) {
+      console.error("Verify error:", err);
+      setWalletError("Failed to verify wallet");
+    } finally {
+      setVerifyingWallet(false);
+    }
+  };
+
   return (
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
       <Navbar />
@@ -98,8 +147,36 @@ export default function PricingPage() {
           </p>
         </div>
 
-        {/* Plan Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
+        {/* Toggle */}
+        <div className="flex justify-center mb-8">
+          <div className="inline-flex items-center bg-neutral-900 rounded-lg p-1 border border-neutral-800">
+            <button
+              onClick={() => setViewMode("regular")}
+              className={`px-4 py-2 text-sm rounded-md transition-colors ${
+                viewMode === "regular" 
+                  ? "bg-white text-black font-medium" 
+                  : "text-neutral-400 hover:text-white"
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setViewMode("lifetime")}
+              className={`px-4 py-2 text-sm rounded-md transition-colors ${
+                viewMode === "lifetime" 
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium" 
+                  : "text-neutral-400 hover:text-white"
+              }`}
+            >
+              Lifetime (Token)
+            </button>
+          </div>
+        </div>
+
+        {viewMode === "regular" ? (
+          <>
+            {/* Regular Monthly Plans */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
           {/* Free */}
           <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6 flex flex-col">
             <p className="text-sm text-neutral-400 mb-1">{PLANS.free.name}</p>
@@ -209,15 +286,112 @@ export default function PricingPage() {
               </button>
             )}
           </div>
-        </div>
+          </div>
+          </>
+        ) : (
+          <>
+            {/* Lifetime Token Access */}
+            <div className="max-w-2xl mx-auto mb-12">
+              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-8">
+                <div className="text-center mb-6">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 text-blue-400 text-xs mb-4">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                    Lifetime Access
+                  </div>
+                  <h2 className="text-2xl font-bold text-white mb-2">Hold $UNSYS Tokens</h2>
+                  <p className="text-neutral-400 text-sm">
+                    Get lifetime access to openLesson by holding $UNSYS tokens in your Solana wallet.
+                    You don't need to send us anything — just prove you own the tokens.
+                  </p>
+                </div>
+
+                <div className="bg-neutral-950 rounded-xl p-4 mb-6">
+                  <h3 className="text-sm font-medium text-white mb-3">Token Tier Mapping</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-neutral-400">Any $UNSYS balance</span>
+                      <span className="text-sm font-medium text-blue-400">Regular Tier</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-neutral-400">5M+ $UNSYS</span>
+                      <span className="text-sm font-medium text-purple-400">Pro Tier</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-neutral-950 rounded-xl p-4 mb-6">
+                  <h3 className="text-sm font-medium text-white mb-2">How it works</h3>
+                  <ol className="space-y-2 text-sm text-neutral-400">
+                    <li className="flex gap-2">
+                      <span className="text-neutral-600">1.</span>
+                      Enter your Solana wallet address above
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-neutral-600">2.</span>
+                      We verify your token balance on-chain
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-neutral-600">3.</span>
+                      Your account is upgraded — tokens stay in your wallet!
+                    </li>
+                  </ol>
+                </div>
+
+                {user?.walletVerified && user.tokenTier ? (
+                  <div className="text-center">
+                    <div className="inline-flex items-center gap-3 bg-neutral-950 rounded-xl px-4 py-3">
+                      <span className="text-sm text-neutral-400">Verified</span>
+                      <span
+                        className={`inline-flex px-3 py-1 rounded-lg text-sm font-medium ${
+                          user.tokenTier === "pro"
+                            ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                            : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                        }`}
+                      >
+                        {user.tokenTier === "pro" ? "Pro" : "Regular"} Tier
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      name="walletAddress"
+                      id="walletAddress"
+                      placeholder="Enter your Solana wallet address"
+                      value={walletAddress}
+                      onChange={(e) => setWalletAddress(e.target.value)}
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-3 text-sm text-neutral-200 focus:outline-none focus:border-neutral-600 placeholder:text-neutral-600"
+                    />
+                    {walletError && (
+                      <p className="text-xs text-red-400 text-center">{walletError}</p>
+                    )}
+                    <button
+                      type="button"
+                      disabled={true}
+                      className="w-full py-3 text-sm font-medium text-neutral-500 bg-neutral-800 rounded-lg cursor-not-allowed"
+                    >
+                      Verify Token Ownership (Coming Soon)
+                    </button>
+                    <p className="text-xs text-neutral-700 text-center">
+                      We only check your balance — tokens never leave your wallet
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* FAQ / Extra info */}
-        <div className="text-center text-xs text-neutral-700">
-          <p>
-            All plans include real-time audio analysis and AI-generated session reports.
-            Cancel anytime from your Stripe dashboard.
-          </p>
-        </div>
+        {viewMode === "regular" && (
+          <div className="text-center text-xs text-neutral-700">
+            <p>
+              All plans include real-time audio analysis and AI-generated session reports.
+              Cancel anytime from your Stripe dashboard.
+            </p>
+          </div>
+        )}
       </div>
       <Footer />
     </main>
