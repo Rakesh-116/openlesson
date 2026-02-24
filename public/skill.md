@@ -24,6 +24,8 @@ Include your API key in the Authorization header:
 Authorization: Bearer YOUR_API_KEY
 ```
 
+**Important**: Always use `https://www.openlesson.academy` for API calls. The domain `openlesson.academy` has a redirect that loses the Authorization header.
+
 API keys can be generated from the user's dashboard at `/dashboard`.
 
 ## Bash Command Patterns
