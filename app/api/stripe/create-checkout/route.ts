@@ -70,6 +70,14 @@ export async function POST(request: NextRequest) {
 
     let customerId = profile?.stripe_customer_id;
 
+    if (customerId) {
+      try {
+        await stripe.customers.retrieve(customerId);
+      } catch {
+        customerId = null;
+      }
+    }
+
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: user.email,
