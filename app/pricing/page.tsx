@@ -69,9 +69,12 @@ export default function PricingPage() {
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
+      } else if (data.error) {
+        alert("Failed to create checkout: " + data.error);
       }
-    } catch {
-      // silent
+    } catch (err) {
+      console.error("Checkout error:", err);
+      alert("Failed to create checkout session. Please try again.");
     } finally {
       setLoadingPlan(null);
     }
