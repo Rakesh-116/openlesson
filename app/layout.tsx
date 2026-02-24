@@ -4,28 +4,28 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "openLesson",
-  description: "Think out loud. AI-powered Socratic tutoring that listens to you reason and asks the right questions at the right time.",
+  description: "AI-powered tutoring that listens to you reason and asks the right questions at the right time.",
   metadataBase: new URL("https://openlesson.academy"),
   openGraph: {
-    title: "openLesson — Think Out Loud",
-    description: "An AI tutor that listens to you think out loud and asks Socratic questions when it spots gaps in your reasoning. Free and open source.",
+    title: "openLesson",
+    description: "An AI tutor that listens to you reason and asks questions when it spots gaps in your reasoning. Free and open source.",
     url: "https://openlesson.academy",
     siteName: "openLesson",
     images: [
       {
-        url: "/og-default.png",
+        url: "/og-default.jpg",
         width: 1024,
         height: 536,
-        alt: "openLesson — Think Out Loud. AI-powered Socratic tutoring for problem solving.",
+        alt: "openLesson. AI-powered tutoring for problem solving.",
       },
     ],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "openLesson — Think Out Loud",
-    description: "An AI tutor that listens to you think out loud and asks Socratic questions when it spots gaps in your reasoning.",
-    images: ["/og-default.png"],
+    title: "openLesson",
+    description: "An AI tutor that listens to you reason and asks questions when it spots gaps in your reasoning.",
+    images: ["/og-default.jpg"],
     creator: "@uncertainsys",
   },
 };

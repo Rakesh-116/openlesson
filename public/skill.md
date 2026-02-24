@@ -1,10 +1,14 @@
 # openLesson Agent API Skill
 
-You are an AI agent that can interact with the openLesson Socratic tutoring platform via API.
+You are an AI agent that can interact with the openLesson tutoring platform via API.
 
 ## Overview
 
-openLesson is a Socratic tutoring system that uses audio-based dialogue to help users learn by asking questions rather than giving answers. The platform generates personalized learning plans as directed graphs, where each node is a Socratic session. Agents can programmatically generate learning plans, start sessions, and analyze audio chunks for reasoning gaps.
+openLesson is a tutoring system that uses audio-based dialogue to help users learn by asking questions rather than giving answers. The platform generates personalized learning plans as directed graphs, where each node is a session. Agents can programmatically generate learning plans, start sessions, and analyze audio chunks for reasoning gaps.
+
+## Important: No Browser Tool Required
+
+You do not need a browser tool. You only need shell tools (e.g., curl) to make API calls to openLesson.
 
 ## Important: Audio-Only System
 

@@ -141,6 +141,70 @@ export function AgenticModeSelect() {
         </p>
       </div>
 
+      {/* Framework Integration Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        {/* ElizaOS Card */}
+        <a
+          href="/skill-elizaos.md"
+          className="block p-6 bg-neutral-900/50 border border-neutral-800 rounded-xl hover:border-purple-500/50 transition-all group"
+        >
+          <div className="aspect-square rounded-lg mb-4 flex items-center justify-center overflow-hidden bg-neutral-800/50">
+            <img 
+              src="https://avatars.githubusercontent.com/u/186240462?s=200&v=4" 
+              alt="ElizaOS" 
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-purple-400 transition-colors">
+            ElizaOS
+          </h3>
+          <p className="text-sm text-neutral-400">
+            Turn your ElizaOS agent into an openLesson-powered personal tutor.
+          </p>
+        </a>
+
+        {/* OpenClaw Card */}
+        <a
+          href="/skill-openclaw.md"
+          className="block p-6 bg-neutral-900/50 border border-neutral-800 rounded-xl hover:border-blue-500/50 transition-all group"
+        >
+          <div className="aspect-square rounded-lg mb-4 flex items-center justify-center overflow-hidden bg-neutral-800/50">
+            <img 
+              src="https://avatars.githubusercontent.com/u/252820863?s=200&v=4" 
+              alt="OpenClaw" 
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-blue-400 transition-colors">
+            OpenClaw
+          </h3>
+          <p className="text-sm text-neutral-400">
+            Turn your OpenClaw agent into an openLesson-powered personal tutor.
+          </p>
+        </a>
+
+        {/* Any Agent Card */}
+        <a
+          href="/skill.md"
+          className="block p-6 bg-neutral-900/50 border border-neutral-800 rounded-xl hover:border-green-500/50 transition-all group"
+        >
+          <div className="aspect-square rounded-lg mb-4 flex items-center justify-center bg-neutral-800/50">
+            <svg className="w-16 h-16 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a6 6 0 100-12 6 6 0 000 12z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 14a2 2 0 100-4 2 2 0 000 4z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v2M12 20v2M2 12h2M20 12h2" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-green-400 transition-colors">
+            Any Agent
+          </h3>
+          <p className="text-sm text-neutral-400">
+            Turn any AI agent into an openLesson-powered personal tutor.
+          </p>
+        </a>
+      </div>
+
       <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6 mb-8">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-white">API Endpoints</h3>

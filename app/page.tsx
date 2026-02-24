@@ -18,51 +18,47 @@ export default function Home() {
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
       <Navbar />
 
-      {/* Mode Toggle */}
-      <div>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex justify-center">
-            <div className="bg-neutral-900/80 rounded-xl p-1 flex gap-1 border border-neutral-800">
-              <button
-                onClick={() => setMode("session")}
-                className={`px-6 py-2 text-sm font-medium rounded-lg transition-all ${
-                  mode === "session"
-                    ? "bg-white/15 text-white shadow-sm"
-                    : "text-neutral-500 hover:text-white"
-                }`}
-              >
-                Session
-              </button>
-              <button
-                onClick={() => setMode("plan")}
-                className={`px-6 py-2 text-sm font-medium rounded-lg transition-all ${
-                  mode === "plan"
-                    ? "bg-white/15 text-white shadow-sm"
-                    : "text-neutral-500 hover:text-white"
-                }`}
-              >
-                Plan
-              </button>
-              <button
-                onClick={() => setMode("agentic")}
-                className={`px-6 py-2 text-sm font-medium rounded-lg transition-all ${
-                  mode === "agentic"
-                    ? "bg-white/15 text-white shadow-sm"
-                    : "text-neutral-500 hover:text-white"
-                }`}
-              >
-                Agentic
-              </button>
-            </div>
+      {/* Hero */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-6">
+        {/* Mode Toggle */}
+        <div className="flex justify-center mb-8">
+          <div className="bg-neutral-900/80 rounded-xl p-1 flex gap-1 border border-neutral-800">
+            <button
+              onClick={() => setMode("session")}
+              className={`px-6 py-2 text-sm font-medium rounded-lg transition-all ${
+                mode === "session"
+                  ? "bg-white/15 text-white shadow-sm"
+                  : "text-neutral-500 hover:text-white"
+              }`}
+            >
+              Session
+            </button>
+            <button
+              onClick={() => setMode("plan")}
+              className={`px-6 py-2 text-sm font-medium rounded-lg transition-all ${
+                mode === "plan"
+                  ? "bg-white/15 text-white shadow-sm"
+                  : "text-neutral-500 hover:text-white"
+              }`}
+            >
+              Plan
+            </button>
+            <button
+              onClick={() => setMode("agentic")}
+              className={`px-6 py-2 text-sm font-medium rounded-lg transition-all ${
+                mode === "agentic"
+                  ? "bg-white/15 text-white shadow-sm"
+                  : "text-neutral-500 hover:text-white"
+              }`}
+            >
+              Agentic
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Hero */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-10 sm:py-16">
         {mode === "session" && (
           <>
-            <div className="text-center mb-10">
+            <div className="text-center mb-8">
               <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
                 What do you want to Learn today?
               </h2>
@@ -74,7 +70,7 @@ export default function Home() {
 
             <ProblemInput initialTopic={selectedTopic} />
 
-            <div className="mt-12" />
+            <div className="mt-8" />
 
             <TopicBrowser onSelectTopic={setSelectedTopic} />
           </>

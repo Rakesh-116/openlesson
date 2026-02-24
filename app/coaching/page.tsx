@@ -12,7 +12,7 @@ export const metadata = {
     siteName: "openLesson",
     images: [
       {
-        url: "/coaching-og.png",
+        url: "/coaching-og.jpg",
         width: 1024,
         height: 536,
         alt: "openLesson — Learn to think through anything. 1-on-1 problem solving coaching.",
@@ -24,7 +24,7 @@ export const metadata = {
     card: "summary_large_image",
     title: "Learn to think through anything",
     description: "1-on-1 coaching on solving the hardest problems — math, physics, and beyond. Live problem-solving streams since 2019. $199.",
-    images: ["/coaching-og.png"],
+    images: ["/coaching-og.jpg"],
     creator: "@uncertainsys",
   },
 };
