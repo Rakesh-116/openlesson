@@ -1,9 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { hashApiKey, getX402Price, getX402Description } from "@/lib/x402";
 import { analyzeGap } from "@/lib/openrouter";
 import { getUserPrompts } from "@/lib/prompts";
+
+async function getServiceRoleClient() {
+  const cookieStore = await cookies();
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll(); },
+        setAll() {},
+      },
+    }
+  );
+}
 
 async function authenticateRequest(
   apiKey: string,
@@ -41,7 +56,7 @@ export async function POST(req: NextRequest) {
     }
 
     const apiKey = authHeader.substring(7);
-    const supabase = await createClient();
+    const supabase = await getServiceRoleClient();
 
     const auth = await authenticateRequest(apiKey, supabase as SupabaseClient);
     if (!auth) {
