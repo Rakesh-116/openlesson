@@ -67,6 +67,26 @@ API_KEY="sk_YOUR_API_KEY"
 bash -c "printf '{\"session_id\":\"$SESSION_ID\",\"audio_base64\":\"$AUDIO_BASE64\",\"audio_format\":\"$AUDIO_FORMAT\"}' | curl -X POST 'https://openlesson.academy/api/agent/session/analyze' -H 'Authorization: Bearer $API_KEY' -H 'Content-Type: application/json' --data-binary @-"
 ```
 
+### End Session
+
+```bash
+SESSION_ID="session-uuid"
+API_KEY="sk_YOUR_API_KEY"
+curl -X POST "https://openlesson.academy/api/agent/session/end" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"session_id\": \"$SESSION_ID\"}"
+```
+
+### Get Summary
+
+```bash
+SESSION_ID="session-uuid"
+API_KEY="sk_YOUR_API_KEY"
+curl "https://openlesson.academy/api/agent/session/summary?session_id=$SESSION_ID" \
+  -H "Authorization: Bearer $API_KEY"
+```
+
 ## Response Handling
 
 ### Plan Generation Response

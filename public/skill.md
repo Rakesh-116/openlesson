@@ -162,6 +162,57 @@ Submits an audio chunk for Socratic analysis. Returns reasoning gap score and fo
 }
 ```
 
+### 4. End Session
+
+Ends an agent session and generates a summary report.
+
+**Endpoint**: `POST /api/agent/session/end`
+
+**Request**:
+```json
+{
+  "session_id": "uuid-from-start"
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "sessionId": "uuid",
+  "message": "Session ended and report generated",
+  "chunkCount": 5,
+  "wordCount": 1200
+}
+```
+
+### 5. Get Session Summary
+
+Retrieves the summary report of a completed session.
+
+**Endpoint**: `GET /api/agent/session/summary?session_id=xxx`
+
+**Response (if ready)**:
+```json
+{
+  "ready": true,
+  "sessionId": "uuid",
+  "report": "# Session Report\n\n## Overview\n...",
+  "createdAt": "2026-02-24T12:00:00Z",
+  "status": "completed"
+}
+```
+
+**Response (if not ready)**:
+```json
+{
+  "ready": false,
+  "message": "Session report not ready yet. Call /session/end first to generate the report.",
+  "sessionId": "uuid",
+  "status": "active"
+}
+```
+
 ## Complete Agent Workflow
 
 ```python
