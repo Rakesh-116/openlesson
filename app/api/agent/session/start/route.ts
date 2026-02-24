@@ -62,13 +62,14 @@ export async function POST(req: NextRequest) {
 
     const price = getX402Price("session_start");
 
-    const payment = checkX402Payment(req.headers);
-    if (!payment.valid) {
-      const response = create402Response("session_start");
-      if (response) {
-        return response;
-      }
-    }
+    // x402 payment check disabled for now
+    // const payment = checkX402Payment(req.headers);
+    // if (!payment.valid) {
+    //   const response = create402Response("session_start");
+    //   if (response) {
+    //     return response;
+    //   }
+    // }
 
     let nodeTitle = problem;
     let planId: string | null = null;

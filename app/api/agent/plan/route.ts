@@ -98,13 +98,14 @@ export async function POST(req: NextRequest) {
     const daysNum = typeof days === "number" ? days : DEFAULT_DAYS;
     const nodeConstraints = DAYS_TO_NODES[daysNum] || DAYS_TO_NODES[DEFAULT_DAYS];
 
-    const payment = checkX402Payment(req.headers);
-    if (!payment.valid) {
-      const response = create402Response("plan_generation");
-      if (response) {
-        return response;
-      }
-    }
+    // x402 payment check disabled for now
+    // const payment = checkX402Payment(req.headers);
+    // if (!payment.valid) {
+    //   const response = create402Response("plan_generation");
+    //   if (response) {
+    //     return response;
+    //   }
+    // }
 
     const prompt = `Generate a learning plan for "${topic}" as a directed graph where each node is a session.
 

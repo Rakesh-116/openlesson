@@ -75,7 +75,6 @@ Returns:
 - `topic`: The topic requested
 - `days`: Plan duration
 - `nodes`: Array of learning nodes
-- `pricing`: Cost breakdown
 
 ### Session Start Response
 Returns:
@@ -95,15 +94,7 @@ Returns:
 
 - `400`: Bad request - missing or invalid parameters
 - `401`: Invalid or inactive API key
-- `402`: Payment required - see x402 payment flow
 - `500`: Server error
-
-## Payment (x402 Protocol)
-
-If a request returns 402, you need to:
-1. Get payment requirements from `/api/agent/payment-requirements`
-2. Process payment via x402 client
-3. Retry request with `x402-payment` header
 
 ## Best Practices for ElizaOS
 

@@ -67,14 +67,11 @@ Creates a directed graph of learning sessions for a given topic.
 
 **Endpoint**: `POST /api/agent/plan`
 
-**Price**: $0.50 USD
-
 **Request**:
 ```json
 {
   "topic": "Machine Learning Fundamentals",
-  "days": 30,  // optional: number of days to spread the plan across (default: 30)
-  "x402_payment_id": "pi_xxx"  // optional, for pre-payment
+  "days": 30  // optional: number of days to spread the plan across (default: 30)
 }
 ```
 
@@ -93,15 +90,7 @@ Creates a directed graph of learning sessions for a given topic.
       "next_node_ids": ["uuid2"],
       "status": "available"
     }
-  ],
-  "pricing": {
-    "planGeneration": 50,
-    "perSession": 100,
-    "estimatedSessions": 7,
-    "estimatedSessionCost": 700,
-    "totalEstimatedCost": 750,
-    "currency": "usd"
-  }
+  ]
 }
 ```
 
@@ -115,18 +104,15 @@ Creates a directed graph of learning sessions for a given topic.
 
 ### 2. Start Session
 
-Starts a new Socratic session. This is a paid operation ($1.00).
+Starts a new Socratic session.
 
 **Endpoint**: `POST /api/agent/session/start`
-
-**Price**: $1.00 USD
 
 **Request**:
 ```json
 {
   "problem": "Explain how gradient descent works in neural networks",
-  "plan_node_id": "uuid-from-plan",  // optional, links to plan node
-  "x402_payment_id": "pi_xxx"  // optional
+  "plan_node_id": "uuid-from-plan"  // optional, links to plan node
 }
 ```
 
@@ -151,8 +137,6 @@ Starts a new Socratic session. This is a paid operation ($1.00).
 Submits an audio chunk for Socratic analysis. Returns reasoning gap score and follow-up questions.
 
 **Endpoint**: `POST /api/agent/session/analyze`
-
-**Price**: $0.10 USD (bundled with session)
 
 **Request**:
 ```json
@@ -199,11 +183,6 @@ plan_response = requests.post(
 )
 plan = plan_response.json()
 
-# Check estimated cost before proceeding
-total_cost = plan["pricing"]["totalEstimatedCost"] / 100  # convert cents to dollars
-print(f"Total estimated cost: ${total_cost}")
-print(f"Estimated sessions: {plan['pricing']['estimatedSessions']}")
-
 # Step 2: Start a session for the first node
 first_node = next(n for n in plan["nodes"] if n["is_start"])
 session_response = requests.post(
@@ -237,58 +216,9 @@ print(f"Follow-up: {analysis['followUpQuestion']}")
 ## Error Handling
 
 - **401**: Invalid or inactive API key
-- **402**: Payment required (includes x402 payment requirements)
 - **403**: Session doesn't belong to this key or wrong endpoint
 - **404**: Session not found
 - **500**: Internal server error
-
-## Payment Model (x402 Protocol)
-
-The API uses the [x402 protocol](https://x402.org) for cryptocurrency micropayments:
-- Endpoints return HTTP 402 with payment requirements if not paid
-- Include payment in `x402-payment` header (base64-encoded JSON)
-- Supported: USDC on Base network (testnet: base-sepolia)
-
-### Payment Flow
-
-1. Make request without payment
-2. Server returns 402 with `paymentRequirements` in body
-3. Use x402 client to create payment (sign transaction)
-4. Re-request with `x402-payment` header
-5. Server verifies and returns 200 with data
-
-### Prices
-
-| Endpoint | Price |
-|----------|-------|
-| POST /api/agent/plan | $0.50 |
-| POST /api/agent/session/start | $1.00 |
-| POST /api/agent/session/analyze | Bundled with session |
-
-### Example (Python)
-
-```python
-import requests
-import base64
-
-API_KEY = "your_api_key"
-BASE_URL = "https://openlesson.academy"
-HEADERS = {"Authorization": f"Bearer {API_KEY}"}
-
-# Step 1: Try request (will fail with 402)
-response = requests.post(
-    f"{BASE_URL}/api/agent/plan",
-    json={"topic": "Python"},
-    headers=HEADERS
-)
-
-if response.status_code == 402:
-    payment_req = response.json()["paymentRequirements"]
-    # Use x402 library to create payment
-    # payment = create_exact_payment(payment_req, your_wallet)
-    # headers["x402-payment"] = base64.b64encode(json.dumps(payment).encode()).decode()
-    # Retry request
-```
 
 ## Tips for Agents
 
