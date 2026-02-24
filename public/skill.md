@@ -46,7 +46,7 @@ When running API calls as shell commands, use this pattern to avoid JSON escapin
 ### Basic POST with JSON body
 
 ```bash
-bash -c 'printf "{\"topic\":\"Quantum Computing\",\"days\":60}" | curl -X POST "http://localhost:3001/api/agent/plan" -H "Authorization: Bearer sk_YOUR_API_KEY" -H "Content-Type: application/json" --data-binary @-'
+bash -c 'printf "{\"topic\":\"Quantum Computing\",\"days\":60}" | curl -X POST "https://www.openlesson.academy/api/agent/plan" -H "Authorization: Bearer $OPENLESSON_API_KEY" -H "Content-Type: application/json" --data-binary @-'
 ```
 
 ### With variables
@@ -54,20 +54,19 @@ bash -c 'printf "{\"topic\":\"Quantum Computing\",\"days\":60}" | curl -X POST "
 ```bash
 TOPIC="Quantum Computing"
 DAYS=60
-API_KEY="sk_YOUR_API_KEY"
-bash -c "printf '{\"topic\":\"$TOPIC\",\"days\":$DAYS}' | curl -X POST 'http://localhost:3001/api/agent/plan' -H 'Authorization: Bearer $API_KEY' -H 'Content-Type: application/json' --data-binary @-"
+bash -c "printf '{\"topic\":\"$TOPIC\",\"days\":$DAYS}' | curl -X POST 'https://www.openlesson.academy/api/agent/plan' -H 'Authorization: Bearer $OPENLESSON_API_KEY' -H 'Content-Type: application/json' --data-binary @-"
 ```
 
 ### Start session
 
 ```bash
-bash -c 'printf "{\"plan_node_id\":\"NODE_UUID\",\"problem\":\"Explain neural networks\"}" | curl -X POST "http://localhost:3001/api/agent/session/start" -H "Authorization: Bearer sk_YOUR_API_KEY" -H "Content-Type: application/json" --data-binary @-'
+bash -c 'printf "{\"plan_node_id\":\"NODE_UUID\",\"problem\":\"Explain neural networks\"}" | curl -X POST "https://www.openlesson.academy/api/agent/session/start" -H "Authorization: Bearer $OPENLESSON_API_KEY" -H "Content-Type: application/json" --data-binary @-'
 ```
 
 ### Analyze audio
 
 ```bash
-bash -c 'printf "{\"session_id\":\"SESSION_UUID\",\"audio_base64\":\"BASE64_DATA\",\"audio_format\":\"webm\"}" | curl -X POST "http://localhost:3001/api/agent/session/analyze" -H "Authorization: Bearer sk_YOUR_API_KEY" -H "Content-Type: application/json" --data-binary @-'
+bash -c 'printf "{\"session_id\":\"SESSION_UUID\",\"audio_base64\":\"BASE64_DATA\",\"audio_format\":\"webm\"}" | curl -X POST "https://www.openlesson.academy/api/agent/session/analyze" -H "Authorization: Bearer $OPENLESSON_API_KEY" -H "Content-Type: application/json" --data-binary @-'
 ```
 
 ## Endpoints
