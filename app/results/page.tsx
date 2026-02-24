@@ -13,6 +13,7 @@ import {
 import { formatTime } from "@/lib/utils";
 import { downloadAudio } from "@/lib/audio";
 import { ProbeCard } from "@/components/ProbeCard";
+import { AudioPlayer } from "@/components/AudioPlayer";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 
@@ -216,12 +217,7 @@ function ResultsContent() {
             )}
           </div>
           {session.hasAudio && audioBlob ? (
-            <audio
-              controls
-              src={URL.createObjectURL(audioBlob)}
-              className="w-full h-10"
-              style={{ filter: "invert(1) hue-rotate(180deg)", opacity: 0.7 }}
-            />
+            <AudioPlayer audioBlob={audioBlob} />
           ) : (
             <div className="py-6 text-center">
               <p className="text-sm text-neutral-500">No Recording Available</p>

@@ -587,6 +587,10 @@ export async function transcribeAudio(options: {
     return { success: false, error: "OPENROUTER_API_KEY not configured" };
   }
 
+  if (!options.audioBase64 || options.audioBase64.trim().length === 0) {
+    return { success: false, error: "Empty audio data" };
+  }
+
   const prompt = `Transcribe this audio recording of a student thinking aloud while working through a problem.
 
 Problem being worked on: ${options.problem}
@@ -1036,8 +1040,8 @@ export async function generateEmbeddings(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[generateEmbeddings] API error:", response.status, errorText);
-      return { success: false, error: `API error: ${response.status}` };
+      console.error("OpenRouter API error:", response.status, errorText);
+      return { success: false, error: `API error: ${response.status} - ${errorText}` };
     }
 
     const data = await response.json();

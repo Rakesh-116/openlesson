@@ -13,8 +13,6 @@ export function AudioVisualizer({ isRecording, stream }: AudioVisualizerProps) {
   const animationRef = useRef<number>(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  // History buffer for trailing glow
-  const historyRef = useRef<Float32Array[]>([]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -22,7 +20,6 @@ export function AudioVisualizer({ isRecording, stream }: AudioVisualizerProps) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Set canvas resolution to match display size
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
@@ -34,7 +31,6 @@ export function AudioVisualizer({ isRecording, stream }: AudioVisualizerProps) {
     window.addEventListener("resize", resize);
 
     if (!isRecording || !stream) {
-      // Draw idle state
       const rect = canvas.getBoundingClientRect();
       ctx.clearRect(0, 0, rect.width, rect.height);
       const y = rect.height / 2;
@@ -59,10 +55,9 @@ export function AudioVisualizer({ isRecording, stream }: AudioVisualizerProps) {
     audioCtxRef.current = audioContext;
     analyserRef.current = analyser;
     sourceRef.current = source;
-    historyRef.current = [];
 
     const timeDomain = new Float32Array(analyser.fftSize);
-    const freqData = new Uint8Array(analyser.frequencyBinCount);
+    const historyRef: Float32Array[] = [];
 
     const draw = () => {
       if (!analyserRef.current || !canvasRef.current) return;
@@ -72,28 +67,21 @@ export function AudioVisualizer({ isRecording, stream }: AudioVisualizerProps) {
 
       ctx.clearRect(0, 0, w, h);
 
-      // Get waveform data
       analyserRef.current.getFloatTimeDomainData(timeDomain);
-      analyserRef.current.getByteFrequencyData(freqData);
 
-      // Compute RMS for glow intensity
       let rms = 0;
       for (let i = 0; i < timeDomain.length; i++) rms += timeDomain[i] * timeDomain[i];
       rms = Math.sqrt(rms / timeDomain.length);
       const intensity = Math.min(1, rms * 8);
 
-      // Push snapshot to history (keep last 4 frames for trailing glow)
-      const snapshot = new Float32Array(timeDomain);
-      historyRef.current.push(snapshot);
-      if (historyRef.current.length > 4) historyRef.current.shift();
+      historyRef.push(new Float32Array(timeDomain));
+      if (historyRef.length > 4) historyRef.shift();
 
-      // Draw history trails (fading)
-      historyRef.current.forEach((hist, idx) => {
-        const alpha = ((idx + 1) / historyRef.current.length) * 0.15;
+      historyRef.forEach((hist, idx) => {
+        const alpha = ((idx + 1) / historyRef.length) * 0.15;
         drawWaveform(ctx, hist, w, h, `rgba(96, 165, 250, ${alpha})`, 1.5);
       });
 
-      // Draw main waveform with smooth curve
       const gradient = ctx.createLinearGradient(0, 0, w, 0);
       gradient.addColorStop(0, `rgba(96, 165, 250, ${0.3 + intensity * 0.7})`);
       gradient.addColorStop(0.5, `rgba(139, 92, 246, ${0.3 + intensity * 0.7})`);
@@ -101,7 +89,6 @@ export function AudioVisualizer({ isRecording, stream }: AudioVisualizerProps) {
 
       drawWaveform(ctx, timeDomain, w, h, gradient, 2 + intensity * 1.5);
 
-      // Glow effect
       if (intensity > 0.05) {
         ctx.save();
         ctx.filter = `blur(${4 + intensity * 8}px)`;
@@ -110,7 +97,6 @@ export function AudioVisualizer({ isRecording, stream }: AudioVisualizerProps) {
         ctx.restore();
       }
 
-      // Center line (very subtle)
       ctx.beginPath();
       ctx.moveTo(0, h / 2);
       ctx.lineTo(w, h / 2);
@@ -130,7 +116,6 @@ export function AudioVisualizer({ isRecording, stream }: AudioVisualizerProps) {
       analyserRef.current = null;
       audioCtxRef.current = null;
       sourceRef.current = null;
-      historyRef.current = [];
       window.removeEventListener("resize", resize);
     };
   }, [isRecording, stream]);
@@ -144,10 +129,6 @@ export function AudioVisualizer({ isRecording, stream }: AudioVisualizerProps) {
   );
 }
 
-/**
- * Draw a smooth waveform using cubic Bezier curves.
- * Downsamples the data to ~200 points for performance + smoothness.
- */
 function drawWaveform(
   ctx: CanvasRenderingContext2D,
   data: Float32Array,
@@ -159,7 +140,7 @@ function drawWaveform(
   const points = 200;
   const step = Math.floor(data.length / points);
   const mid = h / 2;
-  const amp = h * 0.4; // max amplitude
+  const amp = h * 0.4;
 
   ctx.beginPath();
   ctx.strokeStyle = strokeStyle;
@@ -167,7 +148,6 @@ function drawWaveform(
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
 
-  // Build point array
   const pts: { x: number; y: number }[] = [];
   for (let i = 0; i < points; i++) {
     const idx = i * step;
@@ -182,14 +162,12 @@ function drawWaveform(
 
   ctx.moveTo(pts[0].x, pts[0].y);
 
-  // Draw smooth curve through points using cubic bezier
   for (let i = 0; i < pts.length - 1; i++) {
     const p0 = pts[Math.max(0, i - 1)];
     const p1 = pts[i];
     const p2 = pts[i + 1];
     const p3 = pts[Math.min(pts.length - 1, i + 2)];
 
-    // Catmull-Rom to Bezier conversion
     const tension = 0.3;
     const cp1x = p1.x + (p2.x - p0.x) * tension;
     const cp1y = p1.y + (p2.y - p0.y) * tension;
@@ -202,7 +180,6 @@ function drawWaveform(
   ctx.stroke();
 }
 
-// Simpler pulsing indicator as fallback
 export function RecordingIndicator({ isRecording }: { isRecording: boolean }) {
   return (
     <div className="flex items-center gap-3">
