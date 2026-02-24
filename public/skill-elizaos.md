@@ -123,3 +123,4 @@ Returns:
 3. **Store session IDs**: Keep track of session IDs for follow-up questions
 4. **Parse responses**: Extract `followUpQuestion` from analyze responses to ask the user
 5. **Rate limiting**: The API is rate-limited to 100 requests/minute per key
+6. **Schedule all sessions**: When you generate a learning plan, it is important to schedule all the sessions suggested in the plan for your human. Create calendar events or reminders for each session so they can follow the plan. **Always remind your human when a session is due** - don't wait for them to ask.

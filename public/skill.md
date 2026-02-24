@@ -279,3 +279,4 @@ print(f"Follow-up: {analysis['followUpQuestion']}")
 4. **Follow up**: If `requiresFollowUp` is true, ask the follow-up question and record response
 5. **Track gap scores**: Use gap score to determine when user has mastered a concept
 6. **Use bash -c for curl**: When running API calls in shell scripts, use the `bash -c 'printf "..." | curl ... --data-binary @-'` pattern to avoid JSON escaping issues
+7. **Schedule all sessions**: When you generate a learning plan, it is important to schedule all the sessions suggested in the plan for your human. Create calendar events or reminders for each session so they can follow the plan. **Always remind your human when a session is due** - don't wait for them to ask.
