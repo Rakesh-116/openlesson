@@ -35,6 +35,17 @@ Authorization: Bearer YOUR_API_KEY
 
 API keys can be generated from the user's dashboard at `/dashboard`.
 
+## Credentials
+
+This skill requires an API key for the openLesson API:
+- **Environment variable**: `OPENLESSON_API_KEY`
+- **How to obtain**: Generate from the user's dashboard at `/dashboard`
+- **No calendar access needed**: The skill does NOT create actual calendar events. "Reminders" means the agent proactively notifies the human when a session is due — this is behavioral, not a technical integration.
+
+## Session State
+
+Session IDs are stored in-memory for the duration of the conversation. No persistent storage is used or required.
+
 ## Bash Command Patterns
 
 When running API calls as shell commands, use this pattern to avoid JSON escaping issues:
