@@ -48,10 +48,10 @@ export async function GET(
 
     const { data: authData } = await adminClient.auth.admin.getUserById(userId);
     
-    const [sessionsData, plansData] = await Promise.all([
+    const [sessionsData, plansData, eegData] = await Promise.all([
       adminClient
         .from("sessions")
-        .select("id, problem, status, created_at, duration_ms, report_generated_at")
+        .select("id, problem, status, created_at, duration_ms, audio_path, report_generated_at")
         .eq("user_id", userId)
         .order("created_at", { ascending: false }),
       adminClient
@@ -59,7 +59,20 @@ export async function GET(
         .select("id, root_topic, status, created_at, is_public")
         .eq("user_id", userId)
         .order("created_at", { ascending: false }),
+      adminClient
+        .from("session_eeg_data")
+        .select("session_id")
+        .eq("user_id", userId),
     ]);
+
+    const sessionsWithMeta = (sessionsData.data || []).map(session => {
+      const hasEeg = (eegData.data || []).some(e => e.session_id === session.id);
+      return {
+        ...session,
+        has_audio: !!session.audio_path,
+        has_eeg: hasEeg,
+      };
+    });
 
     return NextResponse.json({
       user: {
@@ -67,7 +80,7 @@ export async function GET(
         email: authData.user?.email || null,
         email_confirmed_at: authData.user?.email_confirmed_at || null,
       },
-      lessons: sessionsData.data || [],
+      lessons: sessionsWithMeta,
       plans: plansData.data || [],
     });
   } catch (error) {

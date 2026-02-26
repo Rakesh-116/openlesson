@@ -45,6 +45,8 @@ export default function AdminPage() {
   const [bulkAction, setBulkAction] = useState<BulkAction>(null);
   const [bulkLessonsAmount, setBulkLessonsAmount] = useState(10);
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [sortColumn, setSortColumn] = useState<"username" | "lessons_count" | "plans_count" | "created_at">("created_at");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   const supabase = createClient();
 

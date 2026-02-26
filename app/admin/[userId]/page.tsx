@@ -11,7 +11,10 @@ interface Lesson {
   status: string;
   created_at: string;
   duration_ms: number;
+  audio_path: string | null;
   report_generated_at: string | null;
+  has_audio: boolean;
+  has_eeg: boolean;
 }
 
 interface Plan {
@@ -34,6 +37,7 @@ interface UserDetail {
   current_period_end: string | null;
   token_tier: string | null;
   email_confirmed_at: string | null;
+  stripe_customer_id: string | null;
 }
 
 export default function UserDetailPage() {
@@ -191,6 +195,19 @@ export default function UserDetailPage() {
             <div className="text-xs text-neutral-500">Period Ends</div>
             <div className="text-neutral-200">{formatDate(user?.current_period_end || null)}</div>
           </div>
+          {user?.stripe_customer_id && (
+            <div>
+              <div className="text-xs text-neutral-500">Stripe</div>
+              <a
+                href={`https://dashboard.stripe.com/customers/${user.stripe_customer_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:text-blue-300 text-sm"
+              >
+                View in Stripe →
+              </a>
+            </div>
+          )}
           <div>
             <div className="text-xs text-neutral-500">Lessons</div>
             <div className="text-neutral-200">{lessons.length}</div>
@@ -217,10 +234,18 @@ export default function UserDetailPage() {
                       {lesson.status}
                     </span>
                   </div>
-                  <div className="flex gap-3 text-xs text-neutral-500">
+                  <div className="flex gap-3 text-xs text-neutral-500 items-center">
                     <span>{formatDate(lesson.created_at)}</span>
                     {lesson.duration_ms > 0 && <span>{formatDuration(lesson.duration_ms)}</span>}
-                    {lesson.report_generated_at && <span>Report: Yes</span>}
+                    <span className={lesson.has_audio ? "text-green-400" : "text-neutral-600"}>
+                      Audio: {lesson.has_audio ? "✓" : "✗"}
+                    </span>
+                    <span className={lesson.report_generated_at ? "text-green-400" : "text-neutral-600"}>
+                      Transcript: {lesson.report_generated_at ? "✓" : "✗"}
+                    </span>
+                    <span className={lesson.has_eeg ? "text-green-400" : "text-neutral-600"}>
+                      EEG: {lesson.has_eeg ? "✓" : "✗"}
+                    </span>
                   </div>
                 </div>
               ))}
