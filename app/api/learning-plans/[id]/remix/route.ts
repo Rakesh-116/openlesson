@@ -183,19 +183,21 @@ Rules:
       throw new Error(`Could not create new plan: ${planError.message}`);
     }
 
+    // First pass: create UUID mappings for all nodes
     const nodeIdMap = new Map<string, string>();
-    const newNodes = planData.nodes.map((node: NodeData) => {
-      const newId = crypto.randomUUID();
-      nodeIdMap.set(node.id, newId);
-      return {
-        plan_id: newPlan.id,
-        title: node.title,
-        description: node.description,
-        is_start: node.is_start || false,
-        next_node_ids: (node.next || []).map((id: string) => nodeIdMap.get(id) || id),
-        status: "not_started",
-      };
-    });
+    for (const node of planData.nodes) {
+      nodeIdMap.set(node.id, crypto.randomUUID());
+    }
+
+    // Second pass: create nodes with mapped IDs
+    const newNodes = planData.nodes.map((node: NodeData) => ({
+      plan_id: newPlan.id,
+      title: node.title,
+      description: node.description,
+      is_start: node.is_start || false,
+      next_node_ids: (node.next || []).map((id: string) => nodeIdMap.get(id) || id),
+      status: "not_started",
+    }));
 
     const { error: insertError } = await supabase
       .from("plan_nodes")
