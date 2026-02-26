@@ -6,6 +6,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import Link from "next/link";
 import { PlanChat } from "@/components/PlanChat";
 import { Navbar } from "@/components/Navbar";
+import { RemixModal } from "@/components/RemixModal";
 
 interface PlanNode {
   id: string;
@@ -21,6 +22,7 @@ interface LearningPlan {
   title: string;
   root_topic: string;
   status: string;
+  user_id?: string;
   description?: string;
   is_public?: boolean;
   author_username?: string;
@@ -45,6 +47,8 @@ export default function PlanPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [showRemixModal, setShowRemixModal] = useState(false);
   
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -59,27 +63,37 @@ export default function PlanPage() {
   useEffect(() => {
     async function loadPlan() {
       const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        router.push("/login?redirect=/plan/" + planId);
-        return;
-      }
+      setCurrentUserId(user?.id || null);
 
+      // Get plan first (allow public plans without login)
       const { data: planData, error: planError } = await supabase
         .from("learning_plans")
         .select("*, profiles:author_id(username)")
         .eq("id", planId)
-        .eq("user_id", user.id)
         .single();
 
-      if (planData?.profiles) {
-        planData.author_username = planData.profiles.username;
-      }
-
+      // Handle errors or missing plan
       if (planError || !planData) {
         setError("Plan not found");
         setLoading(false);
         return;
+      }
+
+      // If plan is not public, require login and ownership
+      if (!planData.is_public) {
+        if (!user) {
+          router.push("/login?redirect=/plan/" + planId);
+          return;
+        }
+        if (planData.user_id !== user.id) {
+          setError("Plan not found");
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (planData.profiles) {
+        planData.author_username = planData.profiles.username;
       }
 
       setPlan(planData);
@@ -162,34 +176,45 @@ export default function PlanPage() {
                 </p>
               )}
             </div>
-            <button
-              onClick={async () => {
-                try {
-                  const isPublic = plan.is_public ?? false;
-                  const res = await fetch(`/api/learning-plans/${planId}/visibility`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ is_public: !isPublic }),
-                  });
-                  const data = await res.json();
-                  if (data.success) {
-                    setPlan({ ...plan, is_public: !isPublic });
-                  } else {
-                    alert(data.error || "Failed to update visibility");
+            {currentUserId && plan.user_id === currentUserId ? (
+              <button
+                onClick={async () => {
+                  try {
+                    const isPublic = plan.is_public ?? false;
+                    const res = await fetch(`/api/learning-plans/${planId}/visibility`, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ is_public: !isPublic }),
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                      setPlan({ ...plan, is_public: !isPublic });
+                    } else {
+                      alert(data.error || "Failed to update visibility");
+                    }
+                  } catch (err) {
+                    console.error("Error toggling visibility:", err);
+                    alert("Failed to update visibility");
                   }
-                } catch (err) {
-                  console.error("Error toggling visibility:", err);
-                  alert("Failed to update visibility");
-                }
-              }}
-              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors whitespace-nowrap ${
-                plan.is_public
-                  ? "bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-white hover:bg-neutral-700"
-                  : "bg-green-900/30 border-green-800 text-green-400 hover:bg-green-900/50"
-              }`}
-            >
-              {plan.is_public ? "Make Private" : "Make Public"}
-            </button>
+                }}
+                className={`text-xs px-3 py-1.5 rounded-lg border transition-colors whitespace-nowrap ${
+                  plan.is_public
+                    ? "bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-white hover:bg-neutral-700"
+                    : "bg-green-900/30 border-green-800 text-green-400 hover:bg-green-900/50"
+                }`}
+              >
+                {plan.is_public ? "Make Private" : "Make Public"}
+              </button>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowRemixModal(true)}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-blue-500/50 text-blue-400 hover:bg-blue-500/10 transition-colors whitespace-nowrap"
+                >
+                  Fork / Remix
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -203,6 +228,17 @@ export default function PlanPage() {
           onRefresh={refreshNodes} 
         />
       </main>
+
+      {showRemixModal && (
+        <RemixModal
+          plan={{ id: plan.id, root_topic: plan.root_topic, author_username: plan.author_username || "anonymous", remix_count: plan.remix_count || 0 }}
+          onClose={() => setShowRemixModal(false)}
+          onComplete={(newPlanId) => {
+            setShowRemixModal(false);
+            router.push(`/plan/${newPlanId}`);
+          }}
+        />
+      )}
     </div>
   );
 }
