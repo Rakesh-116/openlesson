@@ -147,8 +147,8 @@ export default function PlanPage() {
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       <Navbar />
 
-      <div className="px-4 pt-4">
-        <div className={`rounded-xl border p-4 ${
+      <div className="px-3 pt-3 sm:pt-4">
+        <div className={`rounded-xl border p-3 sm:p-4 ${
           plan.is_public 
             ? "bg-green-950/20 border-green-800/50" 
             : "bg-neutral-900/30 border-neutral-800"
@@ -286,7 +286,7 @@ export default function PlanPage() {
         </div>
       </div>
 
-      <main className="flex-1 p-4 overflow-hidden">
+      <main className="flex-1 p-3 sm:p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4 overflow-hidden">
         <PlanChat 
           plan={plan} 
           nodes={nodes} 

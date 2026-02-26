@@ -167,11 +167,11 @@ export function ChatPanel({ planId, description, model, onModelChange, onRefresh
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center mb-4 px-1">
+      <div className="flex items-center mb-3 sm:mb-4 px-1">
         <h2 className="text-lg font-semibold text-white">AI Planner</h2>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2">
+      <div className="flex-1 overflow-y-auto space-y-3 sm:space-y-4 mb-3 sm:mb-4 pr-2">
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -236,20 +236,20 @@ export function ChatPanel({ planId, description, model, onModelChange, onRefresh
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask to modify your plan, add sessions, or change the order..."
-          className="w-full px-4 py-3 pr-12 bg-neutral-800 border border-neutral-700 rounded-xl text-white placeholder-neutral-500 text-sm resize-none focus:outline-none focus:border-neutral-600 focus:ring-1 focus:ring-neutral-600"
+          placeholder="Ask to modify your plan..."
+          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 pr-10 sm:pr-12 bg-neutral-800 border border-neutral-700 rounded-xl text-white placeholder-neutral-500 text-sm resize-none focus:outline-none focus:border-neutral-600 focus:ring-1 focus:ring-neutral-600"
           rows={2}
           disabled={isLoading}
         />
-        <button
-          type="submit"
-          disabled={!input.trim() || isLoading}
-          className="absolute right-2 bottom-3 p-2 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white rounded-lg transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-          </svg>
-        </button>
+          <button
+            type="submit"
+            disabled={!input.trim() || isLoading}
+            className="absolute right-2 bottom-2.5 sm:bottom-3 p-2 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white rounded-lg transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+          </button>
         </form>
       )}
     </div>

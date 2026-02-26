@@ -192,12 +192,12 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, supabase, planI
   const selectedNode = selectedNodeId ? nodes.find(n => n.id === selectedNodeId) : null;
 
   return (
-    <div className="h-[calc(100vh-180px)] md:h-[calc(100vh-140px)] flex flex-col md:flex-row gap-3">
+    <div className="h-[calc(100dvh-120px)] md:h-[calc(100vh-140px)] flex flex-col md:flex-row gap-2 sm:gap-3">
       {/* Mobile Tab Switcher */}
-      <div className="md:hidden flex border-b border-neutral-700 mb-1 shrink-0">
+      <div className="md:hidden flex border-b border-neutral-700 mb-2 shrink-0 -mt-1">
         <button
           onClick={() => setActiveTab("chat")}
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+          className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors min-h-[44px] ${
             activeTab === "chat"
               ? "text-white border-b-2 border-blue-500"
               : "text-neutral-400 hover:text-white"
@@ -207,7 +207,7 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, supabase, planI
         </button>
         <button
           onClick={() => setActiveTab("sessions")}
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+          className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors min-h-[44px] ${
             activeTab === "sessions"
               ? "text-white border-b-2 border-blue-500"
               : "text-neutral-400 hover:text-white"

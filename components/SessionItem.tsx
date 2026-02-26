@@ -81,7 +81,7 @@ export function SessionItem({ node, index, onSelect, onDelete, onFork, highlight
     <div 
       onClick={onSelect}
       className={`
-        group relative p-5 rounded-xl cursor-pointer transition-all duration-200
+        group relative p-3 sm:p-5 rounded-xl cursor-pointer transition-all duration-200
         ${highlighted ? "ring-2" : ""}
         ${isCompleted 
           ? "bg-neutral-800/50 border border-neutral-700/50 hover:border-neutral-600" 

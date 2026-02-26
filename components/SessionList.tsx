@@ -86,15 +86,15 @@ export function SessionList({ nodes, onSelect, onDelete, onFork, highlightedNode
   const visibleCompleted = showCompleted ? completedSessions : [];
 
   return (
-    <div className="flex flex-col h-full p-4">
-      <div className="flex items-center justify-between mb-6 px-1">
+    <div className="flex flex-col h-full p-3 sm:p-4">
+      <div className="flex items-center justify-between mb-4 sm:mb-6 px-1">
         <h2 className="text-lg font-semibold text-white">Sessions</h2>
         <span className="text-xs text-neutral-500">
           {activeSessions.length} active, {completedSessions.length} done
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+      <div className="flex-1 overflow-y-auto space-y-2 sm:space-y-3 pr-2">
         {visibleActive.map((node, index) => (
           <div key={node.id} className="relative">
             <SessionItem
