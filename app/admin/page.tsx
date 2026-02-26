@@ -18,6 +18,8 @@ interface User {
   token_tier: string | null;
   token_validity_expires_at: string | null;
   email_confirmed_at: string | null;
+  lessons_count: number;
+  plans_count: number;
 }
 
 type TierOption = "all" | "free" | "regular" | "pro";
@@ -423,6 +425,8 @@ export default function AdminPage() {
               <tr>
                 <th className="px-4 py-3 font-medium w-8"></th>
                 <th className="px-4 py-3 font-medium">User</th>
+                <th className="px-4 py-3 font-medium">Lessons</th>
+                <th className="px-4 py-3 font-medium">Plans</th>
                 <th className="px-4 py-3 font-medium">Plan</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Extra Lessons</th>
@@ -454,6 +458,12 @@ export default function AdminPage() {
                         </span>
                       )}
                     </div>
+                  </td>
+                  <td className="px-4 py-3 text-neutral-400">
+                    {user.lessons_count}
+                  </td>
+                  <td className="px-4 py-3 text-neutral-400">
+                    {user.plans_count}
                   </td>
                   <td className="px-4 py-3">
                     <span className={getPlanColor(user.plan)}>{user.plan}</span>

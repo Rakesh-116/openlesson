@@ -54,6 +54,27 @@ export async function GET() {
       return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
     }
 
+    const userIds = (users || []).map(u => u.id);
+    
+    const [sessionsData, plansData] = await Promise.all([
+      userIds.length > 0 
+        ? adminClient.from("sessions").select("user_id").in("user_id", userIds)
+        : { data: [] as { user_id: string }[] | null, error: null },
+      userIds.length > 0 
+        ? adminClient.from("learning_plans").select("user_id").in("user_id", userIds)
+        : { data: [] as { user_id: string }[] | null, error: null },
+    ]);
+
+    const sessionsByUser: Record<string, number> = {};
+    const plansByUser: Record<string, number> = {};
+    
+    (sessionsData.data || []).forEach(s => {
+      sessionsByUser[s.user_id] = (sessionsByUser[s.user_id] || 0) + 1;
+    });
+    (plansData.data || []).forEach(p => {
+      plansByUser[p.user_id] = (plansByUser[p.user_id] || 0) + 1;
+    });
+
     const { data: authUsers } = await adminClient.auth.admin.listUsers();
     
     const enrichedUsers = (users || []).map(u => {
@@ -62,6 +83,8 @@ export async function GET() {
         ...u,
         email: authUser?.email || null,
         email_confirmed_at: authUser?.email_confirmed_at || null,
+        lessons_count: sessionsByUser[u.id] || 0,
+        plans_count: plansByUser[u.id] || 0,
       };
     });
 
