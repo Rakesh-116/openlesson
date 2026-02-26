@@ -45,7 +45,7 @@ export default function AdminPage() {
   const [bulkAction, setBulkAction] = useState<BulkAction>(null);
   const [bulkLessonsAmount, setBulkLessonsAmount] = useState(10);
   const [bulkProcessing, setBulkProcessing] = useState(false);
-  const [sortColumn, setSortColumn] = useState<"username" | "lessons_count" | "plans_count" | "created_at">("created_at");
+  const [sortColumn, setSortColumn] = useState<"username" | "lessons_count" | "plans_count" | "created_at" | "plan" | "subscription_status">("created_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   const supabase = createClient();
@@ -252,7 +252,56 @@ export default function AdminPage() {
     const matchesDate = !dateStart || userDate >= dateStart;
     
     return matchesSearch && matchesTier && matchesDate;
+  }).sort((a, b) => {
+    let aVal: string | number = "";
+    let bVal: string | number = "";
+
+    switch (sortColumn) {
+      case "username":
+        aVal = (a.username || a.email || "").toLowerCase();
+        bVal = (b.username || b.email || "").toLowerCase();
+        break;
+      case "lessons_count":
+        aVal = a.lessons_count || 0;
+        bVal = b.lessons_count || 0;
+        break;
+      case "plans_count":
+        aVal = a.plans_count || 0;
+        bVal = b.plans_count || 0;
+        break;
+      case "created_at":
+        aVal = new Date(a.created_at).getTime();
+        bVal = new Date(b.created_at).getTime();
+        break;
+      case "plan":
+        aVal = a.plan;
+        bVal = b.plan;
+        break;
+      case "subscription_status":
+        aVal = a.subscription_status;
+        bVal = b.subscription_status;
+        break;
+    }
+
+    if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+    if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+    return 0;
   });
+
+  const handleSort = (column: typeof sortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+    setPage(1);
+  };
+
+  const getSortIcon = (column: typeof sortColumn) => {
+    if (sortColumn !== column) return "";
+    return sortDirection === "asc" ? " ↑" : " ↓";
+  };
 
   const totalPages = Math.ceil(filteredUsers.length / PAGE_SIZE);
   const paginatedUsers = filteredUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -434,14 +483,14 @@ export default function AdminPage() {
             <thead className="bg-neutral-900/50 text-neutral-400 text-left">
               <tr>
                 <th className="px-4 py-3 font-medium w-8"></th>
-                <th className="px-4 py-3 font-medium">User</th>
-                <th className="px-4 py-3 font-medium">Lessons</th>
-                <th className="px-4 py-3 font-medium">Plans</th>
-                <th className="px-4 py-3 font-medium">Plan</th>
-                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium cursor-pointer hover:text-white" onClick={() => handleSort("username")}>User{getSortIcon("username")}</th>
+                <th className="px-4 py-3 font-medium cursor-pointer hover:text-white" onClick={() => handleSort("lessons_count")}>Lessons{getSortIcon("lessons_count")}</th>
+                <th className="px-4 py-3 font-medium cursor-pointer hover:text-white" onClick={() => handleSort("plans_count")}>Plans{getSortIcon("plans_count")}</th>
+                <th className="px-4 py-3 font-medium cursor-pointer hover:text-white" onClick={() => handleSort("plan")}>Plan{getSortIcon("plan")}</th>
+                <th className="px-4 py-3 font-medium cursor-pointer hover:text-white" onClick={() => handleSort("subscription_status")}>Status{getSortIcon("subscription_status")}</th>
                 <th className="px-4 py-3 font-medium">Extra Lessons</th>
                 <th className="px-4 py-3 font-medium">Token Tier</th>
-                <th className="px-4 py-3 font-medium">Joined</th>
+                <th className="px-4 py-3 font-medium cursor-pointer hover:text-white" onClick={() => handleSort("created_at")}>Joined{getSortIcon("created_at")}</th>
                 <th className="px-4 py-3 font-medium">Tier</th>
               </tr>
             </thead>
