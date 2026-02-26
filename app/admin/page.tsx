@@ -259,6 +259,8 @@ export default function AdminPage() {
     free: users.filter(u => getCurrentTier(u) === "free").length,
     regular: users.filter(u => getCurrentTier(u) === "regular").length,
     pro: users.filter(u => getCurrentTier(u) === "pro").length,
+    totalLessons: users.reduce((sum, u) => sum + (u.lessons_count || 0), 0),
+    totalPlans: users.reduce((sum, u) => sum + (u.plans_count || 0), 0),
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -320,7 +322,7 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-6 gap-4 mb-6">
           <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
             <div className="text-2xl font-semibold">{stats.total}</div>
             <div className="text-sm text-neutral-500">Total Users</div>
@@ -336,6 +338,14 @@ export default function AdminPage() {
           <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
             <div className="text-2xl font-semibold text-purple-400">{stats.pro}</div>
             <div className="text-sm text-neutral-500">Pro</div>
+          </div>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
+            <div className="text-2xl font-semibold text-green-400">{stats.totalLessons}</div>
+            <div className="text-sm text-neutral-500">Total Lessons</div>
+          </div>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
+            <div className="text-2xl font-semibold text-cyan-400">{stats.totalPlans}</div>
+            <div className="text-sm text-neutral-500">Total Plans</div>
           </div>
         </div>
 
