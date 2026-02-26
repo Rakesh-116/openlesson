@@ -1,0 +1,153 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { createBrowserClient } from "@supabase/ssr";
+import Link from "next/link";
+
+interface CommunityPlan {
+  id: string;
+  root_topic: string;
+  author_username: string;
+  remix_count: number;
+}
+
+interface CommunityPlansProps {
+  user?: { id: string } | null;
+}
+
+const PAGE_SIZE = 5;
+
+export function CommunityPlans({ user }: CommunityPlansProps) {
+  const [plans, setPlans] = useState<CommunityPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchInput, setSearchInput] = useState("");
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const router = useRouter();
+
+  useEffect(() => {
+    fetchPlans();
+  }, [page]);
+
+  const fetchPlans = async (resetPage = false) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (searchInput) {
+        params.set("search", searchInput);
+      }
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String(resetPage ? 0 : page * PAGE_SIZE));
+
+      const res = await fetch(`/api/learning-plans/community?${params}`);
+      const data = await res.json();
+      
+      if (data.error) {
+        console.error("API error:", data.error);
+      }
+      
+      if (data.plans) {
+        setPlans(data.plans);
+      }
+      if (data.total !== undefined) {
+        setTotalCount(data.total);
+      }
+    } catch (error) {
+      console.error("Error fetching community plans:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPage(0);
+    fetchPlans(true);
+  };
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+
+  return (
+    <div className="w-full max-w-2xl mx-auto mt-12 pt-8 border-t border-neutral-800">
+      <div className="text-center mb-6">
+        <h3 className="text-xl font-semibold text-white mb-2">Community Plans</h3>
+        <p className="text-sm text-neutral-500">
+          Explore learning plans created by other learners
+        </p>
+      </div>
+
+      <form onSubmit={handleSearch} className="mb-6">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search topics..."
+            className="flex-1 px-4 py-2 bg-neutral-900/50 border border-neutral-800 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:border-neutral-700"
+          />
+          <button
+            type="submit"
+            className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            Search
+          </button>
+        </div>
+      </form>
+
+      {loading ? (
+        <div className="text-center py-8">
+          <div className="w-6 h-6 border-2 border-neutral-600 border-t-neutral-400 rounded-full animate-spin mx-auto" />
+        </div>
+      ) : plans.length === 0 ? (
+        <div className="text-center py-8 text-neutral-500 text-sm">
+          No public plans yet. Be the first to share yours!
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {plans.map((plan) => (
+            <Link
+              key={plan.id}
+              href={`/plan/${plan.id}`}
+              className="block bg-neutral-900/50 border border-neutral-800 rounded-xl p-4 hover:border-neutral-700 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <h4 className="text-white font-medium text-sm">
+                  {plan.root_topic}
+                </h4>
+                <span className="text-xs text-neutral-500">
+                  {plan.remix_count === 0 ? "0 forks" : plan.remix_count === 1 ? "1 fork" : `${plan.remix_count} forks`}
+                </span>
+              </div>
+              <p className="text-xs text-neutral-500 mt-1">
+                by @{plan.author_username || "anonymous"}
+              </p>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-neutral-800">
+          <button
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Previous
+          </button>
+          <span className="text-xs text-neutral-500">
+            Page {page + 1} of {totalPages}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Next
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

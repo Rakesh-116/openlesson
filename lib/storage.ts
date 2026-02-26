@@ -34,6 +34,7 @@ export interface Session {
   report?: string;
   reportGeneratedAt?: string;
   transcript?: string;
+  planTitle?: string;
   metadata: {
     observerMode?: ObserverMode;
     frequency?: Frequency;
@@ -736,6 +737,11 @@ export interface LearningPlan {
   root_topic: string;
   status: "active" | "completed" | "paused";
   created_at: string;
+  is_public?: boolean;
+  author_id?: string;
+  author_username?: string;
+  remix_count?: number;
+  original_plan_id?: string;
 }
 
 export interface PlanNode {
@@ -823,4 +829,143 @@ export async function getIncompleteNodes(): Promise<(PlanNode & { planTitle: str
     status: n.status || "not_started",
     planTitle: planTitles.get(n.plan_id) || "",
   }));
+}
+
+export async function getPlanById(planId: string): Promise<LearningPlan | null> {
+  const supabase = createClient();
+
+  const { data } = await supabase
+    .from("learning_plans")
+    .select(`
+      id,
+      root_topic,
+      status,
+      created_at,
+      is_public,
+      author_id,
+      user_id,
+      remix_count,
+      original_plan_id,
+      profiles:author_id (username)
+    `)
+    .eq("id", planId)
+    .single();
+
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    title: data.root_topic,
+    root_topic: data.root_topic,
+    status: data.status || "active",
+    created_at: data.created_at,
+    is_public: data.is_public,
+    author_id: data.author_id,
+    author_username: data.profiles?.username || "anonymous",
+    remix_count: data.remix_count || 0,
+    original_plan_id: data.original_plan_id,
+  };
+}
+
+export async function getUserById(userId: string): Promise<{ username: string } | null> {
+  const supabase = createClient();
+
+  const { data } = await supabase
+    .from("profiles")
+    .select("username")
+    .eq("id", userId)
+    .single();
+
+  return data;
+}
+
+export async function forkPlan(
+  sourcePlanId: string,
+  userId: string
+): Promise<{ planId: string; nodesCount: number }> {
+  const supabase = createClient();
+
+  const { data: sourcePlan, error: planError } = await supabase
+    .from("learning_plans")
+    .select("*")
+    .eq("id", sourcePlanId)
+    .single();
+
+  if (planError || !sourcePlan) {
+    throw new Error("Source plan not found");
+  }
+
+  const { data: sourceNodes, error: nodesError } = await supabase
+    .from("plan_nodes")
+    .select("*")
+    .eq("plan_id", sourcePlanId);
+
+  if (nodesError) {
+    throw new Error("Could not fetch source nodes");
+  }
+
+  const { data: newPlan, error: createError } = await supabase
+    .from("learning_plans")
+    .insert({
+      user_id: userId,
+      root_topic: sourcePlan.root_topic,
+      status: "active",
+      is_public: false,
+      author_id: userId,
+      original_plan_id: sourcePlanId,
+    })
+    .select()
+    .single();
+
+  if (createError) {
+    throw new Error("Could not create new plan");
+  }
+
+  const nodeIdMap = new Map<string, string>();
+  const newNodes = sourceNodes.map((node: any) => {
+    const newId = crypto.randomUUID();
+    nodeIdMap.set(node.id, newId);
+    return {
+      plan_id: newPlan.id,
+      title: node.title,
+      description: node.description,
+      is_start: node.is_start,
+      next_node_ids: (node.next_node_ids || []).map((id: string) => nodeIdMap.get(id) || id),
+      status: "not_started",
+      position_x: node.position_x,
+      position_y: node.position_y,
+    };
+  });
+
+  const { error: insertError } = await supabase.from("plan_nodes").insert(newNodes);
+
+  if (insertError) {
+    await supabase.from("learning_plans").delete().eq("id", newPlan.id);
+    throw new Error("Could not copy nodes");
+  }
+
+  await supabase
+    .from("learning_plans")
+    .update({ remix_count: (sourcePlan.remix_count || 0) + 1 })
+    .eq("id", sourcePlanId);
+
+  return { planId: newPlan.id, nodesCount: newNodes.length };
+}
+
+export async function updatePlanVisibility(
+  planId: string,
+  userId: string,
+  isPublic: boolean
+): Promise<void> {
+  const supabase = createClient();
+
+  const { error } = await supabase
+    .from("learning_plans")
+    .update({ is_public: isPublic, author_id: userId })
+    .eq("id", planId)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error("Could not update plan visibility");
+  }
 }

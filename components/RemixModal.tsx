@@ -1,0 +1,122 @@
+"use client";
+
+import { useState } from "react";
+import { createBrowserClient } from "@supabase/ssr";
+
+interface CommunityPlan {
+  id: string;
+  root_topic: string;
+  author_username: string;
+  remix_count: number;
+}
+
+interface RemixModalProps {
+  plan: CommunityPlan;
+  onClose: () => void;
+  onComplete: (planId: string) => void;
+}
+
+export function RemixModal({ plan, onClose, onComplete }: RemixModalProps) {
+  const [prompt, setPrompt] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  const handleRemix = async () => {
+    if (!prompt.trim()) {
+      setError("Please describe how you want to adapt this plan");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch(`/api/learning-plans/${plan.id}/remix`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ remixPrompt: prompt }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        onComplete(data.planId);
+      } else {
+        setError(data.error || "Failed to remix plan");
+      }
+    } catch (err) {
+      console.error("Error remixing plan:", err);
+      setError("Failed to remix plan");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-white">Remix &quot;{plan.root_topic}&quot;</h3>
+          <button
+            onClick={onClose}
+            className="text-neutral-500 hover:text-white transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <p className="text-sm text-neutral-400 mb-4">
+          Originally by <span className="text-white">@{plan.author_username}</span>
+        </p>
+
+        <div className="mb-4">
+          <label className="block text-sm text-neutral-400 mb-2">
+            How would you like to adapt this plan?
+          </label>
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="e.g., Make it more beginner-friendly, focus on practical applications, shorter sessions..."
+            rows={4}
+            className="w-full px-4 py-3 bg-neutral-800/50 border border-neutral-700 rounded-xl text-white text-sm placeholder-neutral-500 focus:outline-none focus:border-neutral-600 resize-none"
+          />
+        </div>
+
+        {error && (
+          <p className="text-red-400 text-sm mb-4">{error}</p>
+        )}
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-medium rounded-xl transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleRemix}
+            disabled={loading}
+            className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Remixing...
+              </>
+            ) : (
+              "Remix Plan"
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

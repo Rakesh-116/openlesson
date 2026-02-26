@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { getSessions, deleteSession, getLearningPlans, getIncompleteNodes, type Session, type LearningPlan, type PlanNode } from "@/lib/storage";
+import { getSessions, deleteSession, getLearningPlans, type Session, type LearningPlan } from "@/lib/storage";
 import { DEFAULT_PROMPTS, PROMPT_META, type PromptKey, type UserPrompts } from "@/lib/openrouter";
 
 type Tab = "sessions" | "plans" | "agentic" | "config";
@@ -43,8 +43,6 @@ export default function DashboardPage() {
 
   // Sessions tab
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
-  const [viewingProbes, setViewingProbes] = useState<string | null>(null);
   const [sessionSearch, setSessionSearch] = useState("");
   const [sessionStatusFilter, setSessionStatusFilter] = useState<string>("all");
   const [sessionPage, setSessionPage] = useState(1);
@@ -52,7 +50,6 @@ export default function DashboardPage() {
 
   // Plans tab
   const [learningPlans, setLearningPlans] = useState<LearningPlan[]>([]);
-  const [incompleteNodes, setIncompleteNodes] = useState<(PlanNode & { planTitle: string })[]>([]);
   const [planSearch, setPlanSearch] = useState("");
   const [planStatusFilter, setPlanStatusFilter] = useState<string>("all");
   const [planPage, setPlanPage] = useState(1);
@@ -69,6 +66,7 @@ export default function DashboardPage() {
   const [availableModels, setAvailableModels] = useState<OpenRouterModel[]>([]);
   const [tutorModel, setTutorModel] = useState<string>("");
   const [askModel, setAskModel] = useState<string>("");
+  const [plannerModel, setPlannerModel] = useState<string>("");
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelSaving, setModelSaving] = useState(false);
   const [modelSaved, setModelSaved] = useState(false);
@@ -128,6 +126,9 @@ export default function DashboardPage() {
         if (profile.metadata?.ask_model) {
           setAskModel(profile.metadata.ask_model as string);
         }
+        if (profile.metadata?.planner_model) {
+          setPlannerModel(profile.metadata.planner_model as string);
+        }
       }
 
       // Load sessions
@@ -137,10 +138,6 @@ export default function DashboardPage() {
       // Load learning plans
       const plans = await getLearningPlans();
       setLearningPlans(plans);
-
-      // Load incomplete nodes
-      const nodes = await getIncompleteNodes();
-      setIncompleteNodes(nodes);
 
       // Load API keys
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -228,6 +225,7 @@ export default function DashboardPage() {
             ...currentMetadata,
             tutor_model: tutorModel,
             ask_model: askModel,
+            planner_model: plannerModel,
           },
         })
         .eq("id", authUser.id);
@@ -464,16 +462,12 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-2">
                 {paginatedSessions.map((session) => (
-                  <div
+                  <Link
                     key={session.id}
-                    className="rounded-lg border border-neutral-800 bg-neutral-900/50 overflow-hidden"
+                    href={`/results?id=${session.id}`}
+                    className="block rounded-lg border border-neutral-800 bg-neutral-900/50 overflow-hidden hover:bg-neutral-800/30 transition-colors"
                   >
-                    <div
-                      className="flex items-center justify-between p-4 cursor-pointer hover:bg-neutral-800/30 transition-colors"
-                      onClick={() => setExpandedSessionId(
-                        expandedSessionId === session.id ? null : session.id
-                      )}
-                    >
+                    <div className="flex items-center justify-between p-4">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-neutral-200 truncate">
                           {session.problem}
@@ -491,78 +485,27 @@ export default function DashboardPage() {
                           >
                             {session.status}
                           </span>
+                          {session.planTitle && (
+                            <span className="ml-2 inline-flex px-1.5 py-0.5 rounded text-[10px] bg-purple-900/30 text-purple-400">
+                              {session.planTitle}
+                            </span>
+                          )}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2 ml-4">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setViewingProbes(viewingProbes === session.id ? null : session.id);
-                          }}
-                          className="px-2.5 py-1 text-xs text-neutral-400 hover:text-white border border-neutral-700 hover:border-neutral-600 rounded transition-colors"
-                        >
-                          {viewingProbes === session.id ? "Hide Probes" : "View Probes"}
-                        </button>
-                        <Link
-                          href={`/results?id=${session.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="px-2.5 py-1 text-xs text-neutral-400 hover:text-white border border-neutral-700 hover:border-neutral-600 rounded transition-colors"
-                        >
-                          Summary
-                        </Link>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteSession(session.id);
-                          }}
-                          className="p-1.5 text-neutral-600 hover:text-red-400 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDeleteSession(session.id);
+                        }}
+                        className="p-1.5 text-neutral-600 hover:text-red-400 transition-colors ml-4"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
-
-                    {/* Expanded: Session Report */}
-                    {expandedSessionId === session.id && session.report && (
-                      <div className="px-4 pb-4 border-t border-neutral-800/60 pt-4">
-                        <h4 className="text-xs font-medium text-neutral-400 mb-2">Session Report</h4>
-                        <div className="text-sm text-neutral-300 whitespace-pre-wrap prose prose-invert prose-sm max-w-none">
-                          {session.report}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Expanded: Probes List */}
-                    {viewingProbes === session.id && (
-                      <div className="border-t border-neutral-800/60">
-                        <div className="px-4 py-3 bg-neutral-800/30">
-                          <h4 className="text-xs font-medium text-neutral-400">Probes ({session.probes.length})</h4>
-                        </div>
-                        {session.probes.length === 0 ? (
-                          <p className="px-4 py-4 text-sm text-neutral-500">No probes in this session.</p>
-                        ) : (
-                          <div className="divide-y divide-neutral-800/60">
-                            {session.probes.map((probe, idx) => (
-                              <div key={probe.id} className="px-4 py-3">
-                                <div className="flex items-start justify-between gap-4">
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm text-neutral-200">{probe.text}</p>
-                                    <p className="text-xs text-neutral-500 mt-1">
-                                      {formatDuration(probe.timestamp)} · Gap: {probe.gapScore.toFixed(2)} ·{" "}
-                                      {probe.signals.join(", ") || "no signals"}
-                                    </p>
-                                  </div>
-                                  <span className="text-xs text-neutral-600">#{idx + 1}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
@@ -597,36 +540,6 @@ export default function DashboardPage() {
         {/* Plans Tab */}
         {activeTab === "plans" && (
           <div className="space-y-8">
-            {/* Continue Issues Section */}
-            {incompleteNodes.length > 0 && (
-              <div>
-                <h2 className="text-lg font-semibold mb-4">Continue Issues</h2>
-                <div className="space-y-2">
-                  {incompleteNodes.map((node) => (
-                    <Link
-                      key={node.id}
-                      href={`/plan/${node.plan_id}?node=${node.id}`}
-                      className="flex items-center justify-between p-4 rounded-lg border border-neutral-800 bg-neutral-900/50 hover:bg-neutral-800/30 transition-colors"
-                    >
-                      <div>
-                        <p className="text-sm font-medium text-neutral-200">{node.title}</p>
-                        <p className="text-xs text-neutral-500 mt-0.5">{node.planTitle}</p>
-                      </div>
-                      <span
-                        className={`text-xs px-2 py-1 rounded ${
-                          node.status === "in_progress"
-                            ? "bg-blue-900/30 text-blue-400"
-                            : "bg-neutral-700 text-neutral-400"
-                        }`}
-                      >
-                        {node.status === "in_progress" ? "In Progress" : "Not Started"}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Learning Plans List */}
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -672,29 +585,62 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-2">
                   {paginatedPlans.map((plan) => (
-                    <Link
+                    <div
                       key={plan.id}
-                      href={`/plan/${plan.id}`}
                       className="flex items-center justify-between p-4 rounded-lg border border-neutral-800 bg-neutral-900/50 hover:bg-neutral-800/30 transition-colors"
                     >
-                      <div>
+                      <Link href={`/plan/${plan.id}`} className="flex-1">
                         <p className="text-sm font-medium text-neutral-200">{plan.root_topic}</p>
                         <p className="text-xs text-neutral-500 mt-0.5">
                           Created {formatDate(plan.created_at)}
                         </p>
+                      </Link>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={async () => {
+                            try {
+                              const isPublic = (plan as any).is_public ?? false;
+                              const res = await fetch(`/api/learning-plans/${plan.id}/visibility`, {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ is_public: !isPublic }),
+                              });
+                              const data = await res.json();
+                              if (data.success) {
+                                setLearningPlans((plans) =>
+                                  plans.map((p) =>
+                                    p.id === plan.id ? { ...p, is_public: !isPublic } : p
+                                  )
+                                );
+                              } else {
+                                alert(data.error || "Failed to update visibility");
+                              }
+                            } catch (err) {
+                              console.error("Error toggling visibility:", err);
+                              alert("Failed to update visibility");
+                            }
+                          }}
+                          className={`text-xs px-2 py-1 rounded border transition-colors ${
+                            (plan as any).is_public
+                              ? "bg-green-900/30 border-green-800 text-green-400 hover:bg-green-900/50"
+                              : "bg-neutral-800 border-neutral-700 text-neutral-500 hover:text-neutral-400"
+                          }`}
+                        >
+                          {(plan as any).is_public ? "Public" : "Private"}
+                        </button>
+                        <span
+                          className={`text-xs px-2 py-1 rounded ${
+                            plan.status === "active"
+                              ? "bg-blue-900/30 text-blue-400"
+                              : plan.status === "completed"
+                              ? "bg-green-900/30 text-green-400"
+                              : "bg-neutral-700 text-neutral-400"
+                          }`}
+                        >
+                          {plan.status}
+                        </span>
                       </div>
-                      <span
-                        className={`text-xs px-2 py-1 rounded ${
-                          plan.status === "active"
-                            ? "bg-blue-900/30 text-blue-400"
-                            : plan.status === "completed"
-                            ? "bg-green-900/30 text-green-400"
-                            : "bg-neutral-700 text-neutral-400"
-                        }`}
-                      >
-                        {plan.status}
-                      </span>
-                    </Link>
+                    </div>
                   ))}
                 </div>
               )}
@@ -890,6 +836,31 @@ export default function DashboardPage() {
                   <select
                     value={askModel}
                     onChange={(e) => setAskModel(e.target.value)}
+                    disabled={modelsLoading}
+                    className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-neutral-500"
+                  >
+                    {modelsLoading ? (
+                      <option>Loading models...</option>
+                    ) : (
+                      availableModels.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.label}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+                <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
+                  <label className="block text-sm font-medium text-neutral-300 mb-1">
+                    Planner Model
+                  </label>
+                  <p className="text-xs text-neutral-500 mb-3">
+                    The model that helps plan and organize your learning sessions
+                  </p>
+                  <select
+                    value={plannerModel}
+                    onChange={(e) => setPlannerModel(e.target.value)}
                     disabled={modelsLoading}
                     className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-neutral-500"
                   >

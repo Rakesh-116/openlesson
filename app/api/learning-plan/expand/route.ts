@@ -20,7 +20,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Node ID is required" }, { status: 400 });
     }
 
-    // Get the node to expand
     const { data: node, error: nodeError } = await supabase
       .from("plan_nodes")
       .select("*")
@@ -31,7 +30,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Node not found" }, { status: 404 });
     }
 
-    // Verify ownership
     const { data: plan } = await supabase
       .from("learning_plans")
       .select("user_id")
@@ -40,11 +38,6 @@ export async function POST(req: NextRequest) {
 
     if (!plan || plan.user_id !== user.id) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
-    }
-
-    // Check if node is completed
-    if (node.status !== "completed") {
-      return NextResponse.json({ error: "Node must be completed first" }, { status: 400 });
     }
 
     const prompt = `Expand the topic "${node.title}" with 2-4 follow-up learning sessions as a directed graph.
@@ -109,7 +102,6 @@ Rules:
       return NextResponse.json({ error: "No nodes to expand" }, { status: 400 });
     }
 
-    // Create new nodes first
     const nodeIdMap = new Map<string, string>();
 
     for (const nodeData of newNodes) {
@@ -134,7 +126,6 @@ Rules:
       nodeIdMap.set(nodeData.id, newNode.id);
     }
 
-    // Update next_node_ids with actual UUIDs
     for (const nodeData of newNodes) {
       const currentNodeId = nodeIdMap.get(nodeData.id);
       if (!currentNodeId) continue;
@@ -155,7 +146,6 @@ Rules:
         .eq("id", currentNodeId);
     }
 
-    // Connect the expanded node to the first new node
     const newNodeIds = Array.from(nodeIdMap.values());
     if (newNodeIds.length > 0) {
       const currentNextIds = node.next_node_ids || [];
@@ -163,6 +153,30 @@ Rules:
         .from("plan_nodes")
         .update({ next_node_ids: [...currentNextIds, ...newNodeIds] })
         .eq("id", nodeId);
+    }
+
+    const { data: allNodes } = await supabase
+      .from("plan_nodes")
+      .select("*")
+      .eq("plan_id", node.plan_id);
+
+    const edges = (allNodes || []).flatMap((n: any) =>
+      (n.next_node_ids || []).map((nextId: string) => ({
+        from: n.id,
+        to: nextId
+      }))
+    );
+
+    const positions = calculateForceDirectedLayout(allNodes || [], edges);
+
+    for (const [id, pos] of positions) {
+      await supabase
+        .from("plan_nodes")
+        .update({ 
+          position_x: Math.round(pos.x),
+          position_y: Math.round(pos.y)
+        })
+        .eq("id", id);
     }
 
     return NextResponse.json({ success: true, newCount: newNodeIds.length });
@@ -174,4 +188,99 @@ Rules:
       { status: 500 }
     );
   }
+}
+
+function calculateForceDirectedLayout(
+  nodes: any[],
+  edges: { from: string; to: string }[]
+): Map<string, { x: number; y: number }> {
+  const positions = new Map<string, { x: number; y: number }>();
+  
+  if (nodes.length === 0) return positions;
+  
+  const width = 800;
+  const height = 600;
+  const padding = 80;
+  
+  nodes.forEach((node, i) => {
+    const angle = (2 * Math.PI * i) / nodes.length - Math.PI / 2;
+    const radius = Math.min(width, height) / 3;
+    positions.set(node.id, {
+      x: width / 2 + Math.cos(angle) * radius,
+      y: height / 2 + Math.sin(angle) * radius,
+    });
+  });
+  
+  const iterations = 50;
+  const repulsion = 5000;
+  const attraction = 0.1;
+  const damping = 0.9;
+  
+  const velocities = new Map<string, { x: number; y: number }>();
+  nodes.forEach((n) => velocities.set(n.id, { x: 0, y: 0 }));
+  
+  for (let iter = 0; iter < iterations; iter++) {
+    const forces = new Map<string, { x: number; y: number }>();
+    nodes.forEach((n) => forces.set(n.id, { x: 0, y: 0 }));
+    
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const posA = positions.get(nodes[i].id)!;
+        const posB = positions.get(nodes[j].id)!;
+        
+        const dx = posB.x - posA.x;
+        const dy = posB.y - posA.y;
+        const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+        
+        const force = repulsion / (dist * dist);
+        const fx = (dx / dist) * force;
+        const fy = (dy / dist) * force;
+        
+        const fA = forces.get(nodes[i].id)!;
+        const fB = forces.get(nodes[j].id)!;
+        fA.x -= fx;
+        fA.y -= fy;
+        fB.x += fx;
+        fB.y += fy;
+      }
+    }
+    
+    for (const edge of edges) {
+      const posA = positions.get(edge.from);
+      const posB = positions.get(edge.to);
+      if (!posA || !posB) continue;
+      
+      const dx = posB.x - posA.x;
+      const dy = posB.y - posA.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      const force = (dist - 100) * attraction;
+      const fx = (dx / dist) * force;
+      const fy = (dy / dist) * force;
+      
+      const fA = forces.get(edge.from)!;
+      const fB = forces.get(edge.to)!;
+      fA.x += fx;
+      fA.y += fy;
+      fB.x -= fx;
+      fB.y -= fy;
+    }
+    
+    for (const node of nodes) {
+      const pos = positions.get(node.id)!;
+      const vel = velocities.get(node.id)!;
+      const force = forces.get(node.id)!;
+      
+      vel.x = (vel.x + force.x) * damping;
+      vel.y = (vel.y + force.y) * damping;
+      
+      pos.x += vel.x;
+      pos.y += vel.y;
+      
+      pos.x = Math.max(padding, Math.min(width - padding, pos.x));
+      pos.y = Math.max(padding, Math.min(height - padding, pos.y));
+    }
+  }
+  
+  return positions;
 }
