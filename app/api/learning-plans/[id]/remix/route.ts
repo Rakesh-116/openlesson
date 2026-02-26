@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getPlanById, getPlanNodes, getUserById } from "@/lib/storage";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash";
@@ -40,8 +39,14 @@ export async function POST(
       );
     }
 
-    const sourcePlan = await getPlanById(planId);
-    if (!sourcePlan) {
+    const { data: sourcePlan, error: planQueryError } = await supabase
+      .from("learning_plans")
+      .select("*, profiles:author_id(username)")
+      .eq("id", planId)
+      .single();
+
+    if (planQueryError || !sourcePlan) {
+      console.error("Source plan error:", planQueryError);
       return NextResponse.json({ error: "Source plan not found" }, { status: 404 });
     }
 
@@ -52,22 +57,31 @@ export async function POST(
       );
     }
 
-    const sourceNodes = await getPlanNodes(planId);
-    const author = sourcePlan.author_id ? await getUserById(sourcePlan.author_id) : null;
+    const { data: sourceNodes, error: nodesError } = await supabase
+      .from("plan_nodes")
+      .select("*")
+      .eq("plan_id", planId);
+
+    if (nodesError) {
+      console.error("Nodes error:", nodesError);
+      return NextResponse.json({ error: "Could not fetch source nodes" }, { status: 500 });
+    }
+
+    const authorUsername = sourcePlan.profiles?.username;
 
     const prompt = `You are adapting an existing learning plan for a new learner.
 
 ORIGINAL PLAN TOPIC: "${sourcePlan.root_topic}"
 ${
-  author
-    ? `Originally created by: @${author.username}`
+  authorUsername
+    ? `Originally created by: @${authorUsername}`
     : ""
 }
 
 CURRENT SESSIONS (preserve these IDs if you want to keep them):
-${sourceNodes
+${(sourceNodes || [])
   .map(
-    (n, i) =>
+    (n: any, i: number) =>
       `${n.id} | ${n.is_start ? "START" : ""} | ${n.title}: ${n.description}`
   )
   .join("\n")}
@@ -157,7 +171,8 @@ Rules:
       .single();
 
     if (planError) {
-      throw new Error("Could not create new plan");
+      console.error("Plan insert error:", planError);
+      throw new Error(`Could not create new plan: ${planError.message}`);
     }
 
     const nodeIdMap = new Map<string, string>();
@@ -177,6 +192,13 @@ Rules:
     const { error: insertError } = await supabase
       .from("plan_nodes")
       .insert(newNodes);
+
+    if (insertError) {
+      console.error("Nodes insert error:", insertError);
+      // Rollback: delete the plan we just created
+      await supabase.from("learning_plans").delete().eq("id", newPlan.id);
+      throw new Error(`Could not create nodes: ${insertError.message}`);
+    }
 
     if (insertError) {
       await supabase.from("learning_plans").delete().eq("id", newPlan.id);
