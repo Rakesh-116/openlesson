@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -50,6 +50,13 @@ export default function UserDetailPage() {
   const [user, setUser] = useState<UserDetail | null>(null);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  
+  const [lessonPage, setLessonPage] = useState(1);
+  const [planPage, setPlanPage] = useState(1);
+  const [audioFilter, setAudioFilter] = useState<"all" | "yes" | "no">("all");
+  const [transcriptFilter, setTranscriptFilter] = useState<"all" | "yes" | "no">("all");
+  const [eegFilter, setEegFilter] = useState<"all" | "yes" | "no">("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const supabase = createClient();
 
@@ -129,6 +136,25 @@ export default function UserDetailPage() {
       default: return "bg-neutral-700 text-neutral-400";
     }
   };
+
+  const filteredLessons = lessons.filter(l => {
+    if (audioFilter === "yes" && !l.has_audio) return false;
+    if (audioFilter === "no" && l.has_audio) return false;
+    if (transcriptFilter === "yes" && !l.report_generated_at) return false;
+    if (transcriptFilter === "no" && l.report_generated_at) return false;
+    if (eegFilter === "yes" && !l.has_eeg) return false;
+    if (eegFilter === "no" && l.has_eeg) return false;
+    if (statusFilter !== "all" && l.status !== statusFilter) return false;
+    return true;
+  });
+
+  const LESSON_PAGE_SIZE = 10;
+  const lessonTotalPages = Math.ceil(filteredLessons.length / LESSON_PAGE_SIZE);
+  const paginatedLessons = filteredLessons.slice((lessonPage - 1) * LESSON_PAGE_SIZE, lessonPage * LESSON_PAGE_SIZE);
+
+  const PLAN_PAGE_SIZE = 10;
+  const planTotalPages = Math.ceil(plans.length / PLAN_PAGE_SIZE);
+  const paginatedPlans = plans.slice((planPage - 1) * PLAN_PAGE_SIZE, planPage * PLAN_PAGE_SIZE);
 
   if (loading) {
     return (
@@ -221,12 +247,54 @@ export default function UserDetailPage() {
 
       <div className="grid md:grid-cols-2 gap-6">
         <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-          <h2 className="text-lg font-medium mb-4">Lessons ({lessons.length})</h2>
-          {lessons.length === 0 ? (
+          <h2 className="text-lg font-medium mb-4">Lessons ({filteredLessons.length})</h2>
+          
+          <div className="flex flex-wrap gap-2 mb-4">
+            <select
+              value={audioFilter}
+              onChange={(e) => { setAudioFilter(e.target.value as any); setLessonPage(1); }}
+              className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200"
+            >
+              <option value="all">Audio: All</option>
+              <option value="yes">Audio: Yes</option>
+              <option value="no">Audio: No</option>
+            </select>
+            <select
+              value={transcriptFilter}
+              onChange={(e) => { setTranscriptFilter(e.target.value as any); setLessonPage(1); }}
+              className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200"
+            >
+              <option value="all">Transcript: All</option>
+              <option value="yes">Transcript: Yes</option>
+              <option value="no">Transcript: No</option>
+            </select>
+            <select
+              value={eegFilter}
+              onChange={(e) => { setEegFilter(e.target.value as any); setLessonPage(1); }}
+              className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200"
+            >
+              <option value="all">EEG: All</option>
+              <option value="yes">EEG: Yes</option>
+              <option value="no">EEG: No</option>
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setLessonPage(1); }}
+              className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200"
+            >
+              <option value="all">Status: All</option>
+              <option value="active">Status: Active</option>
+              <option value="completed">Status: Completed</option>
+              <option value="ended_by_tutor">Status: Ended</option>
+            </select>
+          </div>
+
+          {filteredLessons.length === 0 ? (
             <p className="text-neutral-500 text-sm">No lessons found</p>
           ) : (
-            <div className="space-y-3">
-              {lessons.map((lesson) => (
+            <React.Fragment>
+              <div className="space-y-3">
+                {paginatedLessons.map((lesson) => (
                 <div key={lesson.id} className="p-3 bg-neutral-800/50 rounded-lg">
                   <div className="flex items-start justify-between mb-1">
                     <div className="text-sm text-neutral-200 line-clamp-1">{lesson.problem}</div>
@@ -248,8 +316,36 @@ export default function UserDetailPage() {
                     </span>
                   </div>
                 </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              
+              {lessonTotalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-neutral-800">
+                  <div className="text-xs text-neutral-500">
+                    {(lessonPage - 1) * LESSON_PAGE_SIZE + 1}-{Math.min(lessonPage * LESSON_PAGE_SIZE, filteredLessons.length)} of {filteredLessons.length}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setLessonPage(p => Math.max(1, p - 1))}
+                      disabled={lessonPage === 1}
+                      className="px-2 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50"
+                    >
+                      ← Prev
+                    </button>
+                    <span className="px-2 py-1 text-xs text-neutral-500">
+                      {lessonPage} / {lessonTotalPages}
+                    </span>
+                    <button
+                      onClick={() => setLessonPage(p => Math.min(lessonTotalPages, p + 1))}
+                      disabled={lessonPage === lessonTotalPages}
+                      className="px-2 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </React.Fragment>
           )}
         </div>
 
@@ -258,8 +354,9 @@ export default function UserDetailPage() {
           {plans.length === 0 ? (
             <p className="text-neutral-500 text-sm">No plans found</p>
           ) : (
-            <div className="space-y-3">
-              {plans.map((plan) => (
+            <React.Fragment>
+              <div className="space-y-3">
+                {paginatedPlans.map((plan) => (
                 <div key={plan.id} className="p-3 bg-neutral-800/50 rounded-lg">
                   <div className="flex items-start justify-between mb-1">
                     <div className="text-sm text-neutral-200 line-clamp-1">{plan.root_topic}</div>
@@ -272,8 +369,36 @@ export default function UserDetailPage() {
                     {plan.is_public && <span className="text-cyan-400">Public</span>}
                   </div>
                 </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              
+              {planTotalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-neutral-800">
+                  <div className="text-xs text-neutral-500">
+                    {(planPage - 1) * PLAN_PAGE_SIZE + 1}-{Math.min(planPage * PLAN_PAGE_SIZE, plans.length)} of {plans.length}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setPlanPage(p => Math.max(1, p - 1))}
+                      disabled={planPage === 1}
+                      className="px-2 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50"
+                    >
+                      ← Prev
+                    </button>
+                    <span className="px-2 py-1 text-xs text-neutral-500">
+                      {planPage} / {planTotalPages}
+                    </span>
+                    <button
+                      onClick={() => setPlanPage(p => Math.min(planTotalPages, p + 1))}
+                      disabled={planPage === planTotalPages}
+                      className="px-2 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </React.Fragment>
           )}
         </div>
       </div>
