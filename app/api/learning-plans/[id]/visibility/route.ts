@@ -16,11 +16,22 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { is_public } = await req.json();
+    const { is_public, title } = await req.json();
 
-    if (typeof is_public !== "boolean") {
+    const updates: Record<string, any> = {};
+
+    if (typeof is_public === "boolean") {
+      updates.is_public = is_public;
+    }
+
+    if (typeof title === "string" && title.trim()) {
+      updates.title = title.trim();
+      updates.root_topic = title.trim();
+    }
+
+    if (Object.keys(updates).length === 0) {
       return NextResponse.json(
-        { error: "is_public must be a boolean" },
+        { error: "No valid fields to update" },
         { status: 400 }
       );
     }
@@ -43,7 +54,7 @@ export async function PUT(
     // Now update
     const { error: updateError } = await supabase
       .from("learning_plans")
-      .update({ is_public: is_public, author_id: user.id })
+      .update({ ...updates, author_id: user.id })
       .eq("id", planId)
       .eq("user_id", user.id);
 
@@ -55,19 +66,31 @@ export async function PUT(
     // Verify the update
     const { data: verifyPlan } = await supabase
       .from("learning_plans")
-      .select("is_public")
+      .select("is_public, title")
       .eq("id", planId)
       .single();
 
     console.log("After update:", verifyPlan);
 
-    return NextResponse.json({
+    const response: Record<string, any> = {
       success: true,
-      is_public: verifyPlan?.is_public,
-      message: is_public
+    };
+
+    if (typeof is_public === "boolean") {
+      response.is_public = verifyPlan?.is_public;
+      response.message = is_public
         ? "Plan is now public and visible to the community!"
-        : "Plan is now private.",
-    });
+        : "Plan is now private.";
+    }
+
+    if (title) {
+      response.title = verifyPlan?.title;
+      response.message = response.message 
+        ? response.message + " Title updated." 
+        : "Title updated.";
+    }
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error("Error updating plan visibility:", error);
     return NextResponse.json(

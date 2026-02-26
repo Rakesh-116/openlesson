@@ -17,6 +17,7 @@ interface RemixModalProps {
 }
 
 export function RemixModal({ plan, onClose, onComplete }: RemixModalProps) {
+  const [title, setTitle] = useState("");
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -26,6 +27,10 @@ export function RemixModal({ plan, onClose, onComplete }: RemixModalProps) {
   );
 
   const handleRemix = async () => {
+    if (!title.trim()) {
+      setError("Please give your plan a title");
+      return;
+    }
     if (!prompt.trim()) {
       setError("Please describe how you want to adapt this plan");
       return;
@@ -38,7 +43,7 @@ export function RemixModal({ plan, onClose, onComplete }: RemixModalProps) {
       const res = await fetch(`/api/learning-plans/${plan.id}/remix`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ remixPrompt: prompt }),
+        body: JSON.stringify({ remixPrompt: prompt, title: title.trim() }),
       });
       const data = await res.json();
 
@@ -73,6 +78,19 @@ export function RemixModal({ plan, onClose, onComplete }: RemixModalProps) {
         <p className="text-sm text-neutral-400 mb-4">
           Originally by <span className="text-white">@{plan.author_username}</span>
         </p>
+
+        <div className="mb-4">
+          <label className="block text-sm text-neutral-400 mb-2">
+            Give your plan a title
+          </label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g., Python for Data Science"
+            className="w-full px-4 py-3 bg-neutral-800/50 border border-neutral-700 rounded-xl text-white text-sm placeholder-neutral-500 focus:outline-none focus:border-neutral-600"
+          />
+        </div>
 
         <div className="mb-4">
           <label className="block text-sm text-neutral-400 mb-2">

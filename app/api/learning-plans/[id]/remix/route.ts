@@ -30,11 +30,18 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { remixPrompt } = await req.json();
+    const { remixPrompt, title } = await req.json();
 
     if (!remixPrompt || typeof remixPrompt !== "string") {
       return NextResponse.json(
         { error: "Remix prompt is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!title || typeof title !== "string") {
+      return NextResponse.json(
+        { error: "Title is required" },
         { status: 400 }
       );
     }
@@ -161,7 +168,8 @@ Rules:
       .from("learning_plans")
       .insert({
         user_id: user.id,
-        root_topic: sourcePlan.root_topic,
+        root_topic: title.trim(),
+        title: title.trim(),
         status: "active",
         is_public: false,
         author_id: user.id,

@@ -49,6 +49,8 @@ export default function PlanPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showRemixModal, setShowRemixModal] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
   
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -116,6 +118,12 @@ export default function PlanPage() {
     loadPlan();
   }, [planId, supabase, router, refreshKey]);
 
+  useEffect(() => {
+    if (plan?.root_topic) {
+      setEditTitle(plan.root_topic);
+    }
+  }, [plan?.root_topic]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
@@ -147,6 +155,65 @@ export default function PlanPage() {
         }`}>
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
+              {isEditingTitle ? (
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                    autoFocus
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!editTitle.trim()) return;
+                      try {
+                        const res = await fetch(`/api/learning-plans/${planId}/visibility`, {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ title: editTitle.trim() }),
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                          setPlan({ ...plan, root_topic: editTitle.trim(), title: editTitle.trim() });
+                          setIsEditingTitle(false);
+                        } else {
+                          alert(data.error || "Failed to update title");
+                        }
+                      } catch (err) {
+                        console.error("Error updating title:", err);
+                        alert("Failed to update title");
+                      }
+                    }}
+                    className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditTitle(plan.root_topic);
+                      setIsEditingTitle(false);
+                    }}
+                    className="px-3 py-2 bg-neutral-700 hover:bg-neutral-600 text-white text-sm rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 mb-1">
+                  <h2 className="text-lg font-semibold text-white">{plan.root_topic}</h2>
+                  {currentUserId && plan.user_id === currentUserId && (
+                    <button
+                      onClick={() => setIsEditingTitle(true)}
+                      className="text-neutral-500 hover:text-white transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              )}
               <div className="flex items-center gap-2 mb-1 flex-wrap">
                 {plan.is_public ? (
                   <span className="text-green-400 text-sm font-medium">Public</span>
