@@ -204,6 +204,16 @@ export function AgenticModeSelect() {
           <p className="text-sm text-neutral-400">
             Turn your ElizaOS agent into an openLesson-powered personal tutor.
           </p>
+          <button
+            type="button"
+            className="mt-3 inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.location.href = "/elizaos/open-lesson.zip";
+            }}
+          >
+            Download Plugin ↓
+          </button>
         </a>
 
         {/* OpenClaw Card */}
@@ -224,15 +234,27 @@ export function AgenticModeSelect() {
           <p className="text-sm text-neutral-400">
             Turn your OpenClaw agent into an openLesson-powered personal tutor.
           </p>
-          <a 
-            href="https://clawhub.ai/dncolomer/open-lesson" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="mt-3 inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
-            onClick={(e) => e.stopPropagation()}
+          <span 
+            className="mt-3 inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.open('https://clawhub.ai/dncolomer/open-lesson', '_blank', 'noopener,noreferrer');
+            }}
           >
             View on ClawHub →
-          </a>
+          </span>
+          <span 
+            className="ml-3 inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              const link = document.createElement('a');
+              link.href = '/openclaw/open-lesson.zip';
+              link.download = '';
+              link.click();
+            }}
+          >
+            Download Plugin ↓
+          </span>
         </a>
 
         {/* Any Agent Card */}
