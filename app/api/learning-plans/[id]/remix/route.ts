@@ -76,7 +76,11 @@ export async function POST(
 
     const authorUsername = sourcePlan.profiles?.username;
 
-    const prompt = `You are adapting an existing learning plan for a new learner.
+    const originalTopics = (sourceNodes || [])
+      .map((n: any) => `${n.title}: ${n.description}`)
+      .join("; ");
+
+    const prompt = `Create a new learning plan for a new learner based on an existing one.
 
 ORIGINAL PLAN TOPIC: "${sourcePlan.root_topic}"
 ${
@@ -85,23 +89,18 @@ ${
     : ""
 }
 
-CURRENT SESSIONS (preserve these IDs if you want to keep them):
-${(sourceNodes || [])
-  .map(
-    (n: any, i: number) =>
-      `${n.id} | ${n.is_start ? "START" : ""} | ${n.title}: ${n.description}`
-  )
-  .join("\n")}
+ORIGINAL LEARNING SESSIONS (for context only - do not use these IDs):
+${originalTopics}
 
 USER'S REMIX REQUEST: "${remixPrompt}"
 
-Adapt the learning plan according to the user's request. Consider:
+Create a new learning plan according to the user's request. Consider:
 - Adjust difficulty level based on their background
 - Focus on specific areas they mentioned
 - Adapt the pacing or structure as needed
-- Keep the core learning path but modify as requested
+- Keep the core learning goals but reshape the path
 
-IMPORTANT: You must preserve the learning goals and structure - the adaptations should make it MORE suitable for the user, not remove content.
+IMPORTANT: Create a completely fresh plan tailored to the user's needs. The new plan should be MORE suitable for them, not a copy of the original.
 
 Return ONLY valid JSON (no markdown) with this structure:
 {
@@ -195,8 +194,8 @@ Rules:
       title: node.title,
       description: node.description,
       is_start: node.is_start || false,
-      next_node_ids: (node.next || []).map((id: string) => nodeIdMap.get(id) || id),
-      status: "not_started",
+      next_node_ids: (node.next || []).filter((id: string) => nodeIdMap.has(id)).map((id: string) => nodeIdMap.get(id)),
+      status: "available",
     }));
 
     const { error: insertError } = await supabase
