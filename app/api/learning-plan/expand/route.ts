@@ -32,11 +32,11 @@ export async function POST(req: NextRequest) {
 
     const { data: plan } = await supabase
       .from("learning_plans")
-      .select("user_id")
+      .select("user_id, is_public")
       .eq("id", node.plan_id)
       .single();
 
-    if (!plan || plan.user_id !== user.id) {
+    if (!plan || (plan.user_id !== user.id && !plan.is_public)) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 

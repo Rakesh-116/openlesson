@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }
 
-    if (plan.user_id !== user.id) {
+    if (plan.user_id !== user.id && !plan.is_public) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 

@@ -225,7 +225,8 @@ export default function PlanPage() {
           nodes={nodes} 
           supabase={supabase}
           planId={planId}
-          onRefresh={refreshNodes} 
+          onRefresh={refreshNodes}
+          isOwner={currentUserId ? plan.user_id === currentUserId : false}
         />
       </main>
 

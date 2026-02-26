@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ChatPanel } from "./ChatPanel";
 import { SessionList } from "./SessionList";
+import { RemixModal } from "./RemixModal";
 
 interface PlanNode {
   id: string;
@@ -32,6 +33,7 @@ interface PlanChatProps {
   onRefresh?: () => void;
   supabase?: ReturnType<typeof createBrowserClient>;
   planId?: string;
+  isOwner?: boolean;
 }
 
 const MODEL_STORAGE_KEY = "planner-model";
@@ -63,7 +65,7 @@ function nodesHaveChanged(oldNodes: PlanNode[], newNodes: PlanNode[]): Set<strin
   return changedIds;
 }
 
-export function PlanChat({ plan, nodes: initialNodes, onRefresh, supabase, planId }: PlanChatProps) {
+export function PlanChat({ plan, nodes: initialNodes, onRefresh, supabase, planId, isOwner = true }: PlanChatProps) {
   const router = useRouter();
   const [nodes, setNodes] = useState(initialNodes);
   const [activeTab, setActiveTab] = useState<"chat" | "sessions">("chat");
@@ -79,6 +81,7 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, supabase, planI
   const [isLoadingDesc, setIsLoadingDesc] = useState(false);
   const [highlightedNodes, setHighlightedNodes] = useState<Set<string>>(new Set());
   const [highlightOpacity, setHighlightOpacity] = useState(1);
+  const [showRemixModal, setShowRemixModal] = useState(false);
 
   useEffect(() => {
     const changedIds = nodesHaveChanged(nodes, initialNodes);
@@ -97,6 +100,12 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, supabase, planI
     
     setNodes(initialNodes);
   }, [initialNodes]);
+
+  useEffect(() => {
+    const handleOpenRemix = () => setShowRemixModal(true);
+    window.addEventListener("openRemixModal", handleOpenRemix);
+    return () => window.removeEventListener("openRemixModal", handleOpenRemix);
+  }, []);
 
   useEffect(() => {
     if (!description && !isLoadingDesc) {
@@ -223,6 +232,7 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, supabase, planI
             onModelChange={handleModelChange}
             onRefresh={onRefresh}
             supabase={supabase}
+            isOwner={isOwner}
           />
         </div>
       </div>
@@ -352,7 +362,7 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, supabase, planI
                 </svg>
               </button>
             </div>
-            {selectedNode.status !== "completed" && selectedNode.status !== "locked" && (
+            {isOwner && selectedNode.status !== "completed" && selectedNode.status !== "locked" && (
               <button
                 onClick={async () => {
                   const client = supabase || createBrowserClient(
@@ -385,6 +395,17 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, supabase, planI
             )}
           </div>
         </>
+      )}
+
+      {showRemixModal && (
+        <RemixModal
+          plan={{ id: plan.id, root_topic: plan.root_topic, author_username: "", remix_count: 0 }}
+          onClose={() => setShowRemixModal(false)}
+          onComplete={(newPlanId) => {
+            setShowRemixModal(false);
+            router.push(`/plan/${newPlanId}`);
+          }}
+        />
       )}
     </div>
   );

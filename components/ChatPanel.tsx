@@ -19,9 +19,10 @@ interface ChatPanelProps {
   onModelChange?: (model: string) => void;
   onRefresh?: () => void;
   supabase?: ReturnType<typeof createBrowserClient>;
+  isOwner?: boolean;
 }
 
-export function ChatPanel({ planId, description, model, onModelChange, onRefresh, supabase }: ChatPanelProps) {
+export function ChatPanel({ planId, description, model, onModelChange, onRefresh, supabase, isOwner = true }: ChatPanelProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -209,8 +210,28 @@ export function ChatPanel({ planId, description, model, onModelChange, onRefresh
         <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={handleSubmit} className="relative">
-        <textarea
+      {!isOwner && (
+        <div className="mt-auto pt-4 border-t border-neutral-800">
+          <div className="text-center mb-4">
+            <p className="text-sm text-neutral-400 mb-2">
+              This is a public plan. Fork it to customize for your learning journey.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              const event = new CustomEvent("openRemixModal");
+              window.dispatchEvent(event);
+            }}
+            className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-colors"
+          >
+            Fork / Remix This Plan
+          </button>
+        </div>
+      )}
+
+      {isOwner && (
+        <form onSubmit={handleSubmit} className="relative">
+          <textarea
           ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -229,7 +250,8 @@ export function ChatPanel({ planId, description, model, onModelChange, onRefresh
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
           </svg>
         </button>
-      </form>
+        </form>
+      )}
     </div>
   );
 }
