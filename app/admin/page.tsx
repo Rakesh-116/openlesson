@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { createClient } from "@/lib/supabase/client";
 
@@ -311,10 +312,7 @@ export default function AdminPage() {
     : selectedUsers.size;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
-      <Navbar />
-
-      <main className="max-w-6xl mx-auto p-4 sm:px-6 py-8">
+    <main className="max-w-6xl mx-auto p-4 sm:px-6 py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-xl font-semibold">Admin Dashboard</h1>
@@ -457,17 +455,19 @@ export default function AdminPage() {
                     />
                   </td>
                   <td className="px-4 py-3">
-                    <div>
-                      <div className="text-neutral-200 font-medium">
-                        {user.username || user.email || "No name"}
+                    <Link href={`/admin/${user.id}`} className="hover:text-blue-400">
+                      <div>
+                        <div className="text-neutral-200 font-medium">
+                          {user.username || user.email || "No name"}
+                        </div>
+                        <div className="text-xs text-neutral-500">{user.email}</div>
+                        {user.is_admin && (
+                          <span className="inline-block mt-1 px-1.5 py-0.5 text-[10px] rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                            ADMIN
+                          </span>
+                        )}
                       </div>
-                      <div className="text-xs text-neutral-500">{user.email}</div>
-                      {user.is_admin && (
-                        <span className="inline-block mt-1 px-1.5 py-0.5 text-[10px] rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
-                          ADMIN
-                        </span>
-                      )}
-                    </div>
+                    </Link>
                   </td>
                   <td className="px-4 py-3 text-neutral-400">
                     {user.lessons_count}
@@ -564,6 +564,5 @@ export default function AdminPage() {
           </div>
         )}
       </main>
-    </div>
   );
 }

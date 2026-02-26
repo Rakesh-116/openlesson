@@ -1,0 +1,77 @@
+import { NextResponse } from "next/server";
+import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/server";
+
+export const runtime = "nodejs";
+
+function getAdminClient() {
+  return createSupabaseAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+  );
+}
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ userId: string }> }
+) {
+  try {
+    const { userId } = await params;
+    const supabase = await createClient();
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    
+    if (!authUser) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", authUser.id)
+      .single();
+
+    if (!profile?.is_admin) {
+      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    }
+
+    const adminClient = getAdminClient();
+
+    const { data: userProfile, error: profileError } = await adminClient
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if (profileError || !userProfile) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const { data: authData } = await adminClient.auth.admin.getUserById(userId);
+    
+    const [sessionsData, plansData] = await Promise.all([
+      adminClient
+        .from("sessions")
+        .select("id, problem, status, created_at, duration_ms, report_generated_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false }),
+      adminClient
+        .from("learning_plans")
+        .select("id, root_topic, status, created_at, is_public")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false }),
+    ]);
+
+    return NextResponse.json({
+      user: {
+        ...userProfile,
+        email: authData.user?.email || null,
+        email_confirmed_at: authData.user?.email_confirmed_at || null,
+      },
+      lessons: sessionsData.data || [],
+      plans: plansData.data || [],
+    });
+  } catch (error) {
+    console.error("Admin user detail error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
