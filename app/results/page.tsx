@@ -5,26 +5,26 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   getSession,
-  getSessionAudio,
-  getSessionStats,
   saveSession,
   type Session,
 } from "@/lib/storage";
-import { formatTime } from "@/lib/utils";
-import { downloadAudio } from "@/lib/audio";
-import { ProbeCard } from "@/components/ProbeCard";
-import { AudioPlayer } from "@/components/AudioPlayer";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+
+interface SessionSummary {
+  audioChunks: number;
+  transcripts: number;
+  eegChunks: number;
+  toolData: number;
+}
 
 function ResultsContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("id");
   const [session, setSession] = useState<Session | null>(null);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [reportLoading, setReportLoading] = useState(false);
-  const [showStarredOnly, setShowStarredOnly] = useState(false);
 
   useEffect(() => {
     if (!sessionId) {
@@ -36,28 +36,9 @@ function ResultsContent() {
       const s = await getSession(sessionId);
       setSession(s);
 
-      console.log("[Results] Session loaded:", { 
-        id: s?.id, 
-        hasAudio: s?.hasAudio, 
-        audioPath: s?.audioPath,
-        metadata: s?.metadata 
-      });
-
-      if (s?.hasAudio) {
-        console.log("[Results] Session has audio, loading...");
-        const audio = await getSessionAudio(sessionId);
-        console.log("[Results] Loaded audio:", { 
-          exists: !!audio, 
-          size: audio?.size, 
-          type: audio?.type 
-        });
-        setAudioBlob(audio);
-      }
-
       setLoading(false);
 
       if (s && (s.status === "completed" || s.status === "ended_by_tutor")) {
-        // Generate report if missing
         if (!s.report) generateAndSaveReport(s);
       }
     };
@@ -65,26 +46,58 @@ function ResultsContent() {
     loadSession();
   }, [sessionId]);
 
+  useEffect(() => {
+    if (!sessionId || !session) return;
+
+    const loadSummary = async () => {
+      const supabase = (await import("@/lib/supabase/client")).createClient();
+      
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) return;
+
+      const storagePath = `${user.id}/${sessionId}`;
+
+      const [audioFiles, transcriptFiles, eegFiles, toolFiles, sessionTranscriptRes, transcriptChunksRes] = await Promise.all([
+        supabase.storage.from("session-audio").list(storagePath, { limit: 100 }),
+        supabase.storage.from("session-transcript").list(storagePath, { limit: 100 }),
+        supabase.storage.from("session-eeg").list(storagePath, { limit: 100 }),
+        supabase.storage.from("session-tool").list(storagePath, { limit: 100 }),
+        supabase
+          .from("session_transcripts")
+          .select("chunk_count")
+          .eq("session_id", sessionId)
+          .maybeSingle(),
+        supabase
+          .from("transcript_chunks")
+          .select("chunk_index", { count: "exact", head: true })
+          .eq("session_id", sessionId),
+      ]);
+
+      const audioCount = audioFiles.data?.length || 0;
+      const transcriptCount = transcriptFiles.data?.length || 0;
+      const eegCount = eegFiles.data?.length || 0;
+      const toolCount = toolFiles.data?.length || 0;
+
+      const finalTranscriptCount = 
+        (sessionTranscriptRes.data?.chunk_count || 0) || 
+        (transcriptChunksRes.count || 0) ||
+        transcriptCount;
+
+      setSummary({
+        audioChunks: audioCount,
+        transcripts: finalTranscriptCount,
+        eegChunks: eegCount,
+        toolData: toolCount,
+      });
+    };
+
+    loadSummary();
+  }, [sessionId, session]);
+
   const generateAndSaveReport = async (s: Session) => {
     setReportLoading(true);
     try {
-      const stats = getSessionStats(s);
       const durationMin = Math.round(s.durationMs / 60000);
-
-      // Build probes summary for the report
-      const probesSummary = s.probes
-        .map((p, i) => `Probe ${i + 1} (gap ${Math.round(p.gapScore * 100)}%, ${formatTime(Math.floor(p.timestamp / 1000))}): ${p.text}`)
-        .join("\n");
-
-      // Include EEG context if available
-      const eegSummary = s.metadata?.eegSummary;
-      let eegContext: string | undefined;
-      if (eegSummary) {
-        const bands = Object.entries(eegSummary)
-          .map(([band, val]) => `${band}: ${Math.round((val as number) * 100)}%`)
-          .join(", ");
-        eegContext = `Average band powers during session: ${bands}`;
-      }
 
       const res = await fetch("/api/generate-report", {
         method: "POST",
@@ -92,21 +105,22 @@ function ResultsContent() {
         body: JSON.stringify({
           problem: s.problem,
           duration: `${durationMin} minutes`,
-          probeCount: stats.probeCount,
-          avgGapScore: stats.avgGapScore,
-          probesSummary,
-          eegContext,
+          probeCount: s.probes.length,
+          avgGapScore: s.probes.length > 0 
+            ? s.probes.reduce((acc, p) => acc + p.gapScore, 0) / s.probes.length 
+            : 0,
+          probesSummary: s.probes
+            .map((p, i) => `Probe ${i + 1}: ${p.text}`)
+            .join("\n"),
+          eegContext: undefined,
         }),
       });
 
       if (res.ok) {
         const { report } = await res.json();
         if (report) {
-          // Update local state
           const updatedSession = { ...s, report, reportGeneratedAt: new Date().toISOString() };
           setSession(updatedSession);
-
-          // Persist to DB
           await saveSession(updatedSession);
         }
       }
@@ -136,24 +150,11 @@ function ResultsContent() {
           href="/"
           className="px-5 py-2.5 bg-white/10 hover:bg-white/15 text-white text-sm rounded-xl transition-colors"
         >
-          Start New Session
+          Go to Dashboard
         </Link>
       </div>
     );
   }
-
-  const stats = getSessionStats(session);
-  const durationFormatted = formatTime(Math.floor(session.durationMs / 1000));
-  const eegSummary = session.metadata?.eegSummary;
-  const whiteboardData = session.metadata?.whiteboardData;
-  const notebookData = session.metadata?.notebookData;
-
-  const handleDownloadAudio = () => {
-    if (audioBlob) {
-      const filename = `socrates-${session.id.substring(0, 8)}.webm`;
-      downloadAudio(audioBlob, filename);
-    }
-  };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
@@ -163,8 +164,7 @@ function ResultsContent() {
         ]}
       />
 
-      <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8">
-        {/* Topic + Status */}
+      <div className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8">
         <div className="mb-6">
           <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">{session.problem}</h2>
           <div className="flex items-center gap-3 text-xs text-neutral-500">
@@ -188,138 +188,38 @@ function ResultsContent() {
           </div>
         </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-          <StatCard label="Duration" value={durationFormatted} />
-          <StatCard label="Probes" value={stats.probeCount.toString()} />
-          <StatCard
-            label="Avg Gap"
-            value={`${Math.round(stats.avgGapScore * 100)}%`}
-          />
-          <StatCard
-            label="Peak Gap"
-            value={`${Math.round(stats.peakGapScore * 100)}%`}
-          />
-        </div>
-
-        {/* Audio Player */}
-        <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-neutral-300">Session Recording</h3>
-            {session.hasAudio && audioBlob && (
-              <button
-                onClick={handleDownloadAudio}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg border border-neutral-700 transition-colors"
-              >
-                <DownloadIcon />
-                Download
-              </button>
-            )}
-          </div>
-          {session.hasAudio && audioBlob ? (
-            <AudioPlayer audioBlob={audioBlob} />
-          ) : (
-            <div className="py-6 text-center">
-              <p className="text-sm text-neutral-500">No Recording Available</p>
-              <p className="text-xs text-neutral-600 mt-1">
-                Audio could not be saved for this session. This may be due to browser permissions or a storage issue.
+        {summary && (
+          <div className="mb-8">
+            <div className="mb-2">
+              <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                Stored Data Chunks
+              </h3>
+              <p className="text-[10px] text-neutral-600 mt-0.5">
+                Audio recordings, transcriptions, EEG readings, and tool interactions captured during the session
               </p>
             </div>
-          )}
-        </div>
-
-        {/* Whiteboard */}
-        {whiteboardData && (
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <CanvasIcon />
-              <h3 className="text-sm font-medium text-neutral-300">Whiteboard</h3>
+            <div className="grid grid-cols-4 gap-3">
+              <SummaryCard label="Audio" value={summary.audioChunks} />
+              <SummaryCard label="Transcripts" value={summary.transcripts} />
+              <SummaryCard label="EEG" value={summary.eegChunks} />
+              <SummaryCard label="Tools" value={summary.toolData} />
             </div>
-            <div className="rounded-lg overflow-hidden border border-neutral-800 bg-[#0a0a0a]">
-              <img 
-                src={whiteboardData} 
-                alt="Session whiteboard" 
-                className="w-full h-auto max-h-96 object-contain"
-              />
-            </div>
+            <p className="text-[10px] text-neutral-500 mt-3">
+              Your data is contributing to the{" "}
+              <a href="https://huggingface.co/datasets/unsys/ghc" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+                Global Human Conversation dataset
+              </a>{" "}
+              to help advance AI understanding of human learning. Thank you!{" "}
+              <a href="https://x.com/uncertainsys" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+                Contact us on X
+              </a>{" "}
+              with any questions.
+            </p>
           </div>
         )}
 
-        {/* Notebook */}
-        {notebookData && (
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <NotebookIcon />
-              <h3 className="text-sm font-medium text-neutral-300">Notes</h3>
-            </div>
-            <div className="rounded-lg overflow-hidden border border-neutral-800 bg-[#0a0a0a] p-4">
-              <p className="text-sm text-neutral-400 leading-relaxed whitespace-pre-wrap font-mono">
-                {notebookData}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Muse EEG Data */}
-        <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <BrainIcon />
-            <h3 className="text-sm font-medium text-neutral-300">Muse EEG Data</h3>
-          </div>
-
-          {eegSummary ? (
-            <>
-              {/* Band powers bar chart */}
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 mb-4">
-                {([
-                  { key: "delta", label: "Delta", range: "1–4 Hz", desc: "Deep rest", color: "#6366f1" },
-                  { key: "theta", label: "Theta", range: "4–8 Hz", desc: "Creativity", color: "#8b5cf6" },
-                  { key: "alpha", label: "Alpha", range: "8–13 Hz", desc: "Relaxed focus", color: "#34d399" },
-                  { key: "beta", label: "Beta", range: "13–30 Hz", desc: "Active thinking", color: "#fbbf24" },
-                  { key: "gamma", label: "Gamma", range: "30–44 Hz", desc: "Peak focus", color: "#f472b6" },
-                ] as const).map(({ key, label, range, desc, color }) => {
-                  const value = eegSummary[key] ?? 0;
-                  const pct = Math.round(value * 100);
-                  return (
-                    <div key={key} className="text-center">
-                      {/* Vertical bar */}
-                      <div className="h-20 flex items-end justify-center mb-2">
-                        <div
-                          className="w-6 rounded-t-md transition-all duration-500"
-                          style={{
-                            height: `${Math.max(4, pct * 0.8)}px`,
-                            backgroundColor: color,
-                            opacity: 0.8,
-                          }}
-                        />
-                      </div>
-                      <p className="text-xs font-medium text-neutral-300">{label}</p>
-                      <p className="text-lg font-bold text-white">{pct}%</p>
-                      <p className="text-[10px] text-neutral-600">{range}</p>
-                      <p className="text-[10px] text-neutral-500 mt-0.5">{desc}</p>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Interpretation */}
-              <div className="p-3 rounded-lg bg-neutral-800/40">
-                <EEGInterpretation bands={eegSummary} />
-              </div>
-            </>
-          ) : (
-            <div className="py-8 text-center">
-              <p className="text-sm text-neutral-500">No Data</p>
-              <p className="text-xs text-neutral-600 mt-1">
-                Connect a Muse headband in the Dashboard before starting a session to record EEG data.
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Report */}
         {session.report ? (
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 mb-6">
+          <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5">
             <h3 className="text-sm font-medium text-neutral-300 mb-3">Session Report</h3>
             <div
               className="prose prose-sm prose-invert max-w-none text-neutral-400 leading-relaxed text-sm"
@@ -327,7 +227,7 @@ function ResultsContent() {
             />
           </div>
         ) : reportLoading ? (
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 mb-6">
+          <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5">
             <h3 className="text-sm font-medium text-neutral-300 mb-3">Session Report</h3>
             <div className="flex items-center gap-3 py-6 justify-center">
               <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full" />
@@ -336,63 +236,12 @@ function ResultsContent() {
           </div>
         ) : null}
 
-        {/* Probes Timeline */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-neutral-300">
-              Socratic Timeline
-              {session.probes.length > 0 && (
-                <span className="ml-2 text-neutral-600 font-normal">
-                  {session.probes.length} probes
-                </span>
-              )}
-            </h3>
-
-            {/* Starred filter toggle */}
-            {session.probes.some((p) => p.starred) && (
-              <button
-                onClick={() => setShowStarredOnly((prev) => !prev)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all border ${
-                  showStarredOnly
-                    ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
-                    : "text-neutral-500 border-neutral-700 hover:border-neutral-500 hover:text-neutral-300"
-                }`}
-              >
-                <StarFilterIcon filled={showStarredOnly} />
-                Starred ({session.probes.filter((p) => p.starred).length})
-              </button>
-            )}
-          </div>
-
-          {session.probes.length === 0 ? (
-            <div className="text-center py-12 rounded-xl border border-dashed border-neutral-800">
-              <p className="text-sm text-neutral-500 mb-1">No probes in this session.</p>
-              <p className="text-xs text-neutral-700">You seemed confident throughout!</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {(showStarredOnly
-                ? session.probes.filter((p) => p.starred)
-                : session.probes
-              ).map((probe) => (
-                <ProbeCard key={probe.id} probe={probe} problem={session.problem} />
-              ))}
-              {showStarredOnly && session.probes.filter((p) => p.starred).length === 0 && (
-                <div className="text-center py-8 rounded-xl border border-dashed border-neutral-800">
-                  <p className="text-sm text-neutral-500">No starred probes in this session.</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex justify-center pb-8">
+        <div className="flex justify-center mt-8 pb-8">
           <Link
-            href="/"
+            href="/dashboard"
             className="px-6 py-2.5 bg-white/10 hover:bg-white/15 text-white text-sm font-medium rounded-xl transition-colors"
           >
-            Start New Session
+            Back to Dashboard
           </Link>
         </div>
       </div>
@@ -415,52 +264,11 @@ export default function ResultsPage() {
   );
 }
 
-// ---- Sub-components ----
-
-function StatCard({ label, value }: { label: string; value: string }) {
+function SummaryCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">
+    <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-3 text-center">
       <p className="text-[11px] text-neutral-600 uppercase tracking-wider">{label}</p>
-      <p className="text-2xl font-bold text-white mt-1">{value}</p>
-    </div>
-  );
-}
-
-function EEGInterpretation({ bands }: { bands: Record<string, number> }) {
-  const alpha = bands.alpha ?? 0;
-  const beta = bands.beta ?? 0;
-  const theta = bands.theta ?? 0;
-  const gamma = bands.gamma ?? 0;
-
-  const lines: string[] = [];
-
-  if (alpha > 0.25) {
-    lines.push("High alpha activity suggests you were in a relaxed, focused state — ideal for learning.");
-  } else if (alpha < 0.1) {
-    lines.push("Low alpha may indicate stress or high cognitive load during the session.");
-  }
-
-  if (beta > 0.3) {
-    lines.push("Elevated beta waves show active analytical thinking and engagement.");
-  }
-
-  if (theta > 0.25) {
-    lines.push("Strong theta activity is associated with creative thinking and insight moments.");
-  }
-
-  if (gamma > 0.15) {
-    lines.push("Notable gamma presence indicates peak concentration and information processing.");
-  }
-
-  if (lines.length === 0) {
-    lines.push("Brain wave distribution was balanced across all frequency bands during this session.");
-  }
-
-  return (
-    <div className="space-y-1">
-      {lines.map((line, i) => (
-        <p key={i} className="text-[11px] text-neutral-400 leading-relaxed">{line}</p>
-      ))}
+      <p className="text-xl font-bold text-white mt-1">{value}</p>
     </div>
   );
 }
@@ -478,50 +286,4 @@ function markdownToHtml(markdown: string): string {
     .replace(/\n/g, "<br/>")
     .replace(/^/, '<p class="mb-2">')
     .replace(/$/, "</p>");
-}
-
-// ---- Icons ----
-
-function DownloadIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-    </svg>
-  );
-}
-
-function StarFilterIcon({ filled }: { filled: boolean }) {
-  return filled ? (
-    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-    </svg>
-  ) : (
-    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-    </svg>
-  );
-}
-
-function BrainIcon() {
-  return (
-    <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-    </svg>
-  );
-}
-
-function CanvasIcon() {
-  return (
-    <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-    </svg>
-  );
-}
-
-function NotebookIcon() {
-  return (
-    <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-    </svg>
-  );
 }
