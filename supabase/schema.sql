@@ -37,7 +37,7 @@ CREATE TABLE sessions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   problem TEXT NOT NULL,
-  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed', 'ended_by_tutor')),
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'paused', 'completed', 'ended_by_tutor')),
   duration_ms INTEGER DEFAULT 0,
   audio_path TEXT,              -- Supabase Storage path
   report TEXT,                  -- AI-generated session report (markdown)
@@ -62,6 +62,7 @@ CREATE TABLE probes (
   signals TEXT[] DEFAULT '{}',
   text TEXT NOT NULL,
   expanded_text TEXT,               -- filled on click-to-expand
+  is_revealed BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -87,11 +88,13 @@ CREATE INDEX idx_user_transcripts_user_id ON user_transcripts(user_id);
 -- ============================================
 CREATE TABLE transcript_chunks (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  transcript_id UUID REFERENCES user_transcripts(id) ON DELETE CASCADE NOT NULL,
+  transcript_id UUID REFERENCES user_transcripts(id) ON DELETE CASCADE,
+  session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   chunk_index INTEGER NOT NULL,
   content TEXT NOT NULL,            -- 200-400 word segment
   metadata JSONB DEFAULT '{}',     -- e.g. {"has_hesitation": true, "has_self_correction": true}
+  submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -114,6 +117,54 @@ CREATE TABLE session_eeg_data (
 );
 
 CREATE INDEX idx_session_eeg_data_session_id ON session_eeg_data(session_id);
+
+-- ============================================
+-- UNIFIED SESSION DATA (harmonized data store)
+-- ============================================
+CREATE TABLE session_data (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  data_type TEXT NOT NULL, -- 'audio', 'eeg', 'tool'
+  timestamp_ms BIGINT NOT NULL,
+  chunk_index INTEGER,
+  
+  -- Type-specific fields (nullable, used based on data_type)
+  audio_path TEXT,
+  transcript TEXT,
+  eeg_data JSONB,
+  tool_name TEXT,
+  tool_action TEXT,
+  tool_data JSONB,
+  
+  -- Sync tracking
+  synced_to_preprocessing BOOLEAN DEFAULT FALSE,
+  preprocessing_server_id TEXT,
+  
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_session_data_time ON session_data(session_id, timestamp_ms);
+CREATE INDEX idx_session_data_sync ON session_data(synced_to_preprocessing) 
+  WHERE NOT synced_to_preprocessing;
+CREATE INDEX idx_session_data_session_type ON session_data(session_id, data_type);
+CREATE INDEX idx_session_data_user_type ON session_data(user_id, data_type);
+
+-- ============================================
+-- SESSION TRANSCRIPTS (session-specific audio transcriptions)
+-- ============================================
+CREATE TABLE session_transcripts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id UUID REFERENCES sessions(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  content TEXT NOT NULL,
+  chunk_count INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'processing' CHECK (status IN ('processing', 'ready', 'error')),
+  processed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_session_transcripts_session_id ON session_transcripts(session_id);
 
 -- ============================================
 -- ROW LEVEL SECURITY (RLS)
@@ -181,6 +232,16 @@ CREATE POLICY "Users can create own eeg data"
   ON session_eeg_data FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can delete own eeg data"
   ON session_eeg_data FOR DELETE USING (auth.uid() = user_id);
+
+-- Session Data (unified): users can access their own data
+CREATE POLICY "Users can view own session data"
+  ON session_data FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can create own session data"
+  ON session_data FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own session data"
+  ON session_data FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own session data"
+  ON session_data FOR DELETE USING (auth.uid() = user_id);
 
 -- ============================================
 -- STORAGE BUCKETS (run via Supabase dashboard or API)

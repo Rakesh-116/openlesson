@@ -7,6 +7,8 @@ interface ActiveProbeProps {
   probe: Probe | null;
   problem: string;
   isLoading?: boolean;
+  isRevealed?: boolean;
+  onReveal?: () => void;
   // Probe navigation
   hasPrev?: boolean;
   hasNext?: boolean;
@@ -21,6 +23,8 @@ export function ActiveProbe({
   probe,
   problem,
   isLoading = false,
+  isRevealed = true,
+  onReveal,
   hasPrev = false,
   hasNext = false,
   onPrevProbe,
@@ -217,7 +221,27 @@ export function ActiveProbe({
             <QuestionIcon />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-white text-base sm:text-lg leading-relaxed break-words">{probe.text}</p>
+            {!isRevealed ? (
+              <button
+                onClick={onReveal}
+                className="w-full group cursor-pointer"
+              >
+                <div className="filter blur-lg select-none opacity-50 group-hover:opacity-60 transition-opacity text-white text-base sm:text-lg leading-relaxed break-words">
+                  {probe.text}
+                </div>
+                <div className="mt-4 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-neutral-800/60 border border-neutral-700/50 group-hover:bg-neutral-800/80 group-hover:border-neutral-600/50 transition-all">
+                  <svg className="w-4 h-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  <span className="text-sm text-neutral-400 group-hover:text-neutral-300">
+                    Tap to reveal question from tutor
+                  </span>
+                </div>
+              </button>
+            ) : (
+              <p className="text-white text-base sm:text-lg leading-relaxed break-words">{probe.text}</p>
+            )}
 
             {/* Go deeper expanded content -- BLUE accent */}
             {isExpanded && (

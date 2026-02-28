@@ -32,7 +32,8 @@ export async function POST(request: NextRequest) {
     }
 
     const transcriptId = crypto.randomUUID();
-    const filePath = `${user.id}/${transcriptId}.txt`;
+    const timestamp = Date.now();
+    const filePath = `${user.id}/${timestamp}_${transcriptId}.txt`;
 
     // Upload to storage
     const { error: uploadError } = await supabase.storage

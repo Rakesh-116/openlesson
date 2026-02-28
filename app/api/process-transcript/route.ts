@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
         user_id: transcript.user_id,
         chunk_index: index,
         content,
+        submitted_at: new Date().toISOString(),
         metadata: {
           has_hesitation: HESITATION_MARKERS.some((m) => lower.includes(m)),
           has_self_correction: SELF_CORRECTION_MARKERS.some((m) => lower.includes(m)),

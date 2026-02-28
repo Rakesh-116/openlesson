@@ -15,9 +15,12 @@ export interface Probe {
   text: string;
   expandedText?: string;
   starred?: boolean;
+  isRevealed?: boolean; // user has clicked to reveal this question
 }
 
-export type SessionStatus = "planning" | "active" | "completed" | "ended_by_tutor";
+export type TrafficLight = "red" | "yellow" | "green";
+
+export type SessionStatus = "ready" | "paused" | "completed" | "ended_by_tutor";
 export type ObserverMode = "off" | "passive" | "active";
 export type Frequency = "rare" | "balanced" | "frequent";
 
@@ -29,6 +32,7 @@ export interface Session {
   durationMs: number;
   status: SessionStatus;
   probes: Probe[];
+  objectives: string[];
   hasAudio: boolean;
   audioPath?: string;
   report?: string;
@@ -41,6 +45,7 @@ export interface Session {
     eegSummary?: Record<string, number> | null;
     whiteboardData?: string | null;
     notebookData?: string | null;
+    trafficLight?: TrafficLight;
   };
 }
 
@@ -56,6 +61,7 @@ function mapDbSession(s: any, probes: Probe[] = []): Session {
     durationMs: s.duration_ms || 0,
     status: s.status || "completed",
     probes,
+    objectives: s.objectives || [],
     hasAudio: !!s.audio_path,
     audioPath: s.audio_path ?? undefined,
     report: s.report ?? undefined,
@@ -75,6 +81,7 @@ function mapDbProbe(p: any): Probe {
     text: p.text,
     expandedText: p.expanded_text ?? undefined,
     starred: p.starred ?? false,
+    isRevealed: p.is_revealed ?? false,
   };
 }
 
@@ -241,12 +248,36 @@ export async function toggleProbeStarred(probeId: string, starred: boolean): Pro
     .eq("id", probeId);
 }
 
+export async function updateProbeRevealed(probeId: string, isRevealed: boolean): Promise<void> {
+  const supabase = createClient();
+  await supabase
+    .from("probes")
+    .update({ is_revealed: isRevealed })
+    .eq("id", probeId);
+}
+
 export async function startSession(sessionId: string): Promise<void> {
   const supabase = createClient();
   await supabase
     .from("sessions")
-    .update({ status: "active" })
+    .update({ status: "paused" })
     .eq("id", sessionId);
+}
+
+export async function updateSessionStatus(sessionId: string, status: SessionStatus): Promise<void> {
+  const supabase = createClient();
+  await supabase
+    .from("sessions")
+    .update({ status })
+    .eq("id", sessionId);
+}
+
+export async function pauseSession(sessionId: string): Promise<void> {
+  await updateSessionStatus(sessionId, "paused");
+}
+
+export async function resumeSession(sessionId: string): Promise<void> {
+  await updateSessionStatus(sessionId, "ready");
 }
 
 // ---- In-memory session helpers (for active recording) ----
@@ -284,7 +315,8 @@ export async function saveSessionAudio(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
-  const path = `${user.id}/${sessionId}.webm`;
+  const timestamp = Date.now();
+  const path = `${user.id}/${sessionId}_${timestamp}.webm`;
   const contentType = audioBlob.type || "audio/webm";
 
   console.log("[saveSessionAudio] Saving audio:", { sessionId, path, contentType, size: audioBlob.size });
@@ -319,6 +351,37 @@ export async function saveSessionAudio(
   return path;
 }
 
+export async function saveAudioChunk(
+  sessionId: string,
+  chunkBlob: Blob,
+  chunkIndex: number,
+  timestamp: number
+): Promise<string> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const ts = Date.now();
+  const path = `${user.id}/${sessionId}/chunk_${chunkIndex}_${ts}.webm`;
+  const contentType = chunkBlob.type || "audio/webm";
+
+  console.log("[saveAudioChunk] Saving:", { sessionId, chunkIndex, path });
+
+  const { error } = await supabase.storage
+    .from("session-audio")
+    .upload(path, chunkBlob, {
+      contentType,
+      upsert: false,
+    });
+
+  if (error) {
+    console.error("[saveAudioChunk] Upload error:", error);
+    return "";
+  }
+
+  return path;
+}
+
 export async function getSessionAudio(sessionId: string): Promise<Blob | null> {
   const supabase = createClient();
 
@@ -336,6 +399,125 @@ export async function getSessionAudio(sessionId: string): Promise<Blob | null> {
 
   if (error || !data) return null;
   return data;
+}
+
+// ---- Tool Usage Tracking ----
+
+export type ToolName = "chat" | "canvas" | "notebook" | "grokipedia" | "exercise" | "reading" | "rag" | "help";
+
+export type ToolAction = 
+  | "open" 
+  | "close" 
+  | "send_message" 
+  | "canvas_draw" 
+  | "canvas_save"
+  | "notebook_edit"
+  | "notebook_save"
+  | "rag_query"
+  | "rag_select_chunk"
+  | "prep_material_load"
+  | "help_view";
+
+export async function logToolUsage(
+  sessionId: string,
+  toolName: ToolName,
+  toolAction: ToolAction,
+  timestampMs: number,
+  toolData: Record<string, unknown> = {}
+): Promise<boolean> {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const toolDataJson = JSON.stringify(toolData);
+    const toolStoragePath = `${user.id}/${sessionId}/tool_${timestampMs}.json`;
+
+    try {
+      await supabase.storage
+        .from("session-tool")
+        .upload(toolStoragePath, toolDataJson, {
+          contentType: "application/json",
+          upsert: true,
+        });
+    } catch (e) {
+      console.warn("[logToolUsage] Storage upload failed (non-critical):", e);
+    }
+
+    const { error } = await supabase
+      .from("session_data")
+      .insert({
+        session_id: sessionId,
+        user_id: user.id,
+        data_type: "tool",
+        timestamp_ms: timestampMs,
+        tool_name: toolName,
+        tool_action: toolAction,
+        tool_data: { path: toolStoragePath },
+      });
+
+    if (error) {
+      console.warn("[logToolUsage] DB insert failed (non-critical):", error.message);
+    }
+
+    return true;
+  } catch (e) {
+    console.warn("[logToolUsage] Failed (non-critical):", e);
+    return true;
+  }
+}
+
+// ---- EEG Data Logging ----
+
+export async function logEEGData(
+  sessionId: string,
+  timestampMs: number,
+  chunkIndex: number,
+  bandPowers: { delta: number; theta: number; alpha: number; beta: number; gamma: number }
+): Promise<boolean> {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const eegDataJson = JSON.stringify({
+      timestamp_ms: timestampMs,
+      chunk_index: chunkIndex,
+      band_powers: bandPowers,
+    });
+    const eegStoragePath = `${user.id}/${sessionId}/eeg_chunk_${chunkIndex}.json`;
+
+    try {
+      await supabase.storage
+        .from("session-eeg")
+        .upload(eegStoragePath, eegDataJson, {
+          contentType: "application/json",
+          upsert: true,
+        });
+    } catch (e) {
+      console.warn("[logEEGData] Storage upload failed (non-critical):", e);
+    }
+
+    const { error } = await supabase
+      .from("session_data")
+      .insert({
+        session_id: sessionId,
+        user_id: user.id,
+        data_type: "eeg",
+        timestamp_ms: timestampMs,
+        chunk_index: chunkIndex,
+        eeg_data: { path: eegStoragePath },
+      });
+
+    if (error) {
+      console.warn("[logEEGData] DB insert failed (non-critical):", error.message);
+    }
+
+    return true;
+  } catch (e) {
+    console.warn("[logEEGData] Failed (non-critical):", e);
+    return true;
+  }
 }
 
 // ---- EEG Storage ----

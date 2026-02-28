@@ -124,11 +124,11 @@ export function WhiteboardCanvas({ onCanvasChange, initialData }: WhiteboardCanv
     return () => window.removeEventListener("resize", resizeCanvas);
   }, [initialData]);
 
-  const colors = ["#ffffff", "#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899"];
+  const colors = ["#ffffff", "#22c55e", "#3b82f6", "#ef4444"];
 
   return (
     <div className="flex flex-col h-full bg-[#0a0a0a] rounded-xl overflow-hidden">
-      <div className="flex items-center gap-2 p-2 border-b border-neutral-800 bg-neutral-900/30">
+      <div className="flex items-center gap-2 p-2 border-b border-neutral-800 bg-neutral-900/30 overflow-x-auto min-w-0">
         <button
           onClick={() => setTool("draw")}
           className={`p-2 rounded-lg transition-colors ${

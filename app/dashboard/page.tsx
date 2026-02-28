@@ -461,10 +461,13 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {paginatedSessions.map((session) => (
+                {paginatedSessions.map((session) => {
+                  const isCompleted = session.status === "completed" || session.status === "ended_by_tutor";
+                  const isPaused = session.status === "paused";
+                  return (
                   <Link
                     key={session.id}
-                    href={`/results?id=${session.id}`}
+                    href={isCompleted ? `/results?id=${session.id}` : `/session?id=${session.id}`}
                     className="block rounded-lg border border-neutral-800 bg-neutral-900/50 overflow-hidden hover:bg-neutral-800/30 transition-colors"
                   >
                     <div className="flex items-center justify-between p-4">
@@ -476,14 +479,14 @@ export default function DashboardPage() {
                           {formatDate(session.startedAt)} · {formatDuration(session.durationMs)} ·{" "}
                           <span
                             className={`inline-flex px-1.5 py-0.5 rounded text-[10px] ${
-                              session.status === "completed"
+                              session.status === "completed" || session.status === "ended_by_tutor"
                                 ? "bg-green-900/30 text-green-400"
-                                : session.status === "active"
-                                ? "bg-blue-900/30 text-blue-400"
+                                : session.status === "paused"
+                                ? "bg-yellow-900/30 text-yellow-400"
                                 : "bg-neutral-700 text-neutral-400"
                             }`}
                           >
-                            {session.status}
+                            {session.status === "ready" ? "Ready" : session.status === "paused" ? "Paused" : session.status}
                           </span>
                           {session.planTitle && (
                             <span className="ml-2 inline-flex px-1.5 py-0.5 rounded text-[10px] bg-purple-900/30 text-purple-400">
@@ -506,7 +509,8 @@ export default function DashboardPage() {
                       </button>
                     </div>
                   </Link>
-                ))}
+                  );
+                })}
               </div>
             )}
 

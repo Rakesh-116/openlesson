@@ -99,16 +99,17 @@ export async function POST(request: NextRequest) {
     console.log("[process-session-transcript] First chunk:", chunks[0]?.substring(0, 200) || "empty");
     
     // Create session transcript record
-    const { error: insertError } = await supabase.from("session_transcripts").insert({
+    console.log("[process-session-transcript] Inserting session_transcripts for session:", sessionId);
+    const { error: insertError } = await supabase.from("session_transcripts").upsert({
       session_id: sessionId,
       user_id: user.id,
       content: transcriptResult.transcript,
       chunk_count: chunks.length,
       status: "processing",
-    });
+    }, { onConflict: 'session_id', ignoreDuplicates: false });
 
     if (insertError) {
-      console.error("[process-session-transcript] Insert error:", insertError);
+      console.error("[process-session-transcript] session_transcripts insert error:", insertError);
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
@@ -121,16 +122,20 @@ export async function POST(request: NextRequest) {
       console.warn("[process-session-transcript] Embedding failed, storing without embeddings");
       
       for (let i = 0; i < chunks.length; i++) {
-        console.log("[process-session-transcript] Inserting chunk", i, "length:", chunks[i].length);
+        const submittedAt = new Date().toISOString();
+        console.log("[process-session-transcript] Inserting chunk", i, "submitted_at:", submittedAt);
         const { error: chunkError } = await supabase.from("transcript_chunks").insert({
           session_id: sessionId,
           user_id: user.id,
           chunk_index: i,
           content: chunks[i],
           metadata: { source: "session" },
+          submitted_at: submittedAt,
         });
         if (chunkError) {
-          console.error("[process-session-transcript] Chunk insert error:", chunkError);
+          console.error("[process-session-transcript] Chunk insert error:", chunkError.code, chunkError.message);
+        } else {
+          console.log("[process-session-transcript] Chunk", i, "inserted OK");
         }
       }
 
@@ -157,7 +162,8 @@ export async function POST(request: NextRequest) {
     const embeddings = embeddingResult.embedding as number[][];
     
     for (let i = 0; i < chunks.length; i++) {
-      console.log("[process-session-transcript] Inserting chunk with embedding", i, "length:", chunks[i].length);
+      const submittedAt = new Date().toISOString();
+      console.log("[process-session-transcript] Inserting chunk with embedding", i, "submitted_at:", submittedAt);
       const { error: chunkError } = await supabase.from("transcript_chunks").insert({
         session_id: sessionId,
         user_id: user.id,
@@ -165,9 +171,12 @@ export async function POST(request: NextRequest) {
         content: chunks[i],
         metadata: { source: "session" },
         embedding: embeddings[i] || [],
+        submitted_at: submittedAt,
       });
       if (chunkError) {
-        console.error("[process-session-transcript] Chunk insert error:", chunkError);
+        console.error("[process-session-transcript] Chunk insert error:", chunkError.code, chunkError.message);
+      } else {
+        console.log("[process-session-transcript] Chunk", i, "inserted OK");
       }
     }
 

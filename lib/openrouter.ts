@@ -150,6 +150,60 @@ Answer their question clearly and helpfully. Rules:
 - If the question is off-topic, gently redirect to the problem at hand.
 - Use examples when helpful.
 - Be encouraging and supportive.`,
+
+  generate_objectives: `You are designing learning objectives for a Socratic tutoring session.
+
+Problem topic: {problem}
+
+Generate exactly 3 learning objectives that the student should achieve by the end of this session. Rules:
+- Each objective should be specific and measurable
+- They should represent genuine understanding, not just surface-level knowledge
+- Focus on conceptual understanding, critical thinking, and ability to apply concepts
+- Format as a JSON array of strings, nothing else
+- Each objective should be 5-15 words
+- Make them challenging but achievable in a single session`,
+
+  feedback_and_question: `You are a Socratic tutor providing feedback and generating a follow-up question.
+
+Problem being worked on: {problem}
+
+Session so far:
+- Previous probes asked: {previous_probes}
+- Student's recent responses context: {recent_context}
+
+Provide:
+1. Brief feedback (1-2 sentences) on the student's thinking so far
+2. Then generate ONE new Socratic question that builds on their response
+
+Format as JSON:
+{"feedback": "your feedback here", "question": "your new question here"}
+
+Rules for feedback:
+- Be specific to what they said, not generic
+- Acknowledge their reasoning before pushing deeper
+- Be encouraging but honest about gaps
+
+Rules for the new question:
+- Only ask a question, never give answers
+- Build on their last response, don't repeat previous questions
+- Keep it short (max 20 words)
+- Make it feel like a natural thought they should consider`,
+
+  fresh_question: `You are a Socratic tutor. The student is stuck and needs a completely fresh perspective.
+
+Problem they're working on: {problem}
+
+Previous questions already asked that didn't help:
+{previous_probes}
+
+Generate a brand new Socratic question from a completely different angle. Rules:
+- Try a different concept, assumption, or approach than previous questions
+- Only ask a question, never give answers or hints
+- Keep it short (max 20 words)
+- Make it feel like a new insight they haven't considered
+- Focus on a different aspect of the problem
+
+Return ONLY the question text, no JSON or formatting.`,
 } as const;
 
 export type PromptKey = keyof typeof DEFAULT_PROMPTS;
@@ -193,6 +247,18 @@ export const PROMPT_META: Record<PromptKey, { label: string; description: string
   ask_question: {
     label: "Ask Question",
     description: "Answers a direct question from the student. Variables: {problem}, {probe}, {question}",
+  },
+  generate_objectives: {
+    label: "Generate Objectives",
+    description: "Generates session objectives at start. Variables: {problem}",
+  },
+  feedback_and_question: {
+    label: "Feedback + Question",
+    description: "Provides feedback and generates follow-up. Variables: {problem}, {previous_probes}, {recent_context}",
+  },
+  fresh_question: {
+    label: "Fresh Question",
+    description: "Generates new question from different angle. Variables: {problem}, {previous_probes}",
   },
 };
 
@@ -1054,6 +1120,237 @@ export async function generateEmbeddings(
     return { success: true, embedding: embeddings };
   } catch (error) {
     console.error("[generateEmbeddings] Failed:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
+// ============================================
+// GENERATE OBJECTIVES (Session start)
+// ============================================
+
+export async function generateObjectives(
+  problem: string,
+  promptOverrides?: UserPrompts
+): Promise<{ success: boolean; objectives?: string[]; error?: string }> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+
+  if (!apiKey) {
+    return { success: false, error: "OPENROUTER_API_KEY not configured" };
+  }
+
+  const prompt = getPrompt("generate_objectives", promptOverrides)
+    .replace("{problem}", problem);
+
+  try {
+    const response = await fetch(OPENROUTER_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+        "X-Title": "openLesson",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 300,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("OpenRouter API error:", response.status, errorText);
+      return { success: false, error: `API error: ${response.status}` };
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content?.trim();
+
+    if (!content) {
+      return { success: false, error: "No objectives generated" };
+    }
+
+    let objectives: string[];
+    try {
+      objectives = JSON.parse(content);
+      if (!Array.isArray(objectives)) {
+        throw new Error("Not an array");
+      }
+    } catch {
+      const lines = content.split("\n").filter((line: string) => line.trim().length > 0);
+      objectives = lines.slice(0, 3);
+    }
+
+    // Clean up objectives - remove trailing periods and extra whitespace
+    objectives = objectives.map((obj: string) => {
+      let cleaned = obj.trim();
+      // Remove trailing period if present
+      if (cleaned.endsWith(".")) {
+        cleaned = cleaned.slice(0, -1);
+      }
+      // Remove any markdown formatting
+      cleaned = cleaned.replace(/^```json|```$/g, "").trim();
+      return cleaned;
+    });
+
+    // Filter out objectives that are too long (likely not proper objectives)
+    objectives = objectives.filter((obj: string) => {
+      const wordCount = obj.split(/\s+/).length;
+      return wordCount >= 3 && wordCount <= 30;
+    });
+
+    // Ensure we have exactly 3 objectives
+    if (objectives.length > 3) {
+      objectives = objectives.slice(0, 3);
+    }
+
+    return { success: true, objectives };
+  } catch (error) {
+    console.error("Generate objectives failed:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
+// ============================================
+// FEEDBACK + QUESTION (Get Feedback button)
+// ============================================
+
+export interface FeedbackAndQuestionOptions {
+  problem: string;
+  previousProbes: string[];
+  recentContext?: string;
+  promptOverrides?: UserPrompts;
+}
+
+export async function feedbackAndQuestion(
+  options: FeedbackAndQuestionOptions
+): Promise<{ success: boolean; feedback?: string; question?: string; error?: string }> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+
+  if (!apiKey) {
+    return { success: false, error: "OPENROUTER_API_KEY not configured" };
+  }
+
+  const prompt = getPrompt("feedback_and_question", options.promptOverrides)
+    .replace("{problem}", options.problem)
+    .replace("{previous_probes}", options.previousProbes.length > 0 
+      ? options.previousProbes.map((p, i) => `${i + 1}. ${p}`).join("\n")
+      : "None yet")
+    .replace("{recent_context}", options.recentContext || "No recent context available");
+
+  try {
+    const response = await fetch(OPENROUTER_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+        "X-Title": "openLesson",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 400,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("OpenRouter API error:", response.status, errorText);
+      return { success: false, error: `API error: ${response.status}` };
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content?.trim();
+
+    if (!content) {
+      return { success: false, error: "No feedback generated" };
+    }
+
+    let feedback: string | undefined;
+    let question: string | undefined;
+
+    try {
+      const parsed = JSON.parse(content);
+      feedback = parsed.feedback;
+      question = parsed.question;
+    } catch {
+      const parts = content.split(/\n/);
+      for (const part of parts) {
+        if (part.toLowerCase().includes("feedback")) {
+          feedback = part.replace(/^[^:]+:\s*/i, "").trim();
+        } else if (part.toLowerCase().includes("question")) {
+          question = part.replace(/^[^:]+:\s*/i, "").trim();
+        }
+      }
+      if (!feedback && !question) {
+        return { success: false, error: "Could not parse response" };
+      }
+    }
+
+    return { success: true, feedback, question };
+  } catch (error) {
+    console.error("Feedback and question failed:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
+// ============================================
+// FRESH QUESTION (I'm stuck button)
+// ============================================
+
+export async function freshQuestion(
+  problem: string,
+  previousProbes: string[],
+  promptOverrides?: UserPrompts
+): Promise<{ success: boolean; question?: string; error?: string }> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+
+  if (!apiKey) {
+    return { success: false, error: "OPENROUTER_API_KEY not configured" };
+  }
+
+  const prompt = getPrompt("fresh_question", promptOverrides)
+    .replace("{problem}", problem)
+    .replace("{previous_probes}", previousProbes.length > 0 
+      ? previousProbes.map((p, i) => `${i + 1}. ${p}`).join("\n")
+      : "None asked yet");
+
+  try {
+    const response = await fetch(OPENROUTER_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+        "X-Title": "openLesson",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 150,
+        temperature: 0.9,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("OpenRouter API error:", response.status, errorText);
+      return { success: false, error: `API error: ${response.status}` };
+    }
+
+    const data = await response.json();
+    const question = data.choices?.[0]?.message?.content?.trim();
+
+    if (!question) {
+      return { success: false, error: "No question generated" };
+    }
+
+    return { success: true, question };
+  } catch (error) {
+    console.error("Fresh question failed:", error);
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
 }

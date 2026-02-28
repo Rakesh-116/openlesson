@@ -7,6 +7,7 @@ export interface AudioChunk {
   blob: Blob;
   timestamp: number;
   duration: number;
+  chunkIndex: number;
 }
 
 export interface AudioRecorderConfig {
@@ -17,8 +18,8 @@ export interface AudioRecorderConfig {
 }
 
 const DEFAULT_CONFIG: AudioRecorderConfig = {
-  chunkDurationMs: 5000,
-  maxBufferDurationMs: 30000,
+  chunkDurationMs: 60000, // 1 minute
+  maxBufferDurationMs: 300000, // 5 minutes sliding window
 };
 
 export class AudioRecorder {
@@ -30,6 +31,7 @@ export class AudioRecorder {
   private config: AudioRecorderConfig;
   private startTime: number = 0;
   private isRecording: boolean = false;
+  private chunkIndex: number = 0;
 
   constructor(config: Partial<AudioRecorderConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -66,6 +68,7 @@ export class AudioRecorder {
       this.chunks = [];
       this.allChunks = [];
       this.isRecording = true;
+      this.chunkIndex = 0;
 
       this.mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -73,11 +76,13 @@ export class AudioRecorder {
             blob: event.data,
             timestamp: Date.now() - this.startTime,
             duration: this.config.chunkDurationMs,
+            chunkIndex: this.chunkIndex,
           };
 
           this.chunks.push(chunk);
           this.allChunks.push(event.data);
           this.trimBuffer();
+          this.chunkIndex++;
           this.config.onChunk?.(chunk);
         }
       };
@@ -205,6 +210,10 @@ export class AudioRecorder {
 
   getChunkCount(): number {
     return this.chunks.length;
+  }
+
+  getCurrentChunkIndex(): number {
+    return this.chunkIndex;
   }
 }
 

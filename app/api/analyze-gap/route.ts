@@ -8,10 +8,10 @@ export const maxDuration = 30;
 export async function POST(request: NextRequest) {
   const maxRetries = 2;
   
+  const { audioBase64, audioFormat, problem } = await request.json();
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const body = await request.json();
-      const { audioBase64, audioFormat, problem } = body;
 
       if (!audioBase64) {
         return NextResponse.json({ error: "Missing audioBase64" }, { status: 400 });
@@ -38,10 +38,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: result.error || "Analysis failed" }, { status: 500 });
       }
 
+      const gapScore = result.result!.gap_score;
+      const trafficLight: "red" | "yellow" | "green" = 
+        gapScore > 0.6 ? "red" : gapScore > 0.3 ? "yellow" : "green";
+
       return NextResponse.json({
-        gapScore: result.result!.gap_score,
+        gapScore,
         signals: result.result!.signals,
         transcript: result.result!.transcript || "",
+        trafficLight,
       });
     } catch (error) {
       if (attempt < maxRetries) {

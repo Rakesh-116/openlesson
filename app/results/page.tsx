@@ -56,7 +56,7 @@ function ResultsContent() {
 
       setLoading(false);
 
-      if (s && s.status !== "active") {
+      if (s && (s.status === "completed" || s.status === "ended_by_tutor")) {
         // Generate report if missing
         if (!s.report) generateAndSaveReport(s);
       }

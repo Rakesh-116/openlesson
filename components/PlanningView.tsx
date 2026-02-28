@@ -64,7 +64,7 @@ export function PlanningView({ sessionId }: { sessionId: string }) {
           setError("Session not found");
           return;
         }
-        if (s.status !== "planning") {
+        if (s.status !== "ready") {
           router.push(`/session?id=${sessionId}`);
           return;
         }

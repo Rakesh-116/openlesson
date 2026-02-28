@@ -12,17 +12,29 @@ import {
   saveSession,
   saveSessionAudio,
   saveSessionEEG,
+  saveAudioChunk,
   toggleProbeStarred,
+  updateProbeRevealed,
+  pauseSession,
+  resumeSession,
+  updateSessionStatus,
+  logToolUsage,
   type Session,
   type Probe,
   type ObserverMode,
   type Frequency,
+  type ToolName,
+  type ToolAction,
 } from "@/lib/storage";
 import { formatTime } from "@/lib/utils";
 import { AudioVisualizer, RecordingIndicator } from "./AudioVisualizer";
 import { ActiveProbe } from "./ActiveProbe";
-import { ObserverControls } from "./ObserverControls";
+import { ProbeNotifications } from "./ProbeNotifications";
+import { ResizablePane } from "./ResizablePane";
 import { WhiteboardCanvas } from "./WhiteboardCanvas";
+import { ToolsPanel, type Tool } from "./ToolsPanel";
+import { ToolsHelp } from "./ToolsHelp";
+import { LLMChat } from "./LLMChat";
 
 // Configuration
 const ANALYSIS_INTERVALS: Record<Frequency, number> = {
@@ -36,6 +48,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -94,6 +107,112 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const notebookAnalysisRef = useRef<NodeJS.Timeout | null>(null);
   const lastNotebookAnalysisRef = useRef(0);
 
+  // New 3-panel layout state
+  const [activeTool, setActiveTool] = useState<Tool>("chat");
+  const prevToolRef = useRef<Tool | null>(null);
+  const [objectives, setObjectives] = useState<string[]>([]);
+  const [objectiveStatuses, setObjectiveStatuses] = useState<("red" | "yellow" | "green" | "blue")[]>([]);
+  const [trafficLight, setTrafficLight] = useState<"red" | "yellow" | "green">("green");
+  const [currentProbeRevealed, setCurrentProbeRevealed] = useState(true);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [stuckLoading, setStuckLoading] = useState(false);
+
+  // Mobile tabs
+  const [mobileTab, setMobileTab] = useState<"main" | "canvas" | "notes" | "questions" | "prep">("main");
+
+  // Error tracking for recording pipeline
+  const [pipelineErrors, setPipelineErrors] = useState<{
+    analysis?: string;
+    transcription?: string;
+    storage?: string;
+  }>({});
+
+  // Prep material for tools
+  const [prepToolContent, setPrepToolContent] = useState<{ title: string; content: string } | null>(null);
+  const [prepToolLoading, setPrepToolLoading] = useState(false);
+  const [showGrokipediaOnly, setShowGrokipediaOnly] = useState(false);
+
+  // RAG matching state (extended)
+  const [ragLoading, setRagLoading] = useState(false);
+  const [ragModifier, setRagModifier] = useState("");
+  const [ragSelectedChunks, setRagSelectedChunks] = useState<Set<string>>(new Set());
+  const [ragExpandedChunks, setRagExpandedChunks] = useState<Set<string>>(new Set());
+  const [ragHasNotification, setRagHasNotification] = useState(false);
+
+  const runRagMatching = async (modifier?: string) => {
+    if (!session?.problem || !session?.id) return;
+    setRagLoading(true);
+    try {
+      const params = new URLSearchParams({
+        query: modifier ? `${session.problem} ${modifier}` : session.problem,
+        sessionId: session.id,
+      });
+      const response = await fetch(`/api/rag-match?${params}`);
+      if (response.ok) {
+        const data = await response.json();
+        setRagChunks(data.chunks || []);
+        // Auto-select chunks with > 50% similarity
+        const selected = new Set<string>();
+        data.chunks?.forEach((c: { id: string; similarity: number }) => {
+          if (c.similarity > 0.5) selected.add(c.id);
+        });
+        setRagSelectedChunks(selected);
+        // Show notification if we have 3 or more matches
+        setRagHasNotification((data.chunks?.length || 0) >= 3);
+      }
+    } catch (err) {
+      console.error("RAG matching error:", err);
+    } finally {
+      setRagLoading(false);
+    }
+  };
+
+  // Run RAG matching when tool is opened for the first time
+  useEffect(() => {
+    if (activeTool === "rag" && ragChunks.length === 0 && !ragLoading) {
+      runRagMatching();
+    }
+  }, [activeTool]);
+
+  // Track tool open/close events
+  useEffect(() => {
+    if (!session?.id || !activeTool) return;
+    
+    const prevTool = prevToolRef.current;
+    const elapsedTime = session.startedAt 
+      ? Date.now() - new Date(session.startedAt).getTime() 
+      : 0;
+
+    if (prevTool && prevTool !== activeTool) {
+      logToolUsage(session.id, prevTool as ToolName, "close", elapsedTime, {});
+    }
+    logToolUsage(session.id, activeTool as ToolName, "open", elapsedTime, {});
+    
+    prevToolRef.current = activeTool;
+  }, [activeTool, session?.id, session?.startedAt]);
+
+  const loadPrepToolContent = async (type: string) => {
+    if (!session?.problem) return;
+    if (type === "grokipedia") {
+      setShowGrokipediaOnly(true);
+      setPrepToolContent(null);
+      return;
+    }
+    setShowGrokipediaOnly(false);
+    setPrepToolLoading(true);
+    try {
+      const response = await fetch(`/api/prep-material?topic=${encodeURIComponent(session.problem)}&type=${type}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPrepToolContent(data);
+      }
+    } catch (err) {
+      console.error("Prep material error:", err);
+    } finally {
+      setPrepToolLoading(false);
+    }
+  };
+
   // Muse EEG
   const [museStatus, setMuseStatus] = useState<"disconnected" | "connecting" | "connected" | "streaming">("disconnected");
   const [museError, setMuseError] = useState<string | null>(null);
@@ -113,11 +232,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const lastProbeTimeRef = useRef(0);
   const muteTimerRef = useRef<NodeJS.Timeout | null>(null);
   const probeContainerRef = useRef<HTMLDivElement | null>(null);
+  const chunkIndexRef = useRef(0);
   const observerModeRef = useRef(observerMode);
   const frequencyRef = useRef(frequency);
   const isMutedRef = useRef(isMuted);
   const whiteboardDataRef = useRef(whiteboardData);
   const notebookContentRef = useRef(notebookContent);
+  const activeToolRef = useRef(activeTool);
+  const objectivesRef = useRef(objectives);
+  const trafficLightRef = useRef(trafficLight);
 
   // Keep refs in sync
   useEffect(() => { observerModeRef.current = observerMode; }, [observerMode]);
@@ -125,6 +248,54 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
   useEffect(() => { whiteboardDataRef.current = whiteboardData; }, [whiteboardData]);
   useEffect(() => { notebookContentRef.current = notebookContent; }, [notebookContent]);
+  useEffect(() => { activeToolRef.current = activeTool; }, [activeTool]);
+  useEffect(() => { objectivesRef.current = objectives; }, [objectives]);
+  useEffect(() => { trafficLightRef.current = trafficLight; }, [trafficLight]);
+
+  // Listen for probe events from ProbeNotifications
+  useEffect(() => {
+    const handleProbeRevealed = (e: Event) => {
+      const probeId = (e as CustomEvent).detail;
+      setSession((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          probes: prev.probes.map((p) =>
+            p.id === probeId ? { ...p, isRevealed: true } : p
+          ),
+        };
+      });
+      if (sessionRef.current) {
+        sessionRef.current = {
+          ...sessionRef.current,
+          probes: sessionRef.current.probes.map((p) =>
+            p.id === probeId ? { ...p, isRevealed: true } : p
+          ),
+        };
+      }
+    };
+
+    const handleProbeStarToggled = (e: Event) => {
+      const { probeId, starred } = (e as CustomEvent).detail;
+      setSession((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          probes: prev.probes.map((p) =>
+            p.id === probeId ? { ...p, starred } : p
+          ),
+        };
+      });
+    };
+
+    window.addEventListener("probe-revealed", handleProbeRevealed);
+    window.addEventListener("probe-star-toggled", handleProbeStarToggled);
+
+    return () => {
+      window.removeEventListener("probe-revealed", handleProbeRevealed);
+      window.removeEventListener("probe-star-toggled", handleProbeStarToggled);
+    };
+  }, []);
 
   // Scroll probe into view when it changes
   useEffect(() => {
@@ -142,6 +313,36 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       if (s) {
         setSession(s);
         sessionRef.current = s;
+        
+        // Set paused state if session was paused
+        if (s.status === "paused") {
+          setIsPaused(true);
+        }
+        
+        // Load objectives from session or generate new ones
+        let loadedObjectives: string[] = [];
+        if (s.objectives && s.objectives.length > 0) {
+          loadedObjectives = s.objectives;
+        } else {
+          try {
+            const objRes = await fetch("/api/generate-objectives", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ problem: s.problem }),
+            });
+            if (!cancelled && objRes.ok) {
+              const { objectives: generatedObjectives } = await objRes.json();
+              if (generatedObjectives && generatedObjectives.length > 0) {
+                loadedObjectives = generatedObjectives;
+              }
+            }
+          } catch { /* objectives are optional */ }
+        }
+        if (loadedObjectives.length > 0) {
+          setObjectives(loadedObjectives);
+          // Initialize all objectives with blue status
+          setObjectiveStatuses(loadedObjectives.map(() => "blue"));
+        }
 
         // Fire opening probe immediately so it shows before Start
         if (s.probes.length === 0) {
@@ -159,19 +360,23 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                 gapScore: 0,
                 signals: ["opening"],
                 text: probeText,
+                isRevealed: false,
               });
               const updated = addProbeToSession(s, savedProbe);
               setSession(updated);
               sessionRef.current = updated;
               setActiveProbe(savedProbe);
               setViewingProbeIndex(updated.probes.length - 1);
+              setCurrentProbeRevealed(false);
             }
           } catch { /* opening probe is optional */ }
           finally { if (!cancelled) setOpeningProbeLoading(false); }
         } else {
           // Session already has probes (e.g. page refresh) — show the latest
-          setActiveProbe(s.probes[s.probes.length - 1]);
+          const lastProbe = s.probes[s.probes.length - 1];
+          setActiveProbe(lastProbe);
           setViewingProbeIndex(s.probes.length - 1);
+          setCurrentProbeRevealed(lastProbe.isRevealed ?? true);
         }
       } else {
         router.push("/");
@@ -345,8 +550,42 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         }),
       });
 
-      if (!gapRes.ok) return;
+      // Clear previous errors on successful response
+      setPipelineErrors(prev => ({ ...prev, analysis: undefined, transcription: undefined }));
+
+      if (!gapRes.ok) {
+        setPipelineErrors(prev => ({ ...prev, analysis: "Analysis service unavailable" }));
+        return;
+      }
       const gapData = await gapRes.json();
+
+      // Check for transcription errors
+      if (gapData.error === "transcription_failed") {
+        setPipelineErrors(prev => ({ ...prev, transcription: "Transcription failed - audio may be unclear" }));
+      }
+
+      // Update traffic light
+      if (gapData.trafficLight) {
+        setTrafficLight(gapData.trafficLight);
+      }
+
+      // Update objective statuses based on analysis
+      if (objectiveStatuses.length > 0 && gapData.gapScore !== undefined) {
+        setObjectiveStatuses(prev => {
+          const newStatuses = [...prev];
+          // Update a random objective based on gap score
+          // Lower gap score = better progress = greener
+          // Higher gap score = struggling = redder
+          const statusToSet: "red" | "yellow" | "green" = 
+            gapData.gapScore >= 0.7 ? "red" : 
+            gapData.gapScore >= 0.4 ? "yellow" : "green";
+          
+          // Update a random objective to show progress (round-robin style)
+          const idxToUpdate = currentSession.probes.length % newStatuses.length;
+          newStatuses[idxToUpdate] = statusToSet;
+          return newStatuses;
+        });
+      }
 
       const threshold = observerModeRef.current === "passive" ? 0.7 : 0.5;
       if (gapData.gapScore >= threshold) {
@@ -365,12 +604,19 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         if (probeRes.ok) {
           const { probe: probeText } = await probeRes.json();
 
+          // Gate: don't add new probe if last one hasn't been revealed
+          const lastProbe = currentSession.probes[currentSession.probes.length - 1];
+          if (lastProbe && !lastProbe.isRevealed) {
+            return;
+          }
+
           // Persist probe to Supabase
           const savedProbe = await addProbe(currentSession.id, {
             timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
             gapScore: gapData.gapScore,
             signals: gapData.signals || [],
             text: probeText,
+            isRevealed: false,
           });
 
           const updatedSession = addProbeToSession(currentSession, savedProbe);
@@ -379,6 +625,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
           setActiveProbe(savedProbe);
           setViewingProbeIndex(updatedSession.probes.length - 1);
+          setCurrentProbeRevealed(false);
           lastProbeTimeRef.current = Date.now();
         }
       }
@@ -454,6 +701,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
         if (probeRes.ok) {
           const { probe: probeText } = await probeRes.json();
+          
+          // Gate: don't add new probe if last one hasn't been revealed
+          const lastProbe = currentSession.probes[currentSession.probes.length - 1];
+          if (lastProbe && !lastProbe.isRevealed) {
+            return;
+          }
+
           const savedProbe = await addProbe(currentSession.id, {
             timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
             gapScore: data.gapScore,
@@ -518,6 +772,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
         if (probeRes.ok) {
           const { probe: probeText } = await probeRes.json();
+          
+          // Gate: don't add new probe if last one hasn't been revealed
+          const lastProbe = currentSession.probes[currentSession.probes.length - 1];
+          if (lastProbe && !lastProbe.isRevealed) {
+            return;
+          }
+
           const savedProbe = await addProbe(currentSession.id, {
             timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
             gapScore: data.gapScore,
@@ -614,7 +875,38 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       micStreamRef.current = null; // hand off ownership
       setStream(mediaStream);
 
-      const recorder = new AudioRecorder({ chunkDurationMs: 5000, maxBufferDurationMs: 30000 });
+      const recorder = new AudioRecorder({
+        chunkDurationMs: 60000,
+        maxBufferDurationMs: 300000,
+        onChunk: async (chunk) => {
+          if (session) {
+            const idx = chunkIndexRef.current++;
+            try {
+              await saveAudioChunk(session.id, chunk.blob, idx, chunk.timestamp);
+              
+              const formData = new FormData();
+              formData.append("audio", chunk.blob);
+              formData.append("session_id", session.id);
+              formData.append("chunk_index", chunk.chunkIndex.toString());
+              formData.append("timestamp_ms", chunk.timestamp.toString());
+              
+              const transcribeRes = await fetch("/api/transcribe-chunk", {
+                method: "POST",
+                body: formData,
+              });
+              
+              if (!transcribeRes.ok) {
+                console.error("Transcription failed for chunk", chunk.chunkIndex);
+              }
+              
+              setPipelineErrors(prev => ({ ...prev, storage: undefined, transcription: undefined }));
+            } catch (err) {
+              console.error("Chunk storage error:", err);
+              setPipelineErrors(prev => ({ ...prev, storage: "Failed to save audio chunk" }));
+            }
+          }
+        }
+      });
       recorderRef.current = recorder;
       await recorder.start(mediaStream);
       setIsRecording(true);
@@ -726,6 +1018,84 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     handleDisconnectMuse();
   };
 
+  const handlePause = async () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (analysisRef.current) clearInterval(analysisRef.current);
+
+    const recorder = recorderRef.current;
+    await recorder?.stop();
+    recorderRef.current = null;
+
+    if (stream) { stream.getTracks().forEach((t) => t.stop()); setStream(null); }
+    
+    setIsRecording(false);
+    setIsPaused(true);
+
+    if (session) {
+      await pauseSession(session.id);
+    }
+  };
+
+  const handleResume = async () => {
+    if (!session) return;
+
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setStream(mediaStream);
+
+      const AudioRecorderClass = (await import("@/lib/audio")).AudioRecorder;
+      const recorder = new AudioRecorderClass({
+        chunkDurationMs: 60000,
+        maxBufferDurationMs: 300000,
+        onChunk: async (chunk) => {
+          const idx = chunkIndexRef.current++;
+          try {
+            await saveAudioChunk(session.id, chunk.blob, idx, chunk.timestamp);
+            
+            const formData = new FormData();
+            formData.append("audio", chunk.blob);
+            formData.append("session_id", session.id);
+            formData.append("chunk_index", chunk.chunkIndex.toString());
+            formData.append("timestamp_ms", chunk.timestamp.toString());
+            
+            const transcribeRes = await fetch("/api/transcribe-chunk", {
+              method: "POST",
+              body: formData,
+            });
+            
+            if (!transcribeRes.ok) {
+              console.error("Transcription failed for chunk", chunk.chunkIndex);
+            }
+            
+            setPipelineErrors(prev => ({ ...prev, storage: undefined, transcription: undefined }));
+          } catch (err) {
+            console.error("Chunk storage error:", err);
+            setPipelineErrors(prev => ({ ...prev, storage: "Failed to save audio chunk" }));
+          }
+        }
+      });
+      await recorder.start(mediaStream);
+      recorderRef.current = recorder;
+
+      setIsRecording(true);
+      setIsPaused(false);
+      chunkIndexRef.current = 0;
+
+      await resumeSession(session.id);
+
+      const startTime = Date.now();
+      timerRef.current = setInterval(() => {
+        setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
+      }, 1000);
+
+      analysisRef.current = setInterval(() => {
+        analyzeAudio();
+      }, ANALYSIS_INTERVALS[frequency]);
+    } catch {
+      setError("Could not access microphone. Please grant permission and try again.");
+    }
+  };
+
   const handleMute = (durationMs: number) => {
     setIsMuted(true);
     setMuteRemaining(durationMs);
@@ -780,6 +1150,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
       if (probeRes.ok) {
         const { probe: probeText } = await probeRes.json();
+
+        // Gate: don't add new probe if last one hasn't been revealed
+        const lastProbe = currentSession.probes[currentSession.probes.length - 1];
+        if (lastProbe && !lastProbe.isRevealed) {
+          return;
+        }
+
         const savedProbe = await addProbe(currentSession.id, {
           timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
           gapScore: 1.0,
@@ -864,6 +1241,116 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     await stopRecording();
   };
 
+  const handleReveal = () => {
+    setCurrentProbeRevealed(true);
+  };
+
+  const handleGetFeedback = async () => {
+    if (!session || !activeProbe || !isRecording) return;
+
+    // Gate: don't add new probe if last one hasn't been revealed
+    const lastProbe = session.probes[session.probes.length - 1];
+    if (lastProbe && !lastProbe.isRevealed) return;
+
+    setFeedbackLoading(true);
+    try {
+      const previousProbes = session.probes.map(p => p.text);
+      const res = await fetch("/api/feedback-and-question", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          problem: session.problem,
+          previousProbes,
+          recentContext: "User requested feedback",
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        
+        if (data.question) {
+          const savedProbe = await addProbe(session.id, {
+            timestamp: Date.now() - new Date(session.startedAt).getTime(),
+            gapScore: activeProbe.gapScore,
+            signals: ["feedback_request"],
+            text: data.question,
+            isRevealed: false,
+          });
+          const updated = addProbeToSession(session, savedProbe);
+          setSession(updated);
+          sessionRef.current = updated;
+          setActiveProbe(savedProbe);
+          setViewingProbeIndex(updated.probes.length - 1);
+          setCurrentProbeRevealed(false);
+        }
+      }
+    } catch (error) {
+      console.error("Get feedback error:", error);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  const handleImStuck = async () => {
+    if (!session || !isRecording) return;
+
+    // Gate: don't add new probe if last one hasn't been revealed
+    const lastProbe = session.probes[session.probes.length - 1];
+    if (lastProbe && !lastProbe.isRevealed) return;
+
+    setStuckLoading(true);
+    try {
+      const previousProbes = session.probes.map(p => p.text);
+      const res = await fetch("/api/fresh-question", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          problem: session.problem,
+          previousProbes,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        
+        if (data.question) {
+          const savedProbe = await addProbe(session.id, {
+            timestamp: Date.now() - new Date(session.startedAt).getTime(),
+            gapScore: 0.7,
+            signals: ["stuck"],
+            text: data.question,
+            isRevealed: false,
+          });
+          const updated = addProbeToSession(session, savedProbe);
+          setSession(updated);
+          sessionRef.current = updated;
+          setActiveProbe(savedProbe);
+          setViewingProbeIndex(updated.probes.length - 1);
+          setCurrentProbeRevealed(false);
+        }
+      }
+    } catch (error) {
+      console.error("I'm stuck error:", error);
+    } finally {
+      setStuckLoading(false);
+    }
+  };
+
+  // Auto-pause on browser close/refresh
+  useEffect(() => {
+    const handleBeforeUnload = async (e: BeforeUnloadEvent) => {
+      if (isRecording && session) {
+        e.preventDefault();
+        await pauseSession(session.id);
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isRecording, session]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -891,656 +1378,517 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#0a0a0a] overflow-hidden">
-      {/* Header */}
-      <header className="border-b border-neutral-800/60 px-3 sm:px-4 py-3 backdrop-blur-sm bg-[#0a0a0a]/80 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <a href="/" className="text-base sm:text-lg font-semibold text-white tracking-tight shrink-0 hover:text-neutral-300 transition-colors">openLesson</a>
-            <span className="text-neutral-700 shrink-0 hidden sm:inline">&middot;</span>
-            <p className="text-xs sm:text-sm text-neutral-500 truncate hidden sm:block">{session.problem}</p>
-          </div>
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+    <div className="h-screen flex bg-[#0a0a0a] overflow-hidden">
+      <ToolsPanel 
+              activeTool={activeTool} 
+              onToolChange={(tool) => {
+                setActiveTool(tool);
+                setShowGrokipediaOnly(tool === "grokipedia");
+                // Clear RAG notification when opening RAG tool
+                if (tool === "rag") {
+                  setRagHasNotification(false);
+                }
+                if (tool === "grokipedia" || tool === "exercise" || tool === "reading") {
+                  setPrepToolContent(null);
+                  setMobileTab("prep");
+                } else if (tool === "chat") {
+                  setMobileTab("main");
+                } else if (tool === "canvas") {
+                  setMobileTab("canvas");
+                } else if (tool === "notebook") {
+                  setMobileTab("notes");
+                } else if (tool === "rag") {
+                  // RAG tool - only available on desktop
+                  setMobileTab("main");
+                }
+              }} 
+              problem={session.problem} 
+              className="hidden md:flex"
+              ragNotification={ragHasNotification}
+            />
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="border-b border-neutral-800/60 px-2 md:px-4 py-2 flex items-center justify-between backdrop-blur-sm bg-[#0a0a0a]/80">
+          <div className="flex items-center gap-2">
+            <a href="/" className="hidden md:block text-sm font-semibold text-white tracking-tight hover:text-neutral-300 transition-colors">openLesson</a>
             {isAnalyzing && (
               <div className="flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                <span className="text-[11px] text-blue-400 hidden sm:inline">Observing</span>
+                <span className="text-[11px] text-blue-400">Observing</span>
               </div>
             )}
-            <button
-              onClick={() => setShowWhiteboard(!showWhiteboard)}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-lg border transition-colors ${
-                showWhiteboard
-                  ? "bg-purple-500/20 border-purple-500/40 text-purple-400"
-                  : "bg-neutral-800 border-neutral-700 text-neutral-300 hover:border-neutral-600"
-              }`}
-              title="Toggle Whiteboard"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-              <span className="hidden sm:inline">Canvas</span>
-            </button>
-            <button
-              onClick={() => setShowNotebook(!showNotebook)}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-lg border transition-colors ${
-                showNotebook
-                  ? "bg-amber-500/20 border-amber-500/40 text-amber-400"
-                  : "bg-neutral-800 border-neutral-700 text-neutral-300 hover:border-neutral-600"
-              }`}
-              title="Toggle Notebook"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              <span className="hidden sm:inline">Notes</span>
-            </button>
-            <div className="text-xs sm:text-sm font-mono text-neutral-300 tabular-nums bg-neutral-900/50 px-2 sm:px-2.5 py-1 rounded-lg border border-neutral-800">
-              {formatTime(elapsedSeconds)}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <div className={`max-w-5xl mx-auto w-full px-3 sm:px-6 overflow-x-hidden ${isRecording ? "flex-1 flex flex-col min-h-0 py-2 gap-2" : "py-4 sm:py-5"}`}>
-
-        {showWhiteboard ? (
-          <div className="flex-1 min-h-0 flex flex-col gap-2">
-            {/* Mini probe card when whiteboard is active */}
-            {activeProbe && (
-              <div className="shrink-0 rounded-lg border border-neutral-800 bg-neutral-900/70 p-3">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-[10px] uppercase tracking-wider font-medium text-purple-400">Current Question</span>
-                  {activeProbe && (
-                    <button
-                      onClick={() => handleToggleStar(activeProbe.id, !activeProbe.starred)}
-                      className="ml-auto p-1 hover:bg-neutral-800 rounded transition-colors"
-                    >
-                      <StarIcon filled={activeProbe.starred} />
-                    </button>
-                  )}
-                </div>
-                <p className="text-sm text-white leading-relaxed">{activeProbe.text}</p>
-              </div>
-            )}
-            <div className="flex-1 min-h-0">
-              <WhiteboardCanvas
-                initialData={whiteboardData || undefined}
-                onCanvasChange={(dataUrl) => {
-                  setWhiteboardData(dataUrl);
-                  if (sessionRef.current) {
-                    sessionRef.current = {
-                      ...sessionRef.current,
-                      metadata: { ...sessionRef.current.metadata, whiteboardData: dataUrl },
-                    };
-                  }
-                }}
-              />
-            </div>
-          </div>
-        ) : showNotebook ? (
-          <div className="flex-1 min-h-0 flex flex-col gap-2">
-            {/* Mini probe card when notebook is active */}
-            {activeProbe && (
-              <div className="shrink-0 rounded-lg border border-neutral-800 bg-neutral-900/70 p-3">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-[10px] uppercase tracking-wider font-medium text-amber-400">Current Question</span>
-                  {activeProbe && (
-                    <button
-                      onClick={() => handleToggleStar(activeProbe.id, !activeProbe.starred)}
-                      className="ml-auto p-1 hover:bg-neutral-800 rounded transition-colors"
-                    >
-                      <StarIcon filled={activeProbe.starred} />
-                    </button>
-                  )}
-                </div>
-                <p className="text-sm text-white leading-relaxed">{activeProbe.text}</p>
-              </div>
-            )}
-            <div className="flex-1 min-h-0">
-              <div className="h-full rounded-lg border border-neutral-800 bg-neutral-900/50 flex flex-col">
-                <textarea
-                  value={notebookContent}
-                  onChange={(e) => setNotebookContent(e.target.value)}
-                  placeholder="Jot down your thoughts, ideas, and reflections here...&#10;&#10;Type freely and let your thoughts flow. The tutor will analyze your notes to generate relevant probes."
-                  className="flex-1 w-full bg-transparent border-none resize-none p-4 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-0"
-                />
-                <div className="shrink-0 px-3 py-2 border-t border-neutral-800 flex items-center justify-between">
-                  <span className="text-[10px] text-neutral-600">
-                    {notebookContent.length} characters
-                  </span>
-                  {notebookAnalyzing && (
-                    <span className="text-[10px] text-amber-400 flex items-center gap-1.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                      Analyzing...
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : isRecording ? (
-          <>
-            {/* Question card — fills remaining space */}
-            <div className="flex-1 min-h-0 overflow-y-auto" ref={probeContainerRef}>
-              <ActiveProbe
-              probe={activeProbe}
-              problem={session.problem}
-              isLoading={openingProbeLoading}
-              hasPrev={canGoPrev}
-              hasNext={canGoNext}
-              onPrevProbe={handlePrevProbe}
-              onNextProbe={handleNextProbe}
-              probePosition={probeCount > 1 ? `${viewingProbeIndex + 1} / ${probeCount}` : undefined}
-              onToggleStar={handleToggleStar}
-            />
-            </div>
-
-            {/* Session controls — pinned to bottom */}
-            <div className="shrink-0 flex flex-col">
-              <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4 sm:p-5 flex-1 flex flex-col min-h-0 overflow-y-auto">
-          {/* Opening question or Audio Visualizer */}
-          <div className="mb-3">
-            {isRecording ? (
-              <AudioVisualizer isRecording={isRecording} stream={stream} />
-            ) : (
-              <div className="py-2 px-1">
-                {openingProbeLoading && (
-                  <div className="flex items-center gap-3">
-                    <div className="flex gap-1 shrink-0">
-                      <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                      <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: "300ms" }} />
-                    </div>
-                    <p className="text-neutral-500 text-sm italic">Preparing your first question...</p>
-                  </div>
-                )}
-                {activeProbe && !openingProbeLoading && (
-                  <div>
-                    <p className="text-[11px] uppercase tracking-wider font-medium text-blue-400/70 mb-2">Your starting question</p>
-                    <p className="text-white text-base sm:text-lg leading-relaxed">{activeProbe.text}</p>
-                    <p className="text-xs text-neutral-500 mt-3">Press <span className="text-neutral-300 font-medium">Start Session</span> below and answer this out loud.</p>
-                  </div>
-                )}
-                {!activeProbe && !openingProbeLoading && (
-                  <p className="text-neutral-600 text-sm text-center">Ready to begin</p>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Status + Controls Row */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-3">
-            <RecordingIndicator isRecording={isRecording} />
-            {/* Muse connect / status */}
-            {museStatus === "disconnected" || museStatus === "connecting" ? (
-              <button
-                onClick={handleConnectMuse}
-                disabled={museStatus === "connecting"}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 text-neutral-300 rounded-lg border border-neutral-700 transition-colors"
-              >
-                <BluetoothIcon />
-                {museStatus === "connecting" ? "Connecting..." : "Muse"}
-              </button>
-            ) : (
+            {(pipelineErrors.analysis || pipelineErrors.transcription || pipelineErrors.storage) && (
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-500/10 border border-green-500/20 rounded-lg">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-[11px] text-green-400">Muse</span>
-                </div>
-                <button
-                  onClick={handleDisconnectMuse}
-                  className="text-[10px] text-neutral-600 hover:text-neutral-400 transition-colors"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-            {isRecording && (
-              <div className="w-full sm:w-auto sm:ml-auto">
-                <ObserverControls
-                  mode={observerMode}
-                  frequency={frequency}
-                  onModeChange={setObserverMode}
-                  onFrequencyChange={setFrequency}
-                  onMute={handleMute}
-                  isMuted={isMuted}
-                  muteRemaining={muteRemaining}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Muse EEG minimal status — just confirm it's recording */}
-          {museStatus === "streaming" && isRecording && (
-            <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-800/30 border border-neutral-800/50">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[11px] text-neutral-500">EEG recording</span>
-              <span className="text-[11px] text-neutral-700">·</span>
-              <span className="text-[11px] text-neutral-600 font-mono">{eegChannelData.size} ch</span>
-              {bandPowers && (
-                <>
-                  <span className="text-[11px] text-neutral-700">·</span>
-                  <span className="text-[11px] text-neutral-600">α {(bandPowers.alpha * 100).toFixed(0)}%</span>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Muse EEG channel readiness — only before session starts */}
-          {museStatus === "streaming" && !isRecording && (() => {
-            const expectedChannels = ["TP9", "AF7", "AF8", "TP10"];
-            const detectedChannels = expectedChannels.filter(ch => {
-              const samples = eegChannelData.get(ch);
-              return samples && samples.length > 0;
-            });
-            const allReady = detectedChannels.length >= expectedChannels.length;
-            return (
-              <div className="mb-3 px-3.5 py-3 rounded-lg bg-neutral-800/30 border border-neutral-800/50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {expectedChannels.map(ch => {
-                      const active = detectedChannels.includes(ch);
-                      return (
-                        <div key={ch} className="flex items-center gap-1.5">
-                          <div className={`w-1.5 h-1.5 rounded-full ${active ? "bg-green-500" : "bg-neutral-700 animate-pulse"}`} />
-                          <span className={`text-[11px] font-mono ${active ? "text-green-400" : "text-neutral-600"}`}>{ch}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md ${allReady ? "text-green-400 bg-green-500/10 border border-green-500/20" : "text-neutral-500 bg-neutral-800/50 border border-neutral-800"}`}>
-                    {allReady ? "Ready to go" : `Waiting for channels (${detectedChannels.length}/${expectedChannels.length})`}
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/30">
+                  <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span className="text-[10px] text-amber-400">
+                    {pipelineErrors.analysis || pipelineErrors.transcription || pipelineErrors.storage}
                   </span>
                 </div>
+                <button 
+                  onClick={() => setIsPaused(true)} 
+                  className="text-[10px] text-neutral-400 hover:text-white underline"
+                >
+                  Pause
+                </button>
               </div>
-            );
-          })()}
-
-          {museError && (
-            <div className="mb-3 p-2.5 bg-red-500/5 border border-red-500/20 rounded-lg text-red-400 text-[11px]">
-              {museError}
-            </div>
-          )}
-
-          {/* Start / Stop + Nudge Tutor */}
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-            {!isRecording ? (
-              <button
-                onClick={startRecording}
-                className="flex-1 py-3.5 bg-white hover:bg-neutral-200 text-black font-medium rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
-              >
-                <MicIcon />
-                Start Session
-              </button>
-            ) : (
-              <>
-                <button
-                  onClick={handleForceProbe}
-                  disabled={forcingProbe}
-                  className="flex-1 py-3.5 bg-blue-600/80 hover:bg-blue-500 disabled:opacity-50 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
-                  title="Press Space to nudge the tutor"
-                >
-                  {forcingProbe ? (
-                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeDasharray="31.4 31.4" strokeLinecap="round" /></svg>
-                  ) : (
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                  )}
-                  Nudge Tutor
-                  <kbd className="ml-1 px-1.5 py-0.5 text-[10px] bg-blue-700/50 rounded border border-blue-500/30 font-mono hidden sm:inline">Space</kbd>
-                </button>
-                <button
-                  onClick={stopRecording}
-                  className="flex-1 py-3.5 bg-red-600/80 hover:bg-red-500 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
-                >
-                  <StopIcon />
-                  End Session
-                </button>
-              </>
             )}
           </div>
-        </div>
-            </div>
-          </>
-        ) : (
-          <>
-            {/* Recording Card — pre-session */}
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5 sm:p-8">
-          {/* Opening question or Audio Visualizer */}
-          <div className="mb-3">
-            {openingProbeLoading && (
-              <div className="flex items-center gap-3">
-                <div className="flex gap-1 shrink-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: "300ms" }} />
-                </div>
-                <p className="text-neutral-500 text-sm italic">Preparing your first question...</p>
-              </div>
-            )}
-            {activeProbe && !openingProbeLoading && (
-              <div className="py-4 sm:py-6">
-                <p className="text-[11px] uppercase tracking-wider font-semibold text-blue-400 mb-3">Your starting question</p>
-                <p className="text-white text-xl sm:text-2xl font-medium leading-relaxed">{activeProbe.text}</p>
-                <p className="text-sm text-neutral-500 mt-4">Press <span className="text-white font-medium">Start Session</span> below and answer this out loud.</p>
-              </div>
-            )}
-            {!activeProbe && !openingProbeLoading && (
-              <p className="text-neutral-600 text-sm text-center">Ready to begin</p>
-            )}
+          <div className="text-xs font-mono text-neutral-300 tabular-nums bg-neutral-900/50 px-2 py-1 rounded-lg border border-neutral-800">
+            {formatTime(elapsedSeconds)}
           </div>
-
-          {/* RAG Past Sessions */}
-          {(calibrationLoading || calibrationAttempted) && (
-            <div className="pt-2">
-              <button
-                onClick={() => setShowRagChunks(!showRagChunks)}
-                className="flex items-center justify-between w-full p-3 rounded-lg border border-neutral-800 bg-neutral-900/30 hover:bg-neutral-800/30 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-sm text-neutral-300">Related past sessions</span>
-                  {calibrationLoading && (
-                    <div className="w-3 h-3 border border-neutral-600 border-t-emerald-400 rounded-full animate-spin" />
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {!calibrationLoading && (
-                    <span className="text-xs text-neutral-500">{ragChunks.length} matches</span>
-                  )}
-                  <svg className={`w-4 h-4 text-neutral-500 transition-transform ${showRagChunks ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </button>
-              
-              {showRagChunks && ragChunks.length > 0 && (
-                <div className="mt-2 space-y-2">
-                  {ragChunks.map((chunk) => {
-                    const isSelected = selectedChunks.has(chunk.id);
-                    return (
-                      <div 
-                        key={chunk.id} 
-                        className={`p-3 rounded-lg border bg-neutral-900/20 cursor-pointer transition-colors ${isSelected ? 'border-emerald-600/50' : 'border-neutral-800'}`}
-                        onClick={() => {
-                          const newSelected = new Set(selectedChunks);
-                          if (isSelected) {
-                            newSelected.delete(chunk.id);
-                          } else {
-                            newSelected.add(chunk.id);
+        </header>
+        <div className="flex-1 flex min-h-0">
+          {/* Desktop: Resizable split view */}
+          <div className="hidden md:flex flex-1 min-h-0">
+            <ResizablePane
+              left={
+                <div className="flex flex-col min-w-0 p-4 overflow-hidden h-full">
+                  <div className="flex-1 min-h-0 overflow-hidden">
+                    {activeTool === "chat" && <LLMChat problem={session.problem} />}
+                    {activeTool === "canvas" && (
+                      <WhiteboardCanvas
+                        initialData={whiteboardData || undefined}
+                        onCanvasChange={(dataUrl) => {
+                          setWhiteboardData(dataUrl);
+                          if (sessionRef.current) {
+                            sessionRef.current = { ...sessionRef.current, metadata: { ...sessionRef.current.metadata, whiteboardData: dataUrl } };
                           }
-                          setSelectedChunks(newSelected);
-                          saveSelectedRagChunks(Array.from(newSelected));
                         }}
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <input 
-                              type="checkbox" 
-                              checked={isSelected}
-                              onChange={() => {}}
-                              className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-0"
-                            />
-                            <span className="text-[10px] text-neutral-500">{chunk.topic || 'Previous session'}</span>
-                          </div>
-                          <span className={`text-[10px] font-mono ${chunk.similarity > 0.7 ? 'text-emerald-400' : 'text-neutral-500'}`}>
-                            {Math.round(chunk.similarity * 100)}%
-                          </span>
+                      />
+                    )}
+                    {activeTool === "notebook" && (
+                      <div className="h-full rounded-lg border border-neutral-800 bg-neutral-900/50 flex flex-col">
+                        <textarea
+                          value={notebookContent}
+                          onChange={(e) => setNotebookContent(e.target.value)}
+                          placeholder="Jot down your thoughts..."
+                          className="flex-1 w-full bg-transparent border-none resize-none p-4 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-0"
+                        />
+                        <div className="shrink-0 px-3 py-2 border-t border-neutral-800">
+                          <span className="text-[10px] text-neutral-600">{notebookContent.length} characters</span>
                         </div>
-                        <p className="text-xs text-neutral-400 leading-relaxed line-clamp-2">{chunk.content}</p>
                       </div>
-                    );
-                  })}
-                  <p className="text-[10px] text-neutral-600 text-center">
-                    {selectedChunks.size} of {ragChunks.length} selected for context
-                  </p>
+                    )}
+                    {activeTool === "rag" && (
+                      <div className="h-full p-4 overflow-auto">
+                        {ragLoading && (
+                          <div className="flex flex-col items-center justify-center h-64">
+                            <div className="w-6 h-6 border border-neutral-700 border-t-cyan-500 rounded-full animate-spin mb-3" />
+                            <p className="text-sm text-neutral-500">Finding relevant chunks...</p>
+                          </div>
+                        )}
+                        {!ragLoading && ragChunks.length === 0 && (
+                          <div className="flex flex-col items-center justify-center h-64 gap-4">
+                            <p className="text-sm text-neutral-500">No matching chunks found</p>
+                            <button
+                              onClick={() => runRagMatching()}
+                              className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-medium rounded-lg transition-all"
+                            >
+                              Retry Matching
+                            </button>
+                          </div>
+                        )}
+                        {!ragLoading && ragChunks.length > 0 && (
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <h3 className="text-sm font-medium text-white">Matching Chunks</h3>
+                              <span className="text-xs text-neutral-500">{ragChunks.length} found</span>
+                            </div>
+                            
+                            {/* Modifier input */}
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={ragModifier}
+                                onChange={(e) => setRagModifier(e.target.value)}
+                                placeholder="Add modifier (e.g., 'focus on proofs')"
+                                className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-cyan-500"
+                              />
+                              <button
+                                onClick={() => runRagMatching(ragModifier)}
+                                disabled={ragLoading || !ragModifier.trim()}
+                                className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-500/50 disabled:cursor-not-allowed text-black font-medium rounded-lg transition-all"
+                              >
+                                Retry
+                              </button>
+                            </div>
+
+                            {/* Chunks list */}
+                            <div className="space-y-3">
+                              {ragChunks.map((chunk, idx) => {
+                                const isSelected = ragSelectedChunks.has(chunk.id);
+                                const isExpanded = ragExpandedChunks.has(chunk.id);
+                                const similarityPct = Math.round((chunk.similarity || 0) * 100);
+                                
+                                return (
+                                  <div
+                                    key={chunk.id}
+                                    className={`rounded-xl border transition-all ${
+                                      isSelected 
+                                        ? "border-cyan-500/50 bg-cyan-500/5" 
+                                        : "border-neutral-800 bg-neutral-900/30"
+                                    }`}
+                                  >
+                                    <div 
+                                      className="p-3 flex items-start gap-3 cursor-pointer"
+                                      onClick={() => {
+                                        if (isExpanded) {
+                                          const newExpanded = new Set(ragExpandedChunks);
+                                          newExpanded.delete(chunk.id);
+                                          setRagExpandedChunks(newExpanded);
+                                        } else {
+                                          setRagExpandedChunks(new Set(ragExpandedChunks).add(chunk.id));
+                                        }
+                                      }}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={(e) => {
+                                          e.stopPropagation();
+                                          const newSelected = new Set(ragSelectedChunks);
+                                          if (e.target.checked) {
+                                            newSelected.add(chunk.id);
+                                          } else {
+                                            newSelected.delete(chunk.id);
+                                          }
+                                          setRagSelectedChunks(newSelected);
+                                        }}
+                                        className="mt-1 w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-cyan-500 focus:ring-cyan-500/50"
+                                      />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span className="text-xs font-medium text-white">Chunk {idx + 1}</span>
+                                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                            similarityPct > 50 
+                                              ? "bg-cyan-500/20 text-cyan-400" 
+                                              : "bg-neutral-700 text-neutral-400"
+                                          }`}>
+                                            {similarityPct}% match
+                                          </span>
+                                          {chunk.topic && (
+                                            <span className="text-[10px] text-neutral-500">
+                                              from: {chunk.topic}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="text-xs text-neutral-400 line-clamp-2">
+                                          {chunk.content?.slice(0, 150)}...
+                                        </p>
+                                        {isExpanded && (
+                                          <p className="text-xs text-neutral-400 mt-2 whitespace-pre-wrap">
+                                            {chunk.content}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <svg 
+                                        className={`w-4 h-4 text-neutral-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} 
+                                        fill="none" 
+                                        viewBox="0 0 24 24" 
+                                        stroke="currentColor"
+                                      >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Summary */}
+                            <div className="pt-3 border-t border-neutral-800">
+                              <p className="text-xs text-neutral-500">
+                                {ragSelectedChunks.size} of {ragChunks.length} chunks selected for observation prompts
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {activeTool === "help" && <ToolsHelp />}
+                    {(activeTool === "grokipedia" || activeTool === "exercise" || activeTool === "reading") && (
+                      <div className="h-full p-4 overflow-auto">
+                        {activeTool === "grokipedia" && showGrokipediaOnly && session?.problem && (
+                          <div className="flex flex-col items-center justify-center h-full gap-6">
+                            <div className="text-center">
+                              <h3 className="text-lg font-medium text-white mb-2">Grokipedia</h3>
+                              <p className="text-sm text-neutral-400">Search for information about your topic</p>
+                            </div>
+                            <a
+                              href={`https://grokipedia.com/search?q=${encodeURIComponent(session.problem)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-medium rounded-xl transition-all inline-flex items-center gap-2"
+                            >
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <circle cx="12" cy="12" r="10" />
+                                <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                              </svg>
+                              Open Grokipedia
+                            </a>
+                          </div>
+                        )}
+                        {((activeTool === "grokipedia" && !showGrokipediaOnly) || activeTool === "exercise" || activeTool === "reading") && !prepToolContent && !prepToolLoading && (
+                          <div className="flex flex-col items-center justify-center h-full gap-4">
+                            <button
+                              onClick={() => loadPrepToolContent(activeTool)}
+                              className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-medium rounded-xl transition-all"
+                            >
+                              Load {activeTool === "exercise" ? "Exercise" : "Reading"}
+                            </button>
+                          </div>
+                        )}
+                        {prepToolLoading && (
+                          <div className="flex flex-col items-center justify-center h-full">
+                            <div className="w-6 h-6 border border-neutral-700 border-t-cyan-500 rounded-full animate-spin mb-3" />
+                            <p className="text-sm text-neutral-500">Loading...</p>
+                          </div>
+                        )}
+                        {prepToolContent && !prepToolLoading && (
+                          <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
+                            <h3 className="text-lg font-medium text-white mb-4">{prepToolContent.title}</h3>
+                            <div className="prose prose-invert prose-sm max-w-none text-neutral-300 whitespace-pre-wrap">
+                              {prepToolContent.content}
+                            </div>
+                            {activeTool === "grokipedia" && session?.problem && (
+                              <a
+                                href={`https://grokipedia.com/search?q=${encodeURIComponent(session.problem)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-4 inline-flex items-center gap-2 text-cyan-400 hover:text-cyan-300 text-sm"
+                              >
+                                Open Grokipedia
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              }
+              right={
+                <ProbeNotifications
+                  sessionId={session.id}
+                  probes={session.probes}
+                  objectives={objectives}
+                  objectiveStatuses={objectiveStatuses}
+                  isRecording={isRecording}
+                  isPaused={isPaused}
+                  stream={stream}
+                  onStartRecording={startRecording}
+                  onStopRecording={stopRecording}
+                  onPause={handlePause}
+                  onResume={handleResume}
+                  onGetFeedback={handleGetFeedback}
+                  onImStuck={handleImStuck}
+                  feedbackLoading={feedbackLoading}
+                  stuckLoading={stuckLoading}
+                />
+              }
+            />
+          </div>
+
+          {/* Mobile: Tab-based navigation */}
+          <div className="flex-1 flex flex-col md:hidden min-h-0 h-full">
+            <div className="flex-1 min-h-0 overflow-hidden h-full">
+              {mobileTab === "main" && (
+                <div className="h-full overflow-hidden">
+                  <LLMChat problem={session.problem} />
+                </div>
+              )}
+              {mobileTab === "canvas" && (
+                <div className="h-full overflow-hidden">
+                  <WhiteboardCanvas
+                    initialData={whiteboardData || undefined}
+                    onCanvasChange={(dataUrl) => {
+                      setWhiteboardData(dataUrl);
+                      if (sessionRef.current) {
+                        sessionRef.current = { ...sessionRef.current, metadata: { ...sessionRef.current.metadata, whiteboardData: dataUrl } };
+                      }
+                    }}
+                  />
+                </div>
+              )}
+              {mobileTab === "notes" && (
+                <div className="h-full p-4 overflow-hidden">
+                  <div className="h-full rounded-lg border border-neutral-800 bg-neutral-900/50 flex flex-col">
+                    <textarea
+                      value={notebookContent}
+                      onChange={(e) => setNotebookContent(e.target.value)}
+                      placeholder="Jot down your thoughts..."
+                      className="flex-1 w-full bg-transparent border-none resize-none p-4 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-0"
+                    />
+                    <div className="shrink-0 px-3 py-2 border-t border-neutral-800">
+                      <span className="text-[10px] text-neutral-600">{notebookContent.length} characters</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {mobileTab === "questions" && (
+                <ProbeNotifications
+                  sessionId={session.id}
+                  probes={session.probes}
+                  objectives={objectives}
+                  objectiveStatuses={objectiveStatuses}
+                  isRecording={isRecording}
+                  isPaused={isPaused}
+                  stream={stream}
+                  onStartRecording={startRecording}
+                  onStopRecording={stopRecording}
+                  onPause={handlePause}
+                  onResume={handleResume}
+                  onGetFeedback={handleGetFeedback}
+                  onImStuck={handleImStuck}
+                  feedbackLoading={feedbackLoading}
+                  stuckLoading={stuckLoading}
+                />
+              )}
+              {mobileTab === "prep" && (
+                <div className="h-full p-4 overflow-auto">
+                  {!prepToolContent && !prepToolLoading && (
+                    <div className="flex flex-col gap-3">
+                      <button
+                        onClick={() => loadPrepToolContent("reading")}
+                        className="w-full p-4 rounded-xl border border-neutral-800 bg-neutral-900/50 hover:bg-neutral-800 text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                          </svg>
+                          <div>
+                            <div className="text-sm font-medium text-white">Prep Reading</div>
+                            <div className="text-xs text-neutral-500">Key concepts to review</div>
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => loadPrepToolContent("exercise")}
+                        className="w-full p-4 rounded-xl border border-neutral-800 bg-neutral-900/50 hover:bg-neutral-800 text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                          </svg>
+                          <div>
+                            <div className="text-sm font-medium text-white">Exercise Prep</div>
+                            <div className="text-xs text-neutral-500">Practice task before session</div>
+                          </div>
+                        </div>
+                      </button>
+                      {session?.problem && (
+                        <a
+                          href={`https://grokipedia.com/search?q=${encodeURIComponent(session.problem)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full p-4 rounded-xl border border-neutral-800 bg-neutral-900/50 hover:bg-neutral-800 text-left flex items-center gap-3"
+                        >
+                          <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                          </svg>
+                          <div>
+                            <div className="text-sm font-medium text-white">Grokipedia</div>
+                            <div className="text-xs text-neutral-500">Search external knowledge base</div>
+                          </div>
+                        </a>
+                      )}
+                    </div>
+                  )}
+                  {prepToolLoading && (
+                    <div className="flex flex-col items-center justify-center h-64">
+                      <div className="w-6 h-6 border border-neutral-700 border-t-cyan-500 rounded-full animate-spin mb-3" />
+                      <p className="text-sm text-neutral-500">Loading...</p>
+                    </div>
+                  )}
+                  {prepToolContent && !prepToolLoading && (
+                    <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
+                      <h3 className="text-lg font-medium text-white mb-4">{prepToolContent.title}</h3>
+                      <div className="prose prose-invert prose-sm max-w-none text-neutral-300 whitespace-pre-wrap">
+                        {prepToolContent.content}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
-
-          {/* Prep Buttons */}
-          <div className="pt-2">
-            <p className="text-[11px] uppercase tracking-wider text-neutral-500 mb-3">Prep for your session</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            
+            {/* Mobile Tab Bar */}
+            <div className="flex border-t border-neutral-800 bg-[#0a0a0a] shrink-0">
               <button
-                onClick={() => loadPrepMaterial("reading")}
-                disabled={prepLoading !== null}
-                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-neutral-700 bg-neutral-800/50 hover:bg-neutral-800 text-neutral-300 text-sm font-medium transition-all hover:border-neutral-600 disabled:opacity-50"
+                onClick={() => setMobileTab("main")}
+                className={`flex-1 py-2.5 text-[10px] font-medium transition-colors flex flex-col items-center gap-1 ${
+                  mobileTab === "main" ? "text-white" : "text-neutral-500"
+                }`}
               >
-                {prepLoading === "reading" ? (
-                  <div className="w-4 h-4 border-2 border-neutral-500 border-t-cyan-400 rounded-full animate-spin" />
-                ) : (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
-                )}
-                <span className="hidden sm:inline">Reading</span>
-              </button>
-              
-              <button
-                onClick={() => loadPrepMaterial("exercise")}
-                disabled={prepLoading !== null}
-                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-neutral-700 bg-neutral-800/50 hover:bg-neutral-800 text-neutral-300 text-sm font-medium transition-all hover:border-neutral-600 disabled:opacity-50"
-              >
-                {prepLoading === "exercise" ? (
-                  <div className="w-4 h-4 border-2 border-neutral-500 border-t-cyan-400 rounded-full animate-spin" />
-                ) : (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                )}
-                <span className="hidden sm:inline">Exercise</span>
-              </button>
-              
-              <button
-                onClick={() => loadPrepMaterial("resources")}
-                disabled={prepLoading !== null}
-                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-neutral-700 bg-neutral-800/50 hover:bg-neutral-800 text-neutral-300 text-sm font-medium transition-all hover:border-neutral-600 disabled:opacity-50"
-              >
-                {prepLoading === "resources" ? (
-                  <div className="w-4 h-4 border-2 border-neutral-500 border-t-cyan-400 rounded-full animate-spin" />
-                ) : (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
-                )}
-                <span className="hidden sm:inline">Resources</span>
-              </button>
-              
-              <a
-                href={`https://grokipedia.com/search?q=${encodeURIComponent(session?.problem || "")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-neutral-700 bg-neutral-800/50 hover:bg-neutral-800 text-neutral-300 text-sm font-medium transition-all hover:border-neutral-600"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                 </svg>
-                <span className="hidden sm:inline">Grokipedia</span>
-              </a>
-            </div>
-          </div>
-
-          {/* Prep Material Cards (inside pre-session card) */}
-          {prepCards.map(card => (
-            <div key={card.id} className="mt-4 p-4 rounded-xl border border-neutral-800 bg-neutral-900/30">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-[11px] uppercase tracking-wider font-semibold text-cyan-400">{card.title}</h3>
-                <button
-                  onClick={() => setPrepCards(prev => prev.filter(c => c.id !== card.id))}
-                  className="p-1 hover:bg-neutral-800 rounded-lg transition-colors"
-                >
-                  <svg className="w-4 h-4 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="prose prose-invert prose-sm max-w-none text-neutral-300">
-                <ReactMarkdown components={{
-                  p: ({ children }) => <p className="mb-3">{children}</p>,
-                  ul: ({ children }) => <ul className="mb-3 list-disc pl-4 space-y-1">{children}</ul>,
-                  ol: ({ children }) => <ol className="mb-3 list-decimal pl-4 space-y-1">{children}</ol>,
-                  li: ({ children }) => <li className="ml-2">{children}</li>,
-                }}>{card.content}</ReactMarkdown>
-              </div>
-            </div>
-          ))}
-
-          {/* Divider */}
-          <div className="border-t border-neutral-800 my-4" />
-
-          {/* Status + Controls Row */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-3">
-            <RecordingIndicator isRecording={isRecording} />
-            {museStatus === "disconnected" || museStatus === "connecting" ? (
-              <button
-                onClick={handleConnectMuse}
-                disabled={museStatus === "connecting"}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 text-neutral-300 rounded-lg border border-neutral-700 transition-colors"
-              >
-                <BluetoothIcon />
-                {museStatus === "connecting" ? "Connecting..." : "Muse"}
+                <span className="hidden xs:inline">Chat</span>
               </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-500/10 border border-green-500/20 rounded-lg">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-[11px] text-green-400">Muse</span>
-                </div>
-                <button
-                  onClick={handleDisconnectMuse}
-                  className="text-[10px] text-neutral-600 hover:text-neutral-400 transition-colors"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Muse EEG channel readiness — before session */}
-          {museStatus === "streaming" && !isRecording && (() => {
-            const expectedChannels = ["TP9", "AF7", "AF8", "TP10"];
-            const detectedChannels = expectedChannels.filter(ch => {
-              const samples = eegChannelData.get(ch);
-              return samples && samples.length > 0;
-            });
-            const allReady = detectedChannels.length >= expectedChannels.length;
-            return (
-              <div className="mb-3 px-3.5 py-3 rounded-lg bg-neutral-800/30 border border-neutral-800/50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {expectedChannels.map(ch => {
-                      const active = detectedChannels.includes(ch);
-                      return (
-                        <div key={ch} className="flex items-center gap-1.5">
-                          <div className={`w-1.5 h-1.5 rounded-full ${active ? "bg-green-500" : "bg-neutral-700 animate-pulse"}`} />
-                          <span className={`text-[11px] font-mono ${active ? "text-green-400" : "text-neutral-600"}`}>{ch}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md ${allReady ? "text-green-400 bg-green-500/10 border border-green-500/20" : "text-neutral-500 bg-neutral-800/50 border border-neutral-800"}`}>
-                    {allReady ? "Ready to go" : `Waiting for channels (${detectedChannels.length}/${expectedChannels.length})`}
-                  </span>
-                </div>
-              </div>
-            );
-          })()}
-
-          {museError && (
-            <div className="mb-3 p-2.5 bg-red-500/5 border border-red-500/20 rounded-lg text-red-400 text-[11px]">
-              {museError}
-            </div>
-          )}
-
-          {/* Mic check + Start */}
-          {micStatus === "ready" ? (
-            <>
-              <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-green-500/5 border border-green-500/20">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-[11px] text-green-400 font-medium">Microphone ready</span>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={startRecording}
-                  className="flex-1 py-3.5 bg-white hover:bg-neutral-200 text-black font-medium rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
-                >
-                  <MicIcon />
-                  Start Session
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="flex gap-3">
               <button
-                onClick={checkMicrophone}
-                disabled={micStatus === "checking"}
-                className="flex-1 py-3.5 bg-white hover:bg-neutral-200 disabled:opacity-70 text-black font-medium rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+                onClick={() => setMobileTab("canvas")}
+                className={`flex-1 py-2.5 text-[10px] font-medium transition-colors flex flex-col items-center gap-1 ${
+                  mobileTab === "canvas" ? "text-white" : "text-neutral-500"
+                }`}
               >
-                {micStatus === "checking" ? (
-                  <>
-                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
-                    Checking...
-                  </>
-                ) : micStatus === "denied" ? (
-                  <>
-                    <MicIcon />
-                    Retry Microphone
-                  </>
-                ) : (
-                  <>
-                    <MicIcon />
-                    Check Microphone
-                  </>
-                )}
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                <span className="hidden xs:inline">Canvas</span>
+              </button>
+              <button
+                onClick={() => setMobileTab("notes")}
+                className={`flex-1 py-2.5 text-[10px] font-medium transition-colors flex flex-col items-center gap-1 ${
+                  mobileTab === "notes" ? "text-white" : "text-neutral-500"
+                }`}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                <span className="hidden xs:inline">Notes</span>
+              </button>
+              <button
+                onClick={() => setMobileTab("questions")}
+                className={`flex-1 py-2.5 text-[10px] font-medium transition-colors flex flex-col items-center gap-1 ${
+                  mobileTab === "questions" ? "text-white" : "text-neutral-500"
+                }`}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="hidden xs:inline">Questions</span>
+              </button>
+              <button
+                onClick={() => { setPrepToolContent(null); setMobileTab("prep"); }}
+                className={`flex-1 py-2.5 text-[10px] font-medium transition-colors flex flex-col items-center gap-1 ${
+                  mobileTab === "prep" ? "text-white" : "text-neutral-500"
+                }`}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                <span className="hidden xs:inline">Prep</span>
               </button>
             </div>
-          )}
-
-          {micStatus === "denied" && (
-            <div className="mt-3 p-2.5 bg-red-500/5 border border-red-500/20 rounded-lg text-red-400 text-[11px] leading-relaxed">
-              Microphone access was denied. Please allow microphone permission in your browser settings, then tap &quot;Retry Microphone&quot;.
-            </div>
-          )}
-
-          {/* Data consent disclaimer */}
-          <p className="text-[10px] sm:text-[11px] text-neutral-600 text-center mt-4 leading-relaxed px-2">
-            By starting this session, you agree to let us collect and use your voice and EEG data for research purposes and improvement of the product.
-          </p>
-            </div>
-
-          </>
-        )}
-
-        {error && (
-          <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
-            {error}
           </div>
-        )}
+        </div>
       </div>
-
-      {/* Tutor-End Dialog */}
       {showEndDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 max-w-md mx-4">
             <h3 className="text-base font-semibold text-white mb-2">Tutor suggests ending</h3>
             <p className="text-neutral-400 mb-5 text-sm leading-relaxed">{endReason}</p>
             <div className="flex gap-2.5">
-              <button
-                onClick={() => setShowEndDialog(false)}
-                className="flex-1 py-2.5 text-sm text-neutral-400 border border-neutral-700 hover:border-neutral-500 rounded-xl transition-colors"
-              >
+              <button onClick={() => setShowEndDialog(false)} className="flex-1 py-2.5 text-sm text-neutral-400 border border-neutral-700 hover:border-neutral-500 rounded-xl transition-colors">
                 Keep going
               </button>
-              <button
-                onClick={handleConfirmEnd}
-                className="flex-1 py-2.5 text-sm text-white bg-white/10 hover:bg-white/15 rounded-xl transition-colors"
-              >
+              <button onClick={handleConfirmEnd} className="flex-1 py-2.5 text-sm text-white bg-white/10 hover:bg-white/15 rounded-xl transition-colors">
                 End session
               </button>
             </div>
