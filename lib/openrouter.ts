@@ -308,10 +308,10 @@ export async function analyzeGap(
             content: [
               { type: "text", text: prompt },
               {
-                type: "file",
-                file: {
-                  filename: `audio.${options.audioFormat}`,
-                  file_data: `data:audio/${options.audioFormat};base64,${options.audioBase64}`,
+                type: "input_audio",
+                input_audio: {
+                  data: options.audioBase64,
+                  format: options.audioFormat,
                 },
               },
             ],

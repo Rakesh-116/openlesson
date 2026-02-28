@@ -401,9 +401,44 @@ export async function getSessionAudio(sessionId: string): Promise<Blob | null> {
   return data;
 }
 
+export interface FacialDataPoint {
+  timestamp: number;
+  facePresent: boolean;
+  blinkRate: number;
+  gazeDirection: "at_camera" | "away" | "unknown";
+  headPose: { pitch: number; yaw: number; roll: number };
+  mouthState: "open" | "closed";
+  faceDistance: "optimal" | "too_close" | "too_far";
+  engagementScore: number;
+}
+
+export async function saveFacialData(
+  sessionId: string,
+  facialData: FacialDataPoint[],
+  chunkIndex: number,
+  timestamp: number
+): Promise<string> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const path = `${user.id}/${sessionId}/facial_chunk_${chunkIndex}_${timestamp}.json`;
+  const payload = { sessionId, timestamp, data: facialData };
+
+  const { error } = await supabase.storage
+    .from("session-facial")
+    .upload(path, JSON.stringify(payload), { contentType: "application/json", upsert: false });
+
+  if (error) {
+    console.error("[saveFacialData] Upload error:", error);
+    return "";
+  }
+  return path;
+}
+
 // ---- Tool Usage Tracking ----
 
-export type ToolName = "chat" | "canvas" | "notebook" | "grokipedia" | "exercise" | "reading" | "rag" | "help";
+export type ToolName = "chat" | "canvas" | "notebook" | "grokipedia" | "exercise" | "reading" | "rag" | "help" | "data-input" | "logs";
 
 export type ToolAction = 
   | "open" 
@@ -485,7 +520,7 @@ export async function logEEGData(
       chunk_index: chunkIndex,
       band_powers: bandPowers,
     });
-    const eegStoragePath = `${user.id}/${sessionId}/eeg_chunk_${chunkIndex}.json`;
+    const eegStoragePath = `${user.id}/${sessionId}/eeg_chunk_${chunkIndex}_${timestampMs}.json`;
 
     try {
       await supabase.storage
@@ -525,13 +560,17 @@ export async function logEEGData(
 export async function saveSessionEEG(
   sessionId: string,
   eegData: { channels: Record<string, number[]>; bandPowers: Record<string, number> | null },
-  deviceName?: string
+  deviceName?: string,
+  chunkIndex?: number,
+  timestamp?: number
 ): Promise<void> {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
-  const path = `${user.id}/${sessionId}_eeg.json`;
+  const ts = timestamp || Date.now();
+  const idx = chunkIndex ?? 0;
+  const path = `${user.id}/${sessionId}/eeg_chunk_${idx}_${ts}.json`;
   const blob = new Blob([JSON.stringify(eegData)], { type: "application/json" });
 
   console.log("[saveSessionEEG] Saving:", { sessionId, path, deviceName, channels: Object.keys(eegData.channels) });

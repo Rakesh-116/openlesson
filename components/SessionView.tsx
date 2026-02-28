@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { AudioRecorder, blobToBase64 } from "@/lib/audio";
+import { FacialDataPoint } from "./FaceTracker";
 import {
   getSession,
   addProbe,
@@ -12,6 +13,7 @@ import {
   saveSession,
   saveSessionAudio,
   saveSessionEEG,
+  saveFacialData,
   saveAudioChunk,
   toggleProbeStarred,
   updateProbeRevealed,
@@ -35,6 +37,8 @@ import { WhiteboardCanvas } from "./WhiteboardCanvas";
 import { ToolsPanel, type Tool } from "./ToolsPanel";
 import { ToolsHelp } from "./ToolsHelp";
 import { LLMChat } from "./LLMChat";
+import { DataInputTool } from "./DataInputTool";
+import { LogsTool, type LogEntry } from "./LogsTool";
 
 // Configuration
 const ANALYSIS_INTERVALS: Record<Frequency, number> = {
@@ -224,15 +228,51 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const bandIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const eegBufferRef = useRef<Map<string, number[]>>(new Map());
 
+  // Webcam
+  const [isWebcamEnabled, setIsWebcamEnabled] = useState(false);
+  const [webcamError, setWebcamError] = useState<string | null>(null);
+  const [latestFacialData, setLatestFacialData] = useState<FacialDataPoint | null>(null);
+
+  // Facial Data Tracking
+  const [facialDataBuffer, setFacialDataBuffer] = useState<Array<{
+    timestamp: number;
+    facePresent: boolean;
+    blinkRate: number;
+    gazeDirection: "at_camera" | "away" | "unknown";
+    headPose: { pitch: number; yaw: number; roll: number };
+    mouthState: "open" | "closed";
+    faceDistance: "optimal" | "too_close" | "too_far";
+    engagementScore: number;
+  }>>([]);
+  const facialBufferRef = useRef<Array<{
+    timestamp: number;
+    facePresent: boolean;
+    blinkRate: number;
+    gazeDirection: "at_camera" | "away" | "unknown";
+    headPose: { pitch: number; yaw: number; roll: number };
+    mouthState: "open" | "closed";
+    faceDistance: "optimal" | "too_close" | "too_far";
+    engagementScore: number;
+  }>>([]);
+
+  // Logs
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const logsRef = useRef<LogEntry[]>([]);
+
   // Refs for interval callbacks
   const recorderRef = useRef<AudioRecorder | null>(null);
   const sessionRef = useRef<Session | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const analysisRef = useRef<NodeJS.Timeout | null>(null);
+  const eegSaveIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastProbeTimeRef = useRef(0);
+  const lastAnalysisTimeRef = useRef(0);
+  const isAnalyzingRef = useRef(false);
   const muteTimerRef = useRef<NodeJS.Timeout | null>(null);
   const probeContainerRef = useRef<HTMLDivElement | null>(null);
   const chunkIndexRef = useRef(0);
+  const eegChunkIndexRef = useRef(0);
+  const facialChunkIndexRef = useRef(0);
   const observerModeRef = useRef(observerMode);
   const frequencyRef = useRef(frequency);
   const isMutedRef = useRef(isMuted);
@@ -529,10 +569,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     if (observerModeRef.current === "off") return;
     if (isMutedRef.current) return;
     if (Date.now() - lastProbeTimeRef.current < COOLDOWN_AFTER_PROBE_MS) return;
+    if (isAnalyzingRef.current) return;
+    if (Date.now() - lastAnalysisTimeRef.current < 3000) return;
 
     const recentAudio = recorder.getRecentAudio(15000);
     if (!recentAudio || recentAudio.size < 1000) return;
 
+    isAnalyzingRef.current = true;
+    lastAnalysisTimeRef.current = Date.now();
     setIsAnalyzing(true);
 
     try {
@@ -655,6 +699,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     } catch (err) {
       console.error("Analysis error:", err);
     } finally {
+      isAnalyzingRef.current = false;
       setIsAnalyzing(false);
     }
   }, []);
@@ -881,6 +926,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         onChunk: async (chunk) => {
           if (session) {
             const idx = chunkIndexRef.current++;
+            console.log("[onChunk] Processing chunk:", { idx, chunkIndex: chunk.chunkIndex, blobSize: chunk.blob.size, blobType: chunk.blob.type });
             try {
               await saveAudioChunk(session.id, chunk.blob, idx, chunk.timestamp);
               
@@ -897,6 +943,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               
               if (!transcribeRes.ok) {
                 console.error("Transcription failed for chunk", chunk.chunkIndex);
+              } else {
+                const transcribeData = await transcribeRes.json();
+                console.log("[onChunk] Transcription result:", { chunkIndex: chunk.chunkIndex, transcriptLength: transcribeData.transcript?.length, wordCount: transcribeData.wordCount });
               }
               
               setPipelineErrors(prev => ({ ...prev, storage: undefined, transcription: undefined }));
@@ -919,6 +968,25 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       analysisRef.current = setInterval(() => {
         analyzeAudio();
       }, ANALYSIS_INTERVALS[frequency]);
+
+      eegSaveIntervalRef.current = setInterval(async () => {
+        if (!isRecording) return;
+        
+        if (session && museStatus === "streaming" && eegBufferRef.current.size > 0) {
+          console.log("[EEG] Saving periodic EEG data...");
+          const channels: Record<string, number[]> = {};
+          for (const [ch, samples] of eegBufferRef.current.entries()) {
+            channels[ch] = samples.slice();
+          }
+          const eegIdx = eegChunkIndexRef.current++;
+          await saveSessionEEG(session.id, { channels, bandPowers }, museClientRef.current?.deviceName, eegIdx, Date.now());
+        }
+        if (session && isRecording && isWebcamEnabled && facialBufferRef.current.length > 0) {
+          console.log("[Facial] Saving periodic facial data...", { dataPoints: facialBufferRef.current.length });
+          const facialIdx = facialChunkIndexRef.current++;
+          await saveFacialData(session.id, facialBufferRef.current, facialIdx, Date.now());
+        }
+      }, 60000);
     } catch {
       setError("Could not access microphone. Please grant permission and try again.");
     }
@@ -927,6 +995,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const stopRecording = async () => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (analysisRef.current) clearInterval(analysisRef.current);
+    if (eegSaveIntervalRef.current) clearInterval(eegSaveIntervalRef.current);
 
     const recorder = recorderRef.current;
     
@@ -1021,6 +1090,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const handlePause = async () => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (analysisRef.current) clearInterval(analysisRef.current);
+    if (eegSaveIntervalRef.current) clearInterval(eegSaveIntervalRef.current);
 
     const recorder = recorderRef.current;
     await recorder?.stop();
@@ -1049,6 +1119,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         maxBufferDurationMs: 300000,
         onChunk: async (chunk) => {
           const idx = chunkIndexRef.current++;
+          console.log("[onChunk] Processing chunk (resume):", { idx, chunkIndex: chunk.chunkIndex, blobSize: chunk.blob.size, blobType: chunk.blob.type });
           try {
             await saveAudioChunk(session.id, chunk.blob, idx, chunk.timestamp);
             
@@ -1065,6 +1136,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             
             if (!transcribeRes.ok) {
               console.error("Transcription failed for chunk", chunk.chunkIndex);
+            } else {
+              const transcribeData = await transcribeRes.json();
+              console.log("[onChunk] Transcription result:", { chunkIndex: chunk.chunkIndex, transcriptLength: transcribeData.transcript?.length, wordCount: transcribeData.wordCount });
             }
             
             setPipelineErrors(prev => ({ ...prev, storage: undefined, transcription: undefined }));
@@ -1091,6 +1165,25 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       analysisRef.current = setInterval(() => {
         analyzeAudio();
       }, ANALYSIS_INTERVALS[frequency]);
+
+      eegSaveIntervalRef.current = setInterval(async () => {
+        if (!isRecording) return;
+        
+        if (session && museStatus === "streaming" && eegBufferRef.current.size > 0) {
+          console.log("[EEG] Saving periodic EEG data...");
+          const channels: Record<string, number[]> = {};
+          for (const [ch, samples] of eegBufferRef.current.entries()) {
+            channels[ch] = samples.slice();
+          }
+          const eegIdx = eegChunkIndexRef.current++;
+          await saveSessionEEG(session.id, { channels, bandPowers }, museClientRef.current?.deviceName, eegIdx, Date.now());
+        }
+        if (session && isRecording && isWebcamEnabled && facialBufferRef.current.length > 0) {
+          console.log("[Facial] Saving periodic facial data...", { dataPoints: facialBufferRef.current.length });
+          const facialIdx = facialChunkIndexRef.current++;
+          await saveFacialData(session.id, facialBufferRef.current, facialIdx, Date.now());
+        }
+      }, 60000);
     } catch {
       setError("Could not access microphone. Please grant permission and try again.");
     }
@@ -1417,22 +1510,30 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               </div>
             )}
             {(pipelineErrors.analysis || pipelineErrors.transcription || pipelineErrors.storage) && (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/30">
-                  <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <span className="text-[10px] text-amber-400">
-                    {pipelineErrors.analysis || pipelineErrors.transcription || pipelineErrors.storage}
-                  </span>
-                </div>
-                <button 
-                  onClick={() => setIsPaused(true)} 
-                  className="text-[10px] text-neutral-400 hover:text-white underline"
-                >
-                  Pause
-                </button>
-              </div>
+              <button
+                onClick={() => {
+                  const errorMsg = pipelineErrors.analysis || pipelineErrors.transcription || pipelineErrors.storage;
+                  if (errorMsg) {
+                    const entry: LogEntry = {
+                      id: Date.now().toString(),
+                      timestamp: Date.now(),
+                      level: "error",
+                      message: errorMsg,
+                      source: "Pipeline"
+                    };
+                    logsRef.current.push(entry);
+                    setLogs([...logsRef.current]);
+                  }
+                }}
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition-colors"
+              >
+                <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span className="text-[10px] text-amber-400">
+                  {pipelineErrors.analysis || pipelineErrors.transcription || pipelineErrors.storage}
+                </span>
+              </button>
             )}
           </div>
           <div className="text-xs font-mono text-neutral-300 tabular-nums bg-neutral-900/50 px-2 py-1 rounded-lg border border-neutral-800">
@@ -1443,6 +1544,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           {/* Desktop: Resizable split view */}
           <div className="hidden md:flex flex-1 min-h-0">
             <ResizablePane
+              defaultLeftWidth={30}
               left={
                 <div className="flex flex-col min-w-0 p-4 overflow-hidden h-full">
                   <div className="flex-1 min-h-0 overflow-hidden">
@@ -1608,6 +1710,49 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                       </div>
                     )}
                     {activeTool === "help" && <ToolsHelp />}
+                    <div className={activeTool === "data-input" ? "h-full" : "hidden"}>
+                      <DataInputTool
+                        isRecording={isRecording}
+                        audioStream={stream}
+                        museStatus={museStatus}
+                        museError={museError}
+                        museChannelData={eegChannelData}
+                        bandPowers={bandPowers}
+                        onConnectMuse={handleConnectMuse}
+                        onDisconnectMuse={handleDisconnectMuse}
+                        isWebcamEnabled={isWebcamEnabled}
+                        onWebcamToggle={() => setIsWebcamEnabled(prev => !prev)}
+                        latestFacialData={latestFacialData}
+                        onFacialData={(data) => {
+                          setLatestFacialData(data);
+                          facialBufferRef.current.push(data);
+                          if (facialBufferRef.current.length > 120) {
+                            facialBufferRef.current = facialBufferRef.current.slice(-120);
+                          }
+                        }}
+                        onFaceError={(error: string) => {
+                          setWebcamError(error);
+                          const entry: LogEntry = {
+                            id: Date.now().toString(),
+                            timestamp: Date.now(),
+                            level: "error",
+                            message: error,
+                            source: "Face Tracker"
+                          };
+                          logsRef.current.push(entry);
+                          setLogs(prev => [...prev, entry]);
+                        }}
+                      />
+                    </div>
+                    {activeTool === "logs" && (
+                      <LogsTool
+                        logs={logs}
+                        onClear={() => {
+                          logsRef.current = [];
+                          setLogs([]);
+                        }}
+                      />
+                    )}
                     {(activeTool === "grokipedia" || activeTool === "exercise" || activeTool === "reading") && (
                       <div className="h-full p-4 overflow-auto">
                         {activeTool === "grokipedia" && showGrokipediaOnly && session?.problem && (

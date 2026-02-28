@@ -250,6 +250,7 @@ CREATE POLICY "Users can delete own session data"
 --   1. session-audio (private) - audio files: {user_id}/{session_id}.webm
 --   2. user-transcripts (private) - transcript files: {user_id}/{transcript_id}.txt
 --   3. session-eeg (private) - EEG data: {user_id}/{session_id}_eeg.json
+--   4. session-facial (private) - facial data: {user_id}/{session_id}/facial_{timestamp}.json
 --
 -- Storage RLS policies (set via dashboard):
 --   - Users can read/write only within their own {user_id}/ folder

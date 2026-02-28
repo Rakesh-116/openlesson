@@ -61,6 +61,17 @@ export async function POST(request: NextRequest) {
 
     const arrayBuffer = await audioFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    
+    if (buffer.length < 1000) {
+      console.log("[transcribe-chunk] Audio too small, skipping transcription:", buffer.length);
+      return NextResponse.json({
+        success: true,
+        chunkIndex: parsedChunkIndex,
+        transcript: "",
+        wordCount: 0,
+      });
+    }
+    
     const rawMimeType = audioFile.type;
     const mimeType = rawMimeType.split(";")[0].trim() || "audio/webm";
     let ext = mimeType.split("/")[1] || "webm";
