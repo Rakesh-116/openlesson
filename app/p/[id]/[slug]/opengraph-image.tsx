@@ -13,120 +13,13 @@ interface ImageProps {
     id: string;
     slug: string;
   }>;
-  overrideAlt?: string;
-  overrideTitle?: string;
-  overrideAuthor?: string;
-}
-
-export async function generateImageMetadata({ params }: ImageProps) {
-  const { id } = await params;
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  let title = "Learning Plan";
-  let author = "openLesson";
-
-  if (supabaseUrl && supabaseKey) {
-    try {
-      const response = await fetch(
-        `${supabaseUrl}/rest/v1/learning_plans?id=eq.${id}&is_public=eq.true&select=root_topic,author_id`,
-        {
-          headers: {
-            apikey: supabaseKey,
-            Authorization: `Bearer ${supabaseKey}`,
-          },
-          next: { revalidate: 60 },
-        }
-      );
-
-      const data = await response.json();
-      if (data && data.length > 0) {
-        title = data[0].root_topic || "Learning Plan";
-        const authorId = data[0].author_id;
-
-        if (authorId) {
-          const profileResponse = await fetch(
-            `${supabaseUrl}/rest/v1/profiles?id=eq.${authorId}&select=username`,
-            {
-              headers: {
-                apikey: supabaseKey,
-                Authorization: `Bearer ${supabaseKey}`,
-              },
-              next: { revalidate: 60 },
-            }
-          );
-
-          const profileData = await profileResponse.json();
-          if (profileData && profileData.length > 0 && profileData[0]?.username) {
-            author = profileData[0].username;
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching OG metadata:", error);
-    }
-  }
-
-  return [
-    {
-      id: "og-image",
-      alt: title,
-      size,
-      contentType,
-    },
-  ];
 }
 
 export default async function Image({ params }: ImageProps) {
   const { id, slug } = await params;
 
-  let title = decodeURIComponent(slug) || "Learning Plan";
-  let author = "openLesson";
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (supabaseUrl && supabaseKey) {
-    try {
-      const response = await fetch(
-        `${supabaseUrl}/rest/v1/learning_plans?id=eq.${id}&is_public=eq.true&select=root_topic,author_id`,
-        {
-          headers: {
-            apikey: supabaseKey,
-            Authorization: `Bearer ${supabaseKey}`,
-          },
-          next: { revalidate: 60 },
-        }
-      );
-
-      const data = await response.json();
-      if (data && data.length > 0) {
-        title = data[0].root_topic || title;
-        const authorId = data[0].author_id;
-
-        if (authorId) {
-          const profileResponse = await fetch(
-            `${supabaseUrl}/rest/v1/profiles?id=eq.${authorId}&select=username`,
-            {
-              headers: {
-                apikey: supabaseKey,
-                Authorization: `Bearer ${supabaseKey}`,
-              },
-              next: { revalidate: 60 },
-            }
-          );
-
-          const profileData = await profileResponse.json();
-          if (profileData && profileData.length > 0 && profileData[0]?.username) {
-            author = profileData[0].username;
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching OG data:", error);
-    }
-  }
+  const decodedSlug = decodeURIComponent(slug);
+  const title = decodedSlug || "Learning Plan";
 
   return new ImageResponse(
     (
@@ -318,7 +211,7 @@ export default async function Image({ params }: ImageProps) {
                     fontWeight: 600,
                   }}
                 >
-                  @{author}
+                  openLesson
                 </div>
               </div>
             </div>
