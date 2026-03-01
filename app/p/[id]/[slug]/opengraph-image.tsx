@@ -49,9 +49,8 @@ export default async function Image({ params }: ImageProps) {
             right: "-200px",
             width: "600px",
             height: "600px",
-            borderRadius: "50%",
+            borderRadius: "300px",
             background: "radial-gradient(circle, rgba(34, 197, 94, 0.15) 0%, transparent 70%)",
-            filter: "blur(60px)",
           }}
         />
         <div
@@ -61,22 +60,8 @@ export default async function Image({ params }: ImageProps) {
             left: "-100px",
             width: "400px",
             height: "400px",
-            borderRadius: "50%",
+            borderRadius: "200px",
             background: "radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, transparent 70%)",
-            filter: "blur(50px)",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "800px",
-            height: "400px",
-            borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 70%)",
-            filter: "blur(80px)",
           }}
         />
 
@@ -101,50 +86,16 @@ export default async function Image({ params }: ImageProps) {
             padding: "60px 80px",
           }}
         >
-          {/* Logo */}
+          {/* Logo text */}
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
+              fontSize: "20px",
+              color: "#22c55e",
+              fontWeight: 600,
               marginBottom: "32px",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "36px",
-                height: "36px",
-                borderRadius: "10px",
-                backgroundColor: "rgba(34, 197, 94, 0.15)",
-                border: "1px solid rgba(34, 197, 94, 0.3)",
-              }}
-            >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#22c55e"
-                strokeWidth="2"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 16v-4" />
-                <path d="M12 8h.01" />
-              </svg>
-            </div>
-            <div
-              style={{
-                fontSize: "18px",
-                color: "#22c55e",
-                fontWeight: 600,
-                letterSpacing: "0.02em",
-              }}
-            >
-              openLesson
-            </div>
+            openLesson
           </div>
 
           {/* Title */}
@@ -155,11 +106,6 @@ export default async function Image({ params }: ImageProps) {
               fontWeight: 700,
               lineHeight: 1.15,
               maxWidth: "900px",
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-              textShadow: "0 2px 20px rgba(0,0,0,0.3)",
             }}
           >
             {title}
@@ -184,8 +130,8 @@ export default async function Image({ params }: ImageProps) {
               alignItems: "center",
               gap: "8px",
               padding: "8px 16px",
-              backgroundColor: "rgba(34, 197, 94, 0.1)",
               borderRadius: "20px",
+              backgroundColor: "rgba(34, 197, 94, 0.1)",
               border: "1px solid rgba(34, 197, 94, 0.25)",
             }}
           >
