@@ -13,13 +13,19 @@ interface ImageProps {
     id: string;
     slug: string;
   }>;
+  searchParams: Promise<{
+    title?: string;
+    author?: string;
+  }>;
 }
 
-export default async function Image({ params }: ImageProps) {
-  const { id, slug } = await params;
+export default async function Image({ params, searchParams }: ImageProps) {
+  const { slug } = await params;
+  const { title: queryTitle, author: queryAuthor } = await searchParams;
 
   const decodedSlug = decodeURIComponent(slug);
-  const title = decodedSlug || "Learning Plan";
+  const title = queryTitle ? decodeURIComponent(queryTitle) : (decodedSlug || "Learning Plan");
+  const author = queryAuthor ? decodeURIComponent(queryAuthor) : "openLesson";
 
   return new ImageResponse(
     (
@@ -211,7 +217,7 @@ export default async function Image({ params }: ImageProps) {
                     fontWeight: 600,
                   }}
                 >
-                  openLesson
+                  @{author}
                 </div>
               </div>
             </div>
