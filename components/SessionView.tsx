@@ -131,6 +131,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     storage?: string;
   }>({});
 
+  // Welcome modal
+  const [showWelcomeModal, setShowWelcomeModal] = useState(true);
+
   // Prep material for tools
   const [prepToolContent, setPrepToolContent] = useState<{ title: string; content: string } | null>(null);
   const [prepToolLoading, setPrepToolLoading] = useState(false);
@@ -1472,6 +1475,58 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="h-screen flex bg-[#0a0a0a] overflow-hidden">
+      {showWelcomeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => {
+            setShowWelcomeModal(false);
+            
+          }} />
+          <div className="relative z-10 w-[95vw] max-w-5xl p-6 bg-neutral-900 border border-neutral-700 rounded-2xl shadow-2xl">
+            <div className="flex gap-8">
+              <div className="flex-shrink-0 text-6xl">👋</div>
+              <div className="flex-1">
+                <h2 className="text-3xl font-bold text-white mb-4">Welcome to openLesson!</h2>
+                <p className="text-neutral-300 mb-6">You've just stepped into our Integrated Learning Environment (ILE) — a space designed to help you truly think and grow.</p>
+                
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="flex gap-3">
+                    <span className="flex-shrink-0 w-8 h-8 bg-cyan-500/20 border border-cyan-500/30 rounded-full flex items-center justify-center text-cyan-400 font-semibold">1</span>
+                    <p className="text-neutral-300">Tap <strong className="text-white">Start Session</strong></p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="flex-shrink-0 w-8 h-8 bg-cyan-500/20 border border-cyan-500/30 rounded-full flex items-center justify-center text-cyan-400 font-semibold">2</span>
+                    <p className="text-neutral-300">Tap to <strong className="text-white">reveal</strong> the first question</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="flex-shrink-0 w-8 h-8 bg-cyan-500/20 border border-cyan-500/30 rounded-full flex items-center justify-center text-cyan-400 font-semibold">3</span>
+                    <p className="text-neutral-300"><strong className="text-white">Speak out loud</strong> as you explore it!</p>
+                  </div>
+                </div>
+
+                <p className="text-neutral-400 mb-4">Don't worry about sounding perfect — just let go of any fears and think out loud. This is how our tutor understands exactly how you're thinking and can guide you best.</p>
+
+                <div className="bg-neutral-800/50 rounded-lg p-3 mb-4">
+                  <p className="text-neutral-400">Your learning goals are always visible at the bottom of the question panel. You also have a full set of tools right there to support your thinking whenever you need them. The tutor will keep guiding you through the session with new questions, hints, and feedback as you progress.</p>
+                </div>
+
+                <p className="text-neutral-300 mb-4">And remember — I'm always here! Feel free to message me anytime about anything: the topic you're learning, a question that's confusing you, or even just to say hi. This chat is your safe space.</p>
+
+                <p className="text-lg font-semibold text-white mb-6">Ready to begin?</p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                setShowWelcomeModal(false);
+              }}
+              className="w-full py-3 px-6 border border-cyan-500/50 hover:bg-cyan-500/10 text-cyan-400 font-medium rounded-xl flex items-center justify-center gap-2 transition-colors"
+            >
+              Let's go! 🚀
+            </button>
+          </div>
+        </div>
+      )}
+
       <ToolsPanel 
               activeTool={activeTool} 
               onToolChange={(tool) => {

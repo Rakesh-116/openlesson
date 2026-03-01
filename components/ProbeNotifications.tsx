@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type Probe, toggleProbeStarred, updateProbeRevealed } from "@/lib/storage";
 
 interface ProbeNotificationsProps {
@@ -48,6 +48,7 @@ export function ProbeNotifications({
   showControls = true,
 }: ProbeNotificationsProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   useEffect(() => {
     if (containerRef.current && probes.length > 0) {
@@ -86,6 +87,24 @@ export function ProbeNotifications({
       </div>
       
       <div ref={containerRef} className="flex-1 overflow-y-auto p-3 space-y-2">
+        {!bannerDismissed && (
+          <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 flex items-start gap-2">
+            <svg className="w-5 h-5 text-green-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="flex-1">
+              <p className="text-sm text-green-300">Start the session, reveal the question and think out loud</p>
+            </div>
+            <button
+              onClick={() => setBannerDismissed(true)}
+              className="text-green-500 hover:text-green-400 shrink-0"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
         {probes.length === 0 ? (
           <p className="text-xs text-neutral-600 text-center py-4">
             No questions yet

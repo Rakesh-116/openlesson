@@ -29,7 +29,7 @@ export function LLMChat({ problem }: LLMChatProps) {
         {
           id: "welcome",
           role: "assistant",
-          content: "Hi! I'm here to help you with your learning. Feel free to ask me questions about the topic, get clarifications, or discuss concepts in a different way.\n\nRemember - I'm a separate assistant from the Socratic tutor. Let me know how I can help!",
+          content: "Hi! I'm here to help you with your learning. Feel free to ask me questions about the topic, get clarifications, or discuss concepts in a different way.\n\nRemember - I'm a separate assistant from the tutor. Let me know how I can help!",
         },
       ]);
     }

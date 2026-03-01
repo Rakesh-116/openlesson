@@ -59,3 +59,12 @@ body {
 .animate-probe-badge {
   animation: probe-badge 2s ease-out forwards;
 }
+
+@keyframes welcome-border {
+  0%, 100% { border-color: #f59e0b; box-shadow: 0 0 8px rgba(245, 158, 11, 0.3); }
+  50% { border-color: #fbbf24; box-shadow: 0 0 16px rgba(251, 191, 36, 0.5); }
+}
+
+.animate-welcome {
+  animation: welcome-border 2s ease-in-out infinite;
+}
