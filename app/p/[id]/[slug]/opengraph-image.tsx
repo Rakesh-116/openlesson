@@ -1,7 +1,5 @@
 import { ImageResponse } from "next/og";
 
-export const runtime = "edge";
-
 export const alt = "Learning Plan";
 export const size = {
   width: 1200,
@@ -18,7 +16,7 @@ interface ImageProps {
 }
 
 export default async function Image({ params }: ImageProps) {
-  const { id, slug } = await params;
+  const { slug } = await params;
 
   const decodedSlug = decodeURIComponent(slug);
   const title = decodedSlug || "Learning Plan";
@@ -34,8 +32,8 @@ export default async function Image({ params }: ImageProps) {
           alignItems: "flex-start",
           justifyContent: "space-between",
           padding: "80px",
-          background: "#0a0a0a",
-          fontFamily: "Inter, system-ui, sans-serif",
+          backgroundColor: "#0a0a0a",
+          fontFamily: "system-ui, sans-serif",
         }}
       >
         <div
@@ -50,7 +48,6 @@ export default async function Image({ params }: ImageProps) {
               fontSize: "28px",
               color: "#22c55e",
               fontWeight: 600,
-              letterSpacing: "-0.02em",
             }}
           >
             openLesson
@@ -61,7 +58,6 @@ export default async function Image({ params }: ImageProps) {
               color: "white",
               fontWeight: 700,
               lineHeight: 1.1,
-              letterSpacing: "-0.03em",
               maxWidth: "900px",
             }}
           >
@@ -80,7 +76,7 @@ export default async function Image({ params }: ImageProps) {
               width: "40px",
               height: "40px",
               borderRadius: "20px",
-              background: "#262626",
+              backgroundColor: "#262626",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -111,7 +107,8 @@ export default async function Image({ params }: ImageProps) {
       </div>
     ),
     {
-      ...size,
+      width: size.width,
+      height: size.height,
     }
   );
 }
