@@ -17,61 +17,11 @@ interface ImageProps {
   }>;
 }
 
-async function getAuthorUsername(planId: string): Promise<string> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    return "openLesson";
-  }
-
-  try {
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/learning_plans?id=eq.${planId}&is_public=eq.true&select=author_id`,
-      {
-        headers: {
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-        },
-      }
-    );
-
-    const data = await response.json();
-    if (!data || data.length === 0 || !data[0]?.author_id) {
-      return "openLesson";
-    }
-
-    const authorId = data[0].author_id;
-
-    const profileResponse = await fetch(
-      `${supabaseUrl}/rest/v1/profiles?id=eq.${authorId}&select=username`,
-      {
-        headers: {
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-        },
-      }
-    );
-
-    const profileData = await profileResponse.json();
-    if (profileData && profileData.length > 0 && profileData[0]?.username) {
-      return profileData[0].username;
-    }
-
-    return "openLesson";
-  } catch (error) {
-    console.error("Error fetching author:", error);
-    return "openLesson";
-  }
-}
-
 export default async function Image({ params }: ImageProps) {
   const { id, slug } = await params;
 
   const decodedSlug = decodeURIComponent(slug);
   const title = decodedSlug || "Learning Plan";
-
-  const authorUsername = await getAuthorUsername(id);
 
   return new ImageResponse(
     (
@@ -155,7 +105,7 @@ export default async function Image({ params }: ImageProps) {
               fontWeight: 500,
             }}
           >
-            @{authorUsername}
+            openLesson
           </div>
         </div>
       </div>
