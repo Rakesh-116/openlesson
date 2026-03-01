@@ -20,9 +20,10 @@ interface ChatPanelProps {
   onRefresh?: () => void;
   supabase?: ReturnType<typeof createBrowserClient>;
   isOwner?: boolean;
+  currentUserId?: string | null;
 }
 
-export function ChatPanel({ planId, description, model, onModelChange, onRefresh, supabase, isOwner = true }: ChatPanelProps) {
+export function ChatPanel({ planId, description, model, onModelChange, onRefresh, supabase, isOwner = true, currentUserId }: ChatPanelProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -210,7 +211,21 @@ export function ChatPanel({ planId, description, model, onModelChange, onRefresh
         <div ref={messagesEndRef} />
       </div>
 
-      {!isOwner && (
+      {!currentUserId ? (
+        <div className="mt-auto pt-4 border-t border-neutral-800">
+          <div className="text-center mb-4">
+            <p className="text-sm text-neutral-400 mb-2">
+              This learning plan can be copied and adapted to your needs. Sign up to get started.
+            </p>
+          </div>
+          <a
+            href="/signup"
+            className="block w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-colors text-center"
+          >
+            Sign Up to Use This Plan
+          </a>
+        </div>
+      ) : !isOwner ? (
         <div className="mt-auto pt-4 border-t border-neutral-800">
           <div className="text-center mb-4">
             <p className="text-sm text-neutral-400 mb-2">
@@ -227,9 +242,7 @@ export function ChatPanel({ planId, description, model, onModelChange, onRefresh
             Fork / Remix This Plan
           </button>
         </div>
-      )}
-
-      {isOwner && (
+      ) : (
         <form onSubmit={handleSubmit} className="relative">
           <textarea
           ref={inputRef}

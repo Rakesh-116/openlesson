@@ -272,6 +272,15 @@ export default function PlanPage() {
               >
                 {plan.is_public ? "Make Private" : "Make Public"}
               </button>
+            ) : !currentUserId ? (
+              <div className="flex gap-2">
+                <Link
+                  href="/signup"
+                  className="text-xs px-3 py-1.5 rounded-lg border border-blue-500/50 text-blue-400 hover:bg-blue-500/10 transition-colors whitespace-nowrap"
+                >
+                  Fork / Remix
+                </Link>
+              </div>
             ) : (
               <div className="flex gap-2">
                 <button
@@ -294,6 +303,7 @@ export default function PlanPage() {
           planId={planId}
           onRefresh={refreshNodes}
           isOwner={currentUserId ? plan.user_id === currentUserId : false}
+          currentUserId={currentUserId}
         />
       </main>
 

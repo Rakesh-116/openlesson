@@ -34,6 +34,7 @@ interface PlanChatProps {
   supabase?: ReturnType<typeof createBrowserClient>;
   planId?: string;
   isOwner?: boolean;
+  currentUserId?: string | null;
 }
 
 const MODEL_STORAGE_KEY = "planner-model";
@@ -65,7 +66,7 @@ function nodesHaveChanged(oldNodes: PlanNode[], newNodes: PlanNode[]): Set<strin
   return changedIds;
 }
 
-export function PlanChat({ plan, nodes: initialNodes, onRefresh, supabase, planId, isOwner = true }: PlanChatProps) {
+export function PlanChat({ plan, nodes: initialNodes, onRefresh, supabase, planId, isOwner = true, currentUserId }: PlanChatProps) {
   const router = useRouter();
   const [nodes, setNodes] = useState(initialNodes);
   const [activeTab, setActiveTab] = useState<"chat" | "sessions">("chat");
@@ -233,6 +234,7 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, supabase, planI
             onRefresh={onRefresh}
             supabase={supabase}
             isOwner={isOwner}
+            currentUserId={currentUserId}
           />
         </div>
       </div>
