@@ -36,41 +36,52 @@ export default async function Image({ params }: ImageProps) {
           width: "100%",
           display: "flex",
           flexDirection: "column",
-          backgroundColor: "#0a0a0a",
+          background: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)",
           position: "relative",
           overflow: "hidden",
         }}
       >
-        {/* Background gradient orbs */}
+        {/* Background gradient orbs - larger and more prominent */}
         <div
           style={{
             position: "absolute",
-            top: "-200px",
+            top: "-300px",
             right: "-200px",
-            width: "600px",
-            height: "600px",
-            borderRadius: "300px",
-            background: "radial-gradient(circle, rgba(34, 197, 94, 0.15) 0%, transparent 70%)",
+            width: "700px",
+            height: "700px",
+            borderRadius: "350px",
+            background: "radial-gradient(circle, rgba(34, 197, 94, 0.25) 0%, transparent 60%)",
           }}
         />
         <div
           style={{
             position: "absolute",
-            bottom: "-150px",
-            left: "-100px",
-            width: "400px",
-            height: "400px",
-            borderRadius: "200px",
-            background: "radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, transparent 70%)",
+            bottom: "-200px",
+            left: "-150px",
+            width: "500px",
+            height: "500px",
+            borderRadius: "250px",
+            background: "radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, transparent 60%)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: "40%",
+            left: "60%",
+            width: "300px",
+            height: "300px",
+            borderRadius: "150px",
+            background: "radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 60%)",
           }}
         />
 
         {/* Top gradient bar */}
         <div
           style={{
-            height: "4px",
+            height: "6px",
             width: "100%",
-            background: "linear-gradient(90deg, #22c55e, #3b82f6, #8b5cf6)",
+            background: "linear-gradient(90deg, #22c55e, #3b82f6, #8b5cf6, #ec4899)",
           }}
         />
 
@@ -89,10 +100,11 @@ export default async function Image({ params }: ImageProps) {
           {/* Logo text */}
           <div
             style={{
-              fontSize: "20px",
+              fontSize: "24px",
               color: "#22c55e",
               fontWeight: 600,
-              marginBottom: "32px",
+              marginBottom: "40px",
+              letterSpacing: "0.02em",
             }}
           >
             openLesson
@@ -101,11 +113,12 @@ export default async function Image({ params }: ImageProps) {
           {/* Title */}
           <div
             style={{
-              fontSize: "56px",
+              fontSize: "60px",
               color: "white",
               fontWeight: 700,
-              lineHeight: 1.15,
+              lineHeight: 1.1,
               maxWidth: "900px",
+              textShadow: "0 4px 30px rgba(0,0,0,0.4)",
             }}
           >
             {title}
@@ -120,32 +133,33 @@ export default async function Image({ params }: ImageProps) {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "24px 80px",
-            borderTop: "1px solid rgba(255,255,255,0.05)",
+            padding: "32px 80px",
+            borderTop: "1px solid rgba(255,255,255,0.08)",
+            backgroundColor: "rgba(0,0,0,0.2)",
           }}
         >
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "8px",
-              padding: "8px 16px",
-              borderRadius: "20px",
-              backgroundColor: "rgba(34, 197, 94, 0.1)",
-              border: "1px solid rgba(34, 197, 94, 0.25)",
+              gap: "10px",
+              padding: "12px 20px",
+              borderRadius: "24px",
+              backgroundColor: "rgba(34, 197, 94, 0.15)",
+              border: "1px solid rgba(34, 197, 94, 0.35)",
             }}
           >
             <div
               style={{
-                width: "8px",
-                height: "8px",
-                borderRadius: "4px",
+                width: "10px",
+                height: "10px",
+                borderRadius: "5px",
                 backgroundColor: "#22c55e",
               }}
             />
             <div
               style={{
-                fontSize: "14px",
+                fontSize: "18px",
                 color: "#22c55e",
                 fontWeight: 600,
               }}
@@ -156,8 +170,8 @@ export default async function Image({ params }: ImageProps) {
 
           <div
             style={{
-              fontSize: "16px",
-              color: "#525252",
+              fontSize: "20px",
+              color: "#a1a1aa",
               fontWeight: 500,
             }}
           >
