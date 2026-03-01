@@ -71,10 +71,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const title = plan.root_topic;
   const description = `A learning plan by @${plan.author_username || "anonymous"} on openLesson`;
 
-  const encodedTitle = encodeURIComponent(title);
-  const encodedAuthor = encodeURIComponent(plan.author_username || "anonymous");
-  const ogImageUrl = `/p/${id}/${slug}/og?title=${encodedTitle}&author=${encodedAuthor}`;
-
   return {
     title: `${title} - openLesson`,
     description,
@@ -84,7 +80,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       type: "website",
       images: [
         {
-          url: ogImageUrl,
+          url: `/p/${id}/${slug}/opengraph-image`,
           width: 1200,
           height: 630,
           alt: title,
@@ -95,7 +91,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       card: "summary_large_image",
       title: `${title} - openLesson`,
       description,
-      images: [ogImageUrl],
+      images: [`/p/${id}/${slug}/opengraph-image`],
     },
   };
 }
