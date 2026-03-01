@@ -73,7 +73,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const encodedTitle = encodeURIComponent(title);
   const encodedAuthor = encodeURIComponent(plan.author_username || "anonymous");
-  const ogImageUrl = `/p/${id}/${slug}/opengraph-image?title=${encodedTitle}&author=${encodedAuthor}`;
+  const ogImageUrl = `/p/${id}/${slug}/og?title=${encodedTitle}&author=${encodedAuthor}`;
 
   return {
     title: `${title} - openLesson`,

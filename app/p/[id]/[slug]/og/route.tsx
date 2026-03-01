@@ -1,33 +1,22 @@
 import { ImageResponse } from "next/og";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
-export const alt = "Learning Plan";
-export const size = {
-  width: 1200,
-  height: 630,
-};
+export const dynamic = "force-dynamic";
 
-export const contentType = "image/png";
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string; slug: string }> }
+) {
+  const { id, slug } = await params;
+  const { searchParams } = new URL(request.url);
+  const titleParam = searchParams.get("title");
+  const authorParam = searchParams.get("author");
 
-interface ImageProps {
-  params: Promise<{
-    id: string;
-    slug: string;
-  }>;
-  searchParams: Promise<{
-    title?: string;
-    author?: string;
-  }>;
-}
+  const title = titleParam ? decodeURIComponent(titleParam) : (decodeURIComponent(slug) || "Learning Plan");
+  const author = authorParam ? decodeURIComponent(authorParam) : "openLesson";
 
-export default async function Image({ params, searchParams }: ImageProps) {
-  const { slug } = await params;
-  const { title: queryTitle, author: queryAuthor } = await searchParams;
-
-  const decodedSlug = decodeURIComponent(slug);
-  const title = queryTitle ? decodeURIComponent(queryTitle) : (decodedSlug || "Learning Plan");
-  const author = queryAuthor ? decodeURIComponent(queryAuthor) : "openLesson";
-
-  return new ImageResponse(
+  const image = new ImageResponse(
     (
       <div
         style={{
@@ -38,7 +27,6 @@ export default async function Image({ params, searchParams }: ImageProps) {
           backgroundColor: "#0a0a0a",
         }}
       >
-        {/* Background pattern */}
         <div
           style={{
             position: "absolute",
@@ -50,7 +38,6 @@ export default async function Image({ params, searchParams }: ImageProps) {
             flexDirection: "column",
           }}
         >
-          {/* Top gradient accent */}
           <div
             style={{
               height: "4px",
@@ -58,7 +45,6 @@ export default async function Image({ params, searchParams }: ImageProps) {
               width: "100%",
             }}
           />
-          {/* Subtle grid pattern */}
           <div
             style={{
               flex: 1,
@@ -83,7 +69,6 @@ export default async function Image({ params, searchParams }: ImageProps) {
             padding: "60px 80px",
           }}
         >
-          {/* Top section */}
           <div
             style={{
               display: "flex",
@@ -91,7 +76,6 @@ export default async function Image({ params, searchParams }: ImageProps) {
               gap: "24px",
             }}
           >
-            {/* Logo badge */}
             <div
               style={{
                 display: "flex",
@@ -136,7 +120,6 @@ export default async function Image({ params, searchParams }: ImageProps) {
               </div>
             </div>
 
-            {/* Title */}
             <div
               style={{
                 fontSize: "56px",
@@ -154,7 +137,6 @@ export default async function Image({ params, searchParams }: ImageProps) {
             </div>
           </div>
 
-          {/* Bottom section */}
           <div
             style={{
               display: "flex",
@@ -162,7 +144,6 @@ export default async function Image({ params, searchParams }: ImageProps) {
               justifyContent: "space-between",
             }}
           >
-            {/* Author */}
             <div
               style={{
                 display: "flex",
@@ -222,7 +203,6 @@ export default async function Image({ params, searchParams }: ImageProps) {
               </div>
             </div>
 
-            {/* Tag */}
             <div
               style={{
                 display: "flex",
@@ -257,8 +237,15 @@ export default async function Image({ params, searchParams }: ImageProps) {
       </div>
     ),
     {
-      width: size.width,
-      height: size.height,
+      width: 1200,
+      height: 630,
     }
   );
+
+  return new Response(image.body, {
+    headers: {
+      "Content-Type": "image/png",
+      "Cache-Control": "public, max-age=0, must-revalidate",
+    },
+  });
 }
