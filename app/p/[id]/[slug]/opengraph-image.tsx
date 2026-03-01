@@ -1,6 +1,4 @@
 import { ImageResponse } from "next/og";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 
 export const runtime = "edge";
 
@@ -19,52 +17,52 @@ interface ImageProps {
   }>;
 }
 
-async function getPlan(planId: string) {
+async function getAuthorUsername(planId: string): Promise<string> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return null;
+  if (!supabaseUrl || !supabaseKey) {
+    return "openLesson";
   }
 
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/learning_plans?id=eq.${planId}&is_public=eq.true&select=author_id`,
+      {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
         },
-        setAll() {},
-      },
+      }
+    );
+
+    const data = await response.json();
+    if (!data || data.length === 0 || !data[0]?.author_id) {
+      return "openLesson";
     }
-  );
 
-  const { data: plan, error } = await supabase
-    .from("learning_plans")
-    .select("author_id")
-    .eq("id", planId)
-    .eq("is_public", true)
-    .single();
+    const authorId = data[0].author_id;
 
-  if (error || !plan) {
-    return null;
+    const profileResponse = await fetch(
+      `${supabaseUrl}/rest/v1/profiles?id=eq.${authorId}&select=username`,
+      {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+        },
+      }
+    );
+
+    const profileData = await profileResponse.json();
+    if (profileData && profileData.length > 0 && profileData[0]?.username) {
+      return profileData[0].username;
+    }
+
+    return "openLesson";
+  } catch (error) {
+    console.error("Error fetching author:", error);
+    return "openLesson";
   }
-
-  if (!plan.author_id) {
-    return { authorUsername: "anonymous" };
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("username")
-    .eq("id", plan.author_id)
-    .single();
-
-  return {
-    authorUsername: profile?.username || "anonymous",
-  };
 }
 
 export default async function Image({ params }: ImageProps) {
@@ -73,8 +71,7 @@ export default async function Image({ params }: ImageProps) {
   const decodedSlug = decodeURIComponent(slug);
   const title = decodedSlug || "Learning Plan";
 
-  const planData = await getPlan(id);
-  const authorUsername = planData?.authorUsername || "anonymous";
+  const authorUsername = await getAuthorUsername(id);
 
   return new ImageResponse(
     (
