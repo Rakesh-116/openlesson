@@ -15,63 +15,11 @@ interface ImageProps {
   }>;
 }
 
-async function getPlanData(planId: string) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    return { title: "Learning Plan", author: "openLesson" };
-  }
-
-  try {
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/learning_plans?id=eq.${planId}&is_public=eq.true&select=root_topic,author_id`,
-      {
-        headers: {
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-        },
-        cache: "no-store",
-      }
-    );
-
-    const data = await response.json();
-    if (!data || data.length === 0) {
-      return { title: "Learning Plan", author: "openLesson" };
-    }
-
-    const plan = data[0];
-    const title = plan.root_topic || "Learning Plan";
-
-    if (!plan.author_id) {
-      return { title, author: "openLesson" };
-    }
-
-    const profileResponse = await fetch(
-      `${supabaseUrl}/rest/v1/profiles?id=eq.${plan.author_id}&select=username`,
-      {
-        headers: {
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-        },
-        cache: "no-store",
-      }
-    );
-
-    const profileData = await profileResponse.json();
-    const author = profileData?.[0]?.username || "openLesson";
-
-    return { title, author };
-  } catch (error) {
-    console.error("OG image fetch error:", error);
-    return { title: "Learning Plan", author: "openLesson" };
-  }
-}
-
 export default async function Image({ params }: ImageProps) {
-  const { id } = await params;
+  const { id, slug } = await params;
 
-  const { title, author } = await getPlanData(id);
+  const decodedSlug = decodeURIComponent(slug);
+  const title = decodedSlug || "Learning Plan";
 
   return new ImageResponse(
     (
@@ -263,7 +211,7 @@ export default async function Image({ params }: ImageProps) {
                     fontWeight: 600,
                   }}
                 >
-                  @{author}
+                  openLesson
                 </div>
               </div>
             </div>
