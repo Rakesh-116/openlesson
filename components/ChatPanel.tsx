@@ -219,7 +219,7 @@ export function ChatPanel({ planId, description, model, onModelChange, onRefresh
             </p>
           </div>
           <a
-            href="/signup"
+            href="/register"
             className="block w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-colors text-center"
           >
             Sign Up to Use This Plan
