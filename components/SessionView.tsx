@@ -134,6 +134,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // Welcome modal
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
 
+  // Block ILE tools when not actively monitoring
+  const shouldBlockTools = session && !showWelcomeModal && (!isRecording || isPaused);
+
   // Prep material for tools
   const [prepToolContent, setPrepToolContent] = useState<{ title: string; content: string } | null>(null);
   const [prepToolLoading, setPrepToolLoading] = useState(false);
@@ -1554,55 +1557,25 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               className="hidden md:flex"
               ragNotification={ragHasNotification}
             />
+      {/* Blur overlay on sidebar tools */}
+      {shouldBlockTools && (
+        <div className="hidden md:block absolute left-0 top-0 bottom-0 pointer-events-none" style={{ width: '280px', zIndex: 40 }}>
+          <div className="absolute inset-0 bg-neutral-900/30 backdrop-blur-sm" />
+        </div>
+      )}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="border-b border-neutral-800/60 px-2 md:px-4 py-2 flex items-center justify-between backdrop-blur-sm bg-[#0a0a0a]/80">
-          <div className="flex items-center gap-2">
-            <a href="/" className="hidden md:block text-sm font-semibold text-white tracking-tight hover:text-neutral-300 transition-colors">openLesson</a>
-            {isAnalyzing && (
-              <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                <span className="text-[11px] text-blue-400">Observing</span>
-              </div>
-            )}
-            {(pipelineErrors.analysis || pipelineErrors.transcription || pipelineErrors.storage) && (
-              <button
-                onClick={() => {
-                  const errorMsg = pipelineErrors.analysis || pipelineErrors.transcription || pipelineErrors.storage;
-                  if (errorMsg) {
-                    const entry: LogEntry = {
-                      id: Date.now().toString(),
-                      timestamp: Date.now(),
-                      level: "error",
-                      message: errorMsg,
-                      source: "Pipeline"
-                    };
-                    logsRef.current.push(entry);
-                    setLogs([...logsRef.current]);
-                  }
-                }}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition-colors"
-              >
-                <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                <span className="text-[10px] text-amber-400">
-                  {pipelineErrors.analysis || pipelineErrors.transcription || pipelineErrors.storage}
-                </span>
-              </button>
-            )}
-          </div>
-          <div className="text-xs font-mono text-neutral-300 tabular-nums bg-neutral-900/50 px-2 py-1 rounded-lg border border-neutral-800">
-            {formatTime(elapsedSeconds)}
-          </div>
-        </header>
+        {/* Header removed */}
         <div className="flex-1 flex min-h-0">
           {/* Desktop: Resizable split view */}
           <div className="hidden md:flex flex-1 min-h-0">
             <ResizablePane
               defaultLeftWidth={30}
               left={
-                <div className="flex flex-col min-w-0 p-4 overflow-hidden h-full">
-                  <div className="flex-1 min-h-0 overflow-hidden">
+                <div className="flex flex-col min-w-0 p-4 overflow-hidden h-full relative">
+                  {shouldBlockTools && (
+                    <div className="absolute inset-0 bg-neutral-900/30 backdrop-blur-sm z-40" />
+                  )}
+                  <div className="flex-1 min-h-0 overflow-hidden relative">
                     {activeTool === "chat" && <LLMChat problem={session.problem} />}
                     {activeTool === "canvas" && (
                       <WhiteboardCanvas
@@ -1764,8 +1737,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         )}
                       </div>
                     )}
-                    {activeTool === "help" && <ToolsHelp />}
-                    <div className={activeTool === "data-input" ? "h-full" : "hidden"}>
+                    {/* Bottom tools wrapper */}
+                    <div className="mt-auto flex flex-col">
+                      {activeTool === "help" && <ToolsHelp />}
+                      <div className={activeTool === "data-input" ? "h-full" : "hidden"}>
                       <DataInputTool
                         isRecording={isRecording}
                         audioStream={stream}
@@ -1808,6 +1783,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         }}
                       />
                     )}
+                    </div>
                     {(activeTool === "grokipedia" || activeTool === "exercise" || activeTool === "reading") && (
                       <div className="h-full p-4 overflow-auto">
                         {activeTool === "grokipedia" && showGrokipediaOnly && session?.problem && (
@@ -1893,6 +1869,17 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               }
             />
           </div>
+
+          {/* Floating message at bottom left */}
+          {shouldBlockTools && (
+            <div className="hidden md:block fixed bottom-8 left-8 z-[100]">
+              <div className="bg-neutral-800 px-6 py-4 rounded-xl border border-neutral-700 shadow-xl">
+                <p className="text-base font-semibold text-white">
+                  Start/Resume student monitoring to access the ILE tools
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Mobile: Tab-based navigation */}
           <div className="flex-1 flex flex-col md:hidden min-h-0 h-full">
