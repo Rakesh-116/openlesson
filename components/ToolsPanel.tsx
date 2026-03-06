@@ -116,7 +116,7 @@ const tools: { id: Tool; label: string; icon: React.ReactNode }[] = [
   },
 ];
 
-const bottomTools: Tool[] = ["help", "data-input", "logs"];
+const bottomTools: Tool[] = ["help", "data-input", "logs", "rag"];
 const mainTools = tools.filter((t) => !bottomTools.includes(t.id));
 
 export function ToolsPanel({ activeTool, onToolChange, problem, className = "", ragNotification = false, errorNotification = false }: ToolsPanelProps) {
@@ -138,9 +138,6 @@ export function ToolsPanel({ activeTool, onToolChange, problem, className = "", 
           >
             {tool.icon}
             <span>{tool.label}</span>
-            {tool.id === "rag" && ragNotification && (
-              <span className="ml-auto w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            )}
             {tool.id === "logs" && errorNotification && (
               <span className="ml-auto w-2 h-2 rounded-full bg-red-500 animate-pulse" />
             )}
@@ -163,6 +160,9 @@ export function ToolsPanel({ activeTool, onToolChange, problem, className = "", 
             >
               {tool.icon}
               <span>{tool.label}</span>
+              {tool.id === "rag" && ragNotification && (
+                <span className="ml-auto w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+              )}
               {tool.id === "logs" && errorNotification && (
                 <span className="ml-auto w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               )}
