@@ -269,6 +269,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const logsRef = useRef<LogEntry[]>([]);
 
+  // Data transfer health tracking
+  const [transferHealth, setTransferHealth] = useState<{
+    audio: { sent: number; saved: number; failed: number };
+    eeg: { sent: number; saved: number; failed: number };
+    facial: { sent: number; saved: number; failed: number };
+  }>({ audio: { sent: 0, saved: 0, failed: 0 }, eeg: { sent: 0, saved: 0, failed: 0 }, facial: { sent: 0, saved: 0, failed: 0 } });
+
   // Refs for interval callbacks
   const recorderRef = useRef<AudioRecorder | null>(null);
   const sessionRef = useRef<Session | null>(null);
@@ -283,6 +290,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const chunkIndexRef = useRef(0);
   const eegChunkIndexRef = useRef(0);
   const facialChunkIndexRef = useRef(0);
+  const transferHealthRef = useRef({ audio: { sent: 0, saved: 0, failed: 0 }, eeg: { sent: 0, saved: 0, failed: 0 }, facial: { sent: 0, saved: 0, failed: 0 } });
   const observerModeRef = useRef(observerMode);
   const frequencyRef = useRef(frequency);
   const isMutedRef = useRef(isMuted);
@@ -916,6 +924,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     try {
       setError(null);
 
+      // Reset transfer health on new recording
+      transferHealthRef.current = { audio: { sent: 0, saved: 0, failed: 0 }, eeg: { sent: 0, saved: 0, failed: 0 }, facial: { sent: 0, saved: 0, failed: 0 } };
+      setTransferHealth({ audio: { sent: 0, saved: 0, failed: 0 }, eeg: { sent: 0, saved: 0, failed: 0 }, facial: { sent: 0, saved: 0, failed: 0 } });
+
       // Reuse the mic-checked stream, or request a new one
       let mediaStream = micStreamRef.current;
       if (!mediaStream || mediaStream.getTracks().some(t => t.readyState === "ended")) {
@@ -936,9 +948,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         onChunk: async (chunk) => {
           if (session) {
             const idx = chunkIndexRef.current++;
+            transferHealthRef.current.audio.sent++;
+            setTransferHealth({ ...transferHealthRef.current });
             console.log("[onChunk] Processing chunk:", { idx, chunkIndex: chunk.chunkIndex, blobSize: chunk.blob.size, blobType: chunk.blob.type });
             try {
               await saveAudioChunk(session.id, chunk.blob, idx, chunk.timestamp);
+              transferHealthRef.current.audio.saved++;
+              setTransferHealth({ ...transferHealthRef.current });
               
               const formData = new FormData();
               formData.append("audio", chunk.blob);
@@ -961,6 +977,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               setPipelineErrors(prev => ({ ...prev, storage: undefined, transcription: undefined }));
             } catch (err) {
               console.error("Chunk storage error:", err);
+              transferHealthRef.current.audio.failed++;
+              setTransferHealth({ ...transferHealthRef.current });
               setPipelineErrors(prev => ({ ...prev, storage: "Failed to save audio chunk" }));
             }
           }
@@ -989,12 +1007,30 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             channels[ch] = samples.slice();
           }
           const eegIdx = eegChunkIndexRef.current++;
-          await saveSessionEEG(session.id, { channels, bandPowers }, museClientRef.current?.deviceName, eegIdx, Date.now());
+          transferHealthRef.current.eeg.sent++;
+          setTransferHealth({ ...transferHealthRef.current });
+          try {
+            await saveSessionEEG(session.id, { channels, bandPowers }, museClientRef.current?.deviceName, eegIdx, Date.now());
+            transferHealthRef.current.eeg.saved++;
+            setTransferHealth({ ...transferHealthRef.current });
+          } catch {
+            transferHealthRef.current.eeg.failed++;
+            setTransferHealth({ ...transferHealthRef.current });
+          }
         }
         if (session && isRecording && isWebcamEnabled && facialBufferRef.current.length > 0) {
           console.log("[Facial] Saving periodic facial data...", { dataPoints: facialBufferRef.current.length });
           const facialIdx = facialChunkIndexRef.current++;
-          await saveFacialData(session.id, facialBufferRef.current, facialIdx, Date.now());
+          transferHealthRef.current.facial.sent++;
+          setTransferHealth({ ...transferHealthRef.current });
+          try {
+            await saveFacialData(session.id, facialBufferRef.current, facialIdx, Date.now());
+            transferHealthRef.current.facial.saved++;
+            setTransferHealth({ ...transferHealthRef.current });
+          } catch {
+            transferHealthRef.current.facial.failed++;
+            setTransferHealth({ ...transferHealthRef.current });
+          }
         }
       }, 60000);
     } catch {
@@ -1186,12 +1222,30 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             channels[ch] = samples.slice();
           }
           const eegIdx = eegChunkIndexRef.current++;
-          await saveSessionEEG(session.id, { channels, bandPowers }, museClientRef.current?.deviceName, eegIdx, Date.now());
+          transferHealthRef.current.eeg.sent++;
+          setTransferHealth({ ...transferHealthRef.current });
+          try {
+            await saveSessionEEG(session.id, { channels, bandPowers }, museClientRef.current?.deviceName, eegIdx, Date.now());
+            transferHealthRef.current.eeg.saved++;
+            setTransferHealth({ ...transferHealthRef.current });
+          } catch {
+            transferHealthRef.current.eeg.failed++;
+            setTransferHealth({ ...transferHealthRef.current });
+          }
         }
         if (session && isRecording && isWebcamEnabled && facialBufferRef.current.length > 0) {
           console.log("[Facial] Saving periodic facial data...", { dataPoints: facialBufferRef.current.length });
           const facialIdx = facialChunkIndexRef.current++;
-          await saveFacialData(session.id, facialBufferRef.current, facialIdx, Date.now());
+          transferHealthRef.current.facial.sent++;
+          setTransferHealth({ ...transferHealthRef.current });
+          try {
+            await saveFacialData(session.id, facialBufferRef.current, facialIdx, Date.now());
+            transferHealthRef.current.facial.saved++;
+            setTransferHealth({ ...transferHealthRef.current });
+          } catch {
+            transferHealthRef.current.facial.failed++;
+            setTransferHealth({ ...transferHealthRef.current });
+          }
         }
       }, 60000);
     } catch {
@@ -1826,6 +1880,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                     {activeTool === "logs" && (
                       <LogsTool
                         logs={logs}
+                        transferHealth={transferHealth}
                         onClear={() => {
                           logsRef.current = [];
                           setLogs([]);
