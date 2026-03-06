@@ -97,24 +97,39 @@ export function WhiteboardCanvas({ onCanvasChange, initialData }: WhiteboardCanv
     const resizeCanvas = () => {
       const rect = container.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      const oldData = canvas.toDataURL("image/png");
-      
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      canvas.style.width = `${rect.width}px`;
-      canvas.style.height = `${rect.height}px`;
+      const oldWidth = canvas.width;
+      const oldHeight = canvas.height;
 
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.fillStyle = "#0a0a0a";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      if (oldWidth > 0 && oldHeight > 0) {
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = oldWidth;
+        tempCanvas.height = oldHeight;
+        const tempCtx = tempCanvas.getContext("2d");
+        if (tempCtx) {
+          tempCtx.drawImage(canvas, 0, 0);
+        }
 
-        if (oldData && oldData.length > 0) {
-          const img = new Image();
-          img.onload = () => {
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          };
-          img.src = oldData;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.fillStyle = "#0a0a0a";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(tempCanvas, 0, 0);
+        }
+      } else {
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.fillStyle = "#0a0a0a";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
       }
     };
