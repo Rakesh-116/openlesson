@@ -299,6 +299,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const activeToolRef = useRef(activeTool);
   const objectivesRef = useRef(objectives);
   const trafficLightRef = useRef(trafficLight);
+  const isRecordingRef = useRef(isRecording);
+  const museStatusRef = useRef(museStatus);
+  const isWebcamEnabledRef = useRef(isWebcamEnabled);
 
   // Keep refs in sync
   useEffect(() => { observerModeRef.current = observerMode; }, [observerMode]);
@@ -309,6 +312,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   useEffect(() => { activeToolRef.current = activeTool; }, [activeTool]);
   useEffect(() => { objectivesRef.current = objectives; }, [objectives]);
   useEffect(() => { trafficLightRef.current = trafficLight; }, [trafficLight]);
+  useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
+  useEffect(() => { museStatusRef.current = museStatus; }, [museStatus]);
+  useEffect(() => { isWebcamEnabledRef.current = isWebcamEnabled; }, [isWebcamEnabled]);
 
   // Listen for probe events from ProbeNotifications
   useEffect(() => {
@@ -946,6 +952,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         chunkDurationMs: 60000,
         maxBufferDurationMs: 300000,
         onChunk: async (chunk) => {
+          console.log("[onChunk] Callback invoked!", { chunkIndex: chunk.chunkIndex, hasSession: !!session, timestamp: chunk.timestamp });
           if (session) {
             const idx = chunkIndexRef.current++;
             transferHealthRef.current.audio.sent++;
@@ -998,9 +1005,16 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       }, ANALYSIS_INTERVALS[frequency]);
 
       eegSaveIntervalRef.current = setInterval(async () => {
-        if (!isRecording) return;
+        const currentRecording = isRecordingRef.current;
+        const currentMuseStatus = museStatusRef.current;
+        const currentWebcamEnabled = isWebcamEnabledRef.current;
+        console.log("[EEG/Facial Interval] Tick", { isRecording: currentRecording, museStatus: currentMuseStatus, isWebcamEnabled: currentWebcamEnabled, eegBufferSize: eegBufferRef.current.size, facialBufferSize: facialBufferRef.current.length });
+        if (!currentRecording) {
+          console.log("[EEG/Facial] Skipping - not recording");
+          return;
+        }
         
-        if (session && museStatus === "streaming" && eegBufferRef.current.size > 0) {
+        if (session && currentMuseStatus === "streaming" && eegBufferRef.current.size > 0) {
           console.log("[EEG] Saving periodic EEG data...");
           const channels: Record<string, number[]> = {};
           for (const [ch, samples] of eegBufferRef.current.entries()) {
@@ -1164,33 +1178,42 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         chunkDurationMs: 60000,
         maxBufferDurationMs: 300000,
         onChunk: async (chunk) => {
-          const idx = chunkIndexRef.current++;
-          console.log("[onChunk] Processing chunk (resume):", { idx, chunkIndex: chunk.chunkIndex, blobSize: chunk.blob.size, blobType: chunk.blob.type });
-          try {
-            await saveAudioChunk(session.id, chunk.blob, idx, chunk.timestamp);
-            
-            const formData = new FormData();
-            formData.append("audio", chunk.blob);
-            formData.append("session_id", session.id);
-            formData.append("chunk_index", chunk.chunkIndex.toString());
-            formData.append("timestamp_ms", chunk.timestamp.toString());
-            
-            const transcribeRes = await fetch("/api/transcribe-chunk", {
-              method: "POST",
-              body: formData,
-            });
-            
-            if (!transcribeRes.ok) {
-              console.error("Transcription failed for chunk", chunk.chunkIndex);
-            } else {
-              const transcribeData = await transcribeRes.json();
-              console.log("[onChunk] Transcription result:", { chunkIndex: chunk.chunkIndex, transcriptLength: transcribeData.transcript?.length, wordCount: transcribeData.wordCount });
+          console.log("[onChunk] Callback invoked (resume)!", { chunkIndex: chunk.chunkIndex, hasSession: !!session });
+          if (session) {
+            const idx = chunkIndexRef.current++;
+            transferHealthRef.current.audio.sent++;
+            setTransferHealth({ ...transferHealthRef.current });
+            console.log("[onChunk] Processing chunk (resume):", { idx, chunkIndex: chunk.chunkIndex, blobSize: chunk.blob.size, blobType: chunk.blob.type });
+            try {
+              await saveAudioChunk(session.id, chunk.blob, idx, chunk.timestamp);
+              transferHealthRef.current.audio.saved++;
+              setTransferHealth({ ...transferHealthRef.current });
+              
+              const formData = new FormData();
+              formData.append("audio", chunk.blob);
+              formData.append("session_id", session.id);
+              formData.append("chunk_index", chunk.chunkIndex.toString());
+              formData.append("timestamp_ms", chunk.timestamp.toString());
+              
+              const transcribeRes = await fetch("/api/transcribe-chunk", {
+                method: "POST",
+                body: formData,
+              });
+              
+              if (!transcribeRes.ok) {
+                console.error("Transcription failed for chunk", chunk.chunkIndex);
+              } else {
+                const transcribeData = await transcribeRes.json();
+                console.log("[onChunk] Transcription result:", { chunkIndex: chunk.chunkIndex, transcriptLength: transcribeData.transcript?.length, wordCount: transcribeData.wordCount });
+              }
+              
+              setPipelineErrors(prev => ({ ...prev, storage: undefined, transcription: undefined }));
+            } catch (err) {
+              console.error("Chunk storage error:", err);
+              transferHealthRef.current.audio.failed++;
+              setTransferHealth({ ...transferHealthRef.current });
+              setPipelineErrors(prev => ({ ...prev, storage: "Failed to save audio chunk" }));
             }
-            
-            setPipelineErrors(prev => ({ ...prev, storage: undefined, transcription: undefined }));
-          } catch (err) {
-            console.error("Chunk storage error:", err);
-            setPipelineErrors(prev => ({ ...prev, storage: "Failed to save audio chunk" }));
           }
         }
       });
@@ -1213,9 +1236,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       }, ANALYSIS_INTERVALS[frequency]);
 
       eegSaveIntervalRef.current = setInterval(async () => {
-        if (!isRecording) return;
+        const currentRecording = isRecordingRef.current;
+        const currentMuseStatus = museStatusRef.current;
+        const currentWebcamEnabled = isWebcamEnabledRef.current;
+        console.log("[EEG/Facial Interval] Tick (resume)", { isRecording: currentRecording, museStatus: currentMuseStatus, isWebcamEnabled: currentWebcamEnabled, eegBufferSize: eegBufferRef.current.size, facialBufferSize: facialBufferRef.current.length });
+        if (!currentRecording) return;
         
-        if (session && museStatus === "streaming" && eegBufferRef.current.size > 0) {
+        if (session && currentMuseStatus === "streaming" && eegBufferRef.current.size > 0) {
           console.log("[EEG] Saving periodic EEG data...");
           const channels: Record<string, number[]> = {};
           for (const [ch, samples] of eegBufferRef.current.entries()) {

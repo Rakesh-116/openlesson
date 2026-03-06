@@ -71,6 +71,7 @@ export class AudioRecorder {
       this.chunkIndex = 0;
 
       this.mediaRecorder.ondataavailable = (event) => {
+        console.log("[AudioRecorder] ondataavailable fired", { size: event.data.size, timeSlice: this.config.chunkDurationMs });
         if (event.data.size > 0) {
           const chunk: AudioChunk = {
             blob: event.data,
@@ -79,11 +80,15 @@ export class AudioRecorder {
             chunkIndex: this.chunkIndex,
           };
 
+          console.log("[AudioRecorder] Creating chunk", { chunkIndex: chunk.chunkIndex, timestamp: chunk.timestamp, blobSize: chunk.blob.size });
           this.chunks.push(chunk);
           this.allChunks.push(event.data);
           this.trimBuffer();
           this.chunkIndex++;
+          console.log("[AudioRecorder] Calling onChunk callback");
           this.config.onChunk?.(chunk);
+        } else {
+          console.log("[AudioRecorder] ondataavailable called but event.data.size is 0");
         }
       };
 
@@ -92,7 +97,9 @@ export class AudioRecorder {
         this.config.onError?.(error);
       };
 
+      console.log("[AudioRecorder] About to start with timeslice:", this.config.chunkDurationMs);
       this.mediaRecorder.start(this.config.chunkDurationMs);
+      console.log("[AudioRecorder] Started, state:", this.mediaRecorder.state);
     } catch (error) {
       this.cleanup();
       throw error;
