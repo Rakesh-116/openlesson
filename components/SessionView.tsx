@@ -1539,8 +1539,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                 if (tool === "rag") {
                   setRagHasNotification(false);
                 }
-                if (tool === "grokipedia" || tool === "exercise" || tool === "reading") {
+                if (tool === "grokipedia") {
                   setPrepToolContent(null);
+                  setMobileTab("prep");
+                } else if (tool === "exercise" || tool === "reading") {
+                  if (!prepToolContent) {
+                    loadPrepToolContent(tool);
+                  }
                   setMobileTab("prep");
                 } else if (tool === "chat") {
                   setMobileTab("main");
@@ -1865,7 +1870,17 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         )}
                         {prepToolContent && !prepToolLoading && (
                           <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
-                            <h3 className="text-lg font-medium text-white mb-4">{prepToolContent.title}</h3>
+                            <div className="flex items-center justify-between mb-4">
+                              <h3 className="text-lg font-medium text-white">{prepToolContent.title}</h3>
+                              {(activeTool === "exercise" || activeTool === "reading") && (
+                                <button
+                                  onClick={() => loadPrepToolContent(activeTool)}
+                                  className="px-3 py-1.5 text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white rounded-lg transition-colors"
+                                >
+                                  Load another
+                                </button>
+                              )}
+                            </div>
                             <div className="prose prose-invert prose-sm max-w-none text-neutral-300 whitespace-pre-wrap">
                               {prepToolContent.content}
                             </div>
