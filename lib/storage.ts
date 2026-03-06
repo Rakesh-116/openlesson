@@ -411,12 +411,52 @@ export async function getSessionAudio(sessionId: string): Promise<Blob | null> {
 export interface FacialDataPoint {
   timestamp: number;
   facePresent: boolean;
-  blinkRate: number;
+  
+  // Raw low-level indicators
+  eyeOpennessLeft: number;
+  eyeOpennessRight: number;
+  gazeOffsetX: number;
+  gazeOffsetY: number;
+  mouthOpenness: number;
+  mouthCornerLeft: number;
+  mouthCornerRight: number;
+  eyebrowLeftInner: number;
+  eyebrowLeftOuter: number;
+  eyebrowRightInner: number;
+  eyebrowRightOuter: number;
+  noseTipY: number;
+  faceWidth: number;
+  faceHeight: number;
+  pupilLeftX: number;
+  pupilLeftY: number;
+  pupilRightX: number;
+  pupilRightY: number;
+  lipCornerLeftX: number;
+  lipCornerLeftY: number;
+  lipCornerRightX: number;
+  lipCornerRightY: number;
+  upperLipY: number;
+  lowerLipY: number;
+  
+  // Head pose
+  headPitch: number;
+  headYaw: number;
+  headRoll: number;
+  
+  // Derived states
   gazeDirection: "at_camera" | "away" | "unknown";
   headPose: { pitch: number; yaw: number; roll: number };
   mouthState: "open" | "closed";
   faceDistance: "optimal" | "too_close" | "too_far";
+  
+  // Inferred high-level indicators
+  emotion: "neutral" | "happy" | "confused" | "frustrated" | "surprised" | "bored" | "thinking";
+  attentionLevel: "high" | "medium" | "low";
+  confusionScore: number;
+  frustrationScore: number;
   engagementScore: number;
+  processingScore: number;
+  smileScore: number;
 }
 
 export async function saveFacialData(
@@ -438,7 +478,7 @@ export async function saveFacialData(
 
   if (error) {
     console.error("[saveFacialData] Upload error:", error);
-    return "";
+    throw new Error(`Facial data upload failed: ${error.message}`);
   }
   return path;
 }

@@ -32,7 +32,39 @@ if (typeof window !== "undefined") {
 export interface FacialDataPoint {
   timestamp: number;
   facePresent: boolean;
-  blinkRate: number;
+  
+  // Raw low-level indicators (for raw analysis/ML training)
+  eyeOpennessLeft: number;
+  eyeOpennessRight: number;
+  gazeOffsetX: number;
+  gazeOffsetY: number;
+  mouthOpenness: number;
+  mouthCornerLeft: number;
+  mouthCornerRight: number;
+  eyebrowLeftInner: number;
+  eyebrowLeftOuter: number;
+  eyebrowRightInner: number;
+  eyebrowRightOuter: number;
+  noseTipY: number;
+  faceWidth: number;
+  faceHeight: number;
+  pupilLeftX: number;
+  pupilLeftY: number;
+  pupilRightX: number;
+  pupilRightY: number;
+  lipCornerLeftX: number;
+  lipCornerLeftY: number;
+  lipCornerRightX: number;
+  lipCornerRightY: number;
+  upperLipY: number;
+  lowerLipY: number;
+  
+  // Head pose (raw)
+  headPitch: number;
+  headYaw: number;
+  headRoll: number;
+  
+  // Derived states
   gazeDirection: "at_camera" | "away" | "unknown";
   headPose: {
     pitch: number;
@@ -41,7 +73,15 @@ export interface FacialDataPoint {
   };
   mouthState: "open" | "closed";
   faceDistance: "optimal" | "too_close" | "too_far";
+  
+  // Inferred high-level indicators (for tutoring)
+  emotion: "neutral" | "happy" | "confused" | "frustrated" | "surprised" | "bored" | "thinking";
+  attentionLevel: "high" | "medium" | "low";
+  confusionScore: number;
+  frustrationScore: number;
   engagementScore: number;
+  processingScore: number;
+  smileScore: number;
 }
 
 interface FaceTrackerProps {
@@ -74,25 +114,81 @@ export function FaceTracker({ isEnabled, onDataPoint, onError }: FaceTrackerProp
 
   useEffect(() => { isWebcamOnRef.current = isWebcamOn; }, [isWebcamOn]);
 
-  const calculateEngagementScore = useCallback((
+  const calculateEmotionScores = useCallback((
     facePresent: boolean,
     gazeDirection: "at_camera" | "away" | "unknown",
     mouthState: "open" | "closed",
+    mouthOpenness: number,
+    mouthCornerLeft: number,
+    mouthCornerRight: number,
+    eyebrowLeftInner: number,
+    eyebrowLeftOuter: number,
+    eyebrowRightInner: number,
+    eyebrowRightOuter: number,
+    eyeOpennessLeft: number,
+    eyeOpennessRight: number,
     headPose: { pitch: number; yaw: number; roll: number }
-  ): number => {
-    if (!facePresent) return 0;
+  ): { emotion: FacialDataPoint["emotion"]; confusionScore: number; frustrationScore: number; smileScore: number; engagementScore: number; processingScore: number; attentionLevel: FacialDataPoint["attentionLevel"] } => {
+    if (!facePresent) {
+      return { emotion: "neutral", confusionScore: 0, frustrationScore: 0, smileScore: 0, engagementScore: 0, processingScore: 0, attentionLevel: "low" };
+    }
 
-    let score = 50;
+    let confusionScore = 0;
+    let frustrationScore = 0;
+    let smileScore = 0;
 
-    if (gazeDirection === "at_camera") score += 25;
-    else if (gazeDirection === "unknown") score += 10;
+    // Smile detection: both corners elevated (higher = more elevated)
+    const avgMouthCorner = (mouthCornerLeft + mouthCornerRight) / 2;
+    smileScore = Math.max(0, Math.min(100, avgMouthCorner * 200));
 
-    if (mouthState === "open") score += 10;
+    // Confusion: inner eyebrows raised (higher y = lower on screen = raised), tight lips
+    const avgEyebrowInner = (eyebrowLeftInner + eyebrowRightInner) / 2;
+    const eyebrowRaise = avgEyebrowInner < 0.32 ? 1 - (avgEyebrowInner / 0.32) : 0;
+    const lipTension = mouthOpenness < 0.03 ? 1 : 0;
+    confusionScore = Math.min(100, (eyebrowRaise * 60 + lipTension * 40));
 
-    const headStability = Math.abs(headPose.pitch) < 15 && Math.abs(headPose.yaw) < 20;
-    if (headStability) score += 15;
+    // Frustration: lowered eyebrows + (open mouth OR tight lips)
+    const avgEyebrowOuter = (eyebrowLeftOuter + eyebrowRightOuter) / 0.4;
+    const eyebrowLower = avgEyebrowOuter > 0.28 ? (avgEyebrowOuter - 0.28) * 200 : 0;
+    const frustratedMouth = mouthState === "open" || mouthOpenness < 0.02;
+    frustrationScore = Math.min(100, eyebrowLower * 40 + (frustratedMouth ? 60 : 0));
 
-    return Math.min(100, Math.max(0, score));
+    // Engagement: eye contact + stable head
+    let engagementScore = 50;
+    if (gazeDirection === "at_camera") engagementScore += 30;
+    else if (gazeDirection === "away") engagementScore -= 10;
+    
+    const headStable = Math.abs(headPose.pitch) < 15 && Math.abs(headPose.yaw) < 20;
+    if (headStable) engagementScore += 20;
+    
+    const eyesOpen = (eyeOpennessLeft + eyeOpennessRight) / 2 > 0.02;
+    if (eyesOpen) engagementScore += 10;
+    
+    engagementScore = Math.min(100, Math.max(0, engagementScore));
+
+    // Processing: looking away + not confused = thinking/processing
+    let processingScore = 0;
+    if (gazeDirection === "away" && confusionScore < 30 && frustrationScore < 30) {
+      processingScore = 70;
+    } else if (gazeDirection === "at_camera" && confusionScore < 30) {
+      processingScore = 50;
+    }
+    processingScore = Math.min(100, Math.max(0, processingScore));
+
+    // Determine emotion
+    let emotion: FacialDataPoint["emotion"] = "neutral";
+    if (smileScore > 40) emotion = "happy";
+    else if (confusionScore > 50) emotion = "confused";
+    else if (frustrationScore > 50) emotion = "frustrated";
+    else if (eyeOpennessLeft < 0.01 && eyeOpennessRight < 0.01) emotion = "bored";
+    else if (gazeDirection === "away" && processingScore > 50) emotion = "thinking";
+
+    // Attention level
+    let attentionLevel: FacialDataPoint["attentionLevel"] = "medium";
+    if (engagementScore >= 70 && gazeDirection === "at_camera") attentionLevel = "high";
+    else if (engagementScore < 40 || emotion === "bored") attentionLevel = "low";
+
+    return { emotion, confusionScore, frustrationScore, smileScore, engagementScore, processingScore, attentionLevel };
   }, []);
 
   const processFrame = useCallback(async () => {
@@ -109,6 +205,32 @@ export function FaceTracker({ isEnabled, onDataPoint, onError }: FaceTrackerProp
     let eyeState: "open" | "closed" = "open";
     let gazeDirection: "at_camera" | "away" | "unknown" = "unknown";
 
+    // Raw values defaults
+    let eyeOpennessLeft = 0;
+    let eyeOpennessRight = 0;
+    let gazeOffsetX = 0;
+    let gazeOffsetY = 0;
+    let mouthOpenness = 0;
+    let mouthCornerLeft = 0.5;
+    let mouthCornerRight = 0.5;
+    let eyebrowLeftInner = 0.35;
+    let eyebrowLeftOuter = 0.32;
+    let eyebrowRightInner = 0.35;
+    let eyebrowRightOuter = 0.32;
+    let noseTipY = 0.5;
+    let faceWidth = 0;
+    let faceHeight = 0;
+    let pupilLeftX = 0;
+    let pupilLeftY = 0;
+    let pupilRightX = 0;
+    let pupilRightY = 0;
+    let lipCornerLeftX = 0.4;
+    let lipCornerLeftY = 0.6;
+    let lipCornerRightX = 0.6;
+    let lipCornerRightY = 0.6;
+    let upperLipY = 0.55;
+    let lowerLipY = 0.58;
+
     if (face && face.length > 468) {
       const nose = face[1];
       const leftEye = face[33];
@@ -119,21 +241,60 @@ export function FaceTracker({ isEnabled, onDataPoint, onError }: FaceTrackerProp
       const rightEyeBottom = face[374];
       const upperLip = face[13];
       const lowerLip = face[14];
+      const leftMouthCorner = face[61];
+      const rightMouthCorner = face[291];
+      const leftEyebrowInner = face[107];
+      const leftEyebrowOuter = face[70];
+      const rightEyebrowInner = face[336];
+      const rightEyebrowOuter = face[300];
+      const leftPupil = face[468];
+      const rightPupil = face[473];
+      const faceOutlineTop = face[10];
+      const faceOutlineBottom = face[152];
+      const faceOutlineLeft = face[234];
+      const faceOutlineRight = face[454];
+
+      eyeOpennessLeft = Math.abs(leftEyeTop.y - leftEyeBottom.y);
+      eyeOpennessRight = Math.abs(rightEyeTop.y - rightEyeBottom.y);
 
       const eyeCenterX = (leftEye.x + rightEye.x) / 2;
-      const gazeOffset = Math.abs(nose.x - eyeCenterX);
+      const eyeCenterY = (leftEye.y + rightEye.y) / 2;
+      gazeOffsetX = Math.abs(nose.x - eyeCenterX);
+      gazeOffsetY = Math.abs(nose.y - eyeCenterY);
       
-      if (gazeOffset < 0.02) gazeDirection = "at_camera";
-      else if (gazeOffset < 0.05) gazeDirection = "away";
+      if (gazeOffsetX < 0.02) gazeDirection = "at_camera";
+      else if (gazeOffsetX < 0.05) gazeDirection = "away";
       else gazeDirection = "unknown";
 
-      const leftEyeOpenness = Math.abs(leftEyeTop.y - leftEyeBottom.y);
-      const rightEyeOpenness = Math.abs(rightEyeTop.y - rightEyeBottom.y);
-      const avgOpenness = (leftEyeOpenness + rightEyeOpenness) / 2;
+      const avgOpenness = (eyeOpennessLeft + eyeOpennessRight) / 2;
       eyeState = avgOpenness < 0.015 ? "closed" : "open";
 
-      const mouthOpen = Math.abs(upperLip.y - lowerLip.y);
-      mouthState = mouthOpen > 0.02 ? "open" : "closed";
+      mouthOpenness = Math.abs(upperLip.y - lowerLip.y);
+      mouthState = mouthOpenness > 0.02 ? "open" : "closed";
+
+      mouthCornerLeft = 1 - leftMouthCorner.y;
+      mouthCornerRight = 1 - rightMouthCorner.y;
+
+      eyebrowLeftInner = leftEyebrowInner.y;
+      eyebrowLeftOuter = leftEyebrowOuter.y;
+      eyebrowRightInner = rightEyebrowInner.y;
+      eyebrowRightOuter = rightEyebrowOuter.y;
+
+      noseTipY = nose.y;
+      faceWidth = Math.abs(faceOutlineRight.x - faceOutlineLeft.x);
+      faceHeight = Math.abs(faceOutlineBottom.y - faceOutlineTop.y);
+
+      pupilLeftX = leftPupil.x;
+      pupilLeftY = leftPupil.y;
+      pupilRightX = rightPupil.x;
+      pupilRightY = rightPupil.y;
+
+      lipCornerLeftX = leftMouthCorner.x;
+      lipCornerLeftY = leftMouthCorner.y;
+      lipCornerRightX = rightMouthCorner.x;
+      lipCornerRightY = rightMouthCorner.y;
+      upperLipY = upperLip.y;
+      lowerLipY = lowerLip.y;
 
       const roll = Math.atan2(rightEye.y - leftEye.y, rightEye.x - leftEye.x) * (180 / Math.PI);
       headPose = {
@@ -149,21 +310,75 @@ export function FaceTracker({ isEnabled, onDataPoint, onError }: FaceTrackerProp
     }
     prevEyeStateRef.current = eyeState;
 
-    const engagementScore = calculateEngagementScore(!!face, gazeDirection, mouthState, headPose);
+    const emotionScores = calculateEmotionScores(
+      !!face,
+      gazeDirection,
+      mouthState,
+      mouthOpenness,
+      mouthCornerLeft,
+      mouthCornerRight,
+      eyebrowLeftInner,
+      eyebrowLeftOuter,
+      eyebrowRightInner,
+      eyebrowRightOuter,
+      eyeOpennessLeft,
+      eyeOpennessRight,
+      headPose
+    );
 
     const dataPoint: FacialDataPoint = {
       timestamp: now,
       facePresent: !!face,
-      blinkRate: 0,
+      
+      // Raw low-level
+      eyeOpennessLeft,
+      eyeOpennessRight,
+      gazeOffsetX,
+      gazeOffsetY,
+      mouthOpenness,
+      mouthCornerLeft,
+      mouthCornerRight,
+      eyebrowLeftInner,
+      eyebrowLeftOuter,
+      eyebrowRightInner,
+      eyebrowRightOuter,
+      noseTipY,
+      faceWidth,
+      faceHeight,
+      pupilLeftX,
+      pupilLeftY,
+      pupilRightX,
+      pupilRightY,
+      lipCornerLeftX,
+      lipCornerLeftY,
+      lipCornerRightX,
+      lipCornerRightY,
+      upperLipY,
+      lowerLipY,
+      
+      // Head pose
+      headPitch: headPose.pitch,
+      headYaw: headPose.yaw,
+      headRoll: headPose.roll,
+      
+      // Derived states
       gazeDirection,
       headPose,
       mouthState,
       faceDistance: "optimal",
-      engagementScore,
+      
+      // Inferred high-level
+      emotion: emotionScores.emotion,
+      attentionLevel: emotionScores.attentionLevel,
+      confusionScore: emotionScores.confusionScore,
+      frustrationScore: emotionScores.frustrationScore,
+      engagementScore: emotionScores.engagementScore,
+      processingScore: emotionScores.processingScore,
+      smileScore: emotionScores.smileScore,
     };
 
     if (onDataPointRef.current) onDataPointRef.current(dataPoint);
-  }, [isEnabled, calculateEngagementScore]);
+  }, [isEnabled, calculateEmotionScores]);
 
   useEffect(() => {
     console.log("[FaceTracker] useEffect triggered, isEnabled:", isEnabled);
@@ -239,12 +454,52 @@ export function FaceTracker({ isEnabled, onDataPoint, onError }: FaceTrackerProp
           const entry: FacialDataPoint = {
             timestamp: Date.now(),
             facePresent: true,
-            blinkRate: rate,
+            
+            // Raw low-level (defaults)
+            eyeOpennessLeft: 0.03,
+            eyeOpennessRight: 0.03,
+            gazeOffsetX: 0,
+            gazeOffsetY: 0,
+            mouthOpenness: 0.01,
+            mouthCornerLeft: 0.5,
+            mouthCornerRight: 0.5,
+            eyebrowLeftInner: 0.35,
+            eyebrowLeftOuter: 0.32,
+            eyebrowRightInner: 0.35,
+            eyebrowRightOuter: 0.32,
+            noseTipY: 0.5,
+            faceWidth: 0.5,
+            faceHeight: 0.6,
+            pupilLeftX: 0.33,
+            pupilLeftY: 0.5,
+            pupilRightX: 0.67,
+            pupilRightY: 0.5,
+            lipCornerLeftX: 0.4,
+            lipCornerLeftY: 0.6,
+            lipCornerRightX: 0.6,
+            lipCornerRightY: 0.6,
+            upperLipY: 0.55,
+            lowerLipY: 0.57,
+            
+            // Head pose
+            headPitch: 0,
+            headYaw: 0,
+            headRoll: 0,
+            
+            // Derived states
             gazeDirection: "at_camera",
             headPose: { pitch: 0, yaw: 0, roll: 0 },
             mouthState: "closed",
             faceDistance: "optimal",
+            
+            // Inferred high-level
+            emotion: "neutral",
+            attentionLevel: "medium",
+            confusionScore: 0,
+            frustrationScore: 0,
             engagementScore: 50,
+            processingScore: 50,
+            smileScore: 0,
           };
           if (onDataPointRef.current) onDataPointRef.current(entry);
         }, 60000);
@@ -289,7 +544,7 @@ export function FaceTracker({ isEnabled, onDataPoint, onError }: FaceTrackerProp
         className="absolute inset-0 w-full h-full object-cover"
         playsInline
         muted
-        style={{ opacity: isWebcamOn ? 1 : 0 }}
+        style={{ opacity: isWebcamOn ? 1 : 0, transition: 'opacity 0.3s ease-in-out' }}
       />
       <canvas ref={canvasRef} className="hidden" />
       {isLoading && (

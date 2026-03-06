@@ -243,39 +243,48 @@ export function DataInputTool({
                 />
 
                 {latestFacialData && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="p-2 rounded-md bg-neutral-800/50">
-                      <p className="text-[10px] text-neutral-500">Engagement</p>
-                      <p className={`text-lg font-semibold ${
-                        latestFacialData.engagementScore >= 70 ? "text-green-400" :
-                        latestFacialData.engagementScore >= 40 ? "text-yellow-400" :
-                        "text-red-400"
-                      }`}>
-                        {latestFacialData.engagementScore}%
-                      </p>
+                  <div className="grid grid-cols-3 gap-1 text-xs font-mono">
+                    <div className="p-1.5 rounded bg-neutral-800/30">
+                      <span className="text-neutral-500">ENGAGEMENT: </span>
+                      <span className={latestFacialData.engagementScore >= 70 ? "text-green-400" : latestFacialData.engagementScore >= 40 ? "text-yellow-400" : "text-red-400"}>
+                        {Math.round(latestFacialData.engagementScore)}%
+                      </span>
                     </div>
-                    <div className="p-2 rounded-md bg-neutral-800/50">
-                      <p className="text-[10px] text-neutral-500">Blink Rate</p>
-                      <p className="text-lg font-semibold text-neutral-300">{blinkRate}/min</p>
+                    <div className="p-1.5 rounded bg-neutral-800/30">
+                      <span className="text-neutral-500">CONFUSION: </span>
+                      <span className="text-orange-400">{Math.round(latestFacialData.confusionScore)}%</span>
                     </div>
-                    <div className="p-2 rounded-md bg-neutral-800/50">
-                      <p className="text-[10px] text-neutral-500">Gaze</p>
-                      <p className={`text-sm font-medium ${
-                        latestFacialData.gazeDirection === "at_camera" ? "text-green-400" :
-                        latestFacialData.gazeDirection === "away" ? "text-yellow-400" :
-                        "text-neutral-400"
-                      }`}>
-                        {latestFacialData.gazeDirection === "at_camera" ? "At Camera" :
-                         latestFacialData.gazeDirection === "away" ? "Away" : "Unknown"}
-                      </p>
+                    <div className="p-1.5 rounded bg-neutral-800/30">
+                      <span className="text-neutral-500">PROCESSING: </span>
+                      <span className="text-blue-400">{Math.round(latestFacialData.processingScore)}%</span>
                     </div>
-                    <div className="p-2 rounded-md bg-neutral-800/50">
-                      <p className="text-[10px] text-neutral-500">Mouth</p>
-                      <p className={`text-sm font-medium ${
-                        latestFacialData.mouthState === "open" ? "text-green-400" : "text-neutral-400"
-                      }`}>
-                        {latestFacialData.mouthState === "open" ? "Open" : "Closed"}
-                      </p>
+                    <div className="p-1.5 rounded bg-neutral-800/30">
+                      <span className="text-neutral-500">FRUSTRATION: </span>
+                      <span className="text-red-400">{Math.round(latestFacialData.frustrationScore)}%</span>
+                    </div>
+                    <div className="p-1.5 rounded bg-neutral-800/30">
+                      <span className="text-neutral-500">SMILE: </span>
+                      <span className="text-purple-400">{Math.round(latestFacialData.smileScore)}%</span>
+                    </div>
+                    <div className="p-1.5 rounded bg-neutral-800/30">
+                      <span className="text-neutral-500">EMOTION: </span>
+                      <span className="text-neutral-300">{latestFacialData.emotion.toUpperCase()}</span>
+                    </div>
+                    <div className="p-1.5 rounded bg-neutral-800/30">
+                      <span className="text-neutral-500">ATTENTION: </span>
+                      <span className={latestFacialData.attentionLevel === "high" ? "text-green-400" : latestFacialData.attentionLevel === "medium" ? "text-yellow-400" : "text-red-400"}>
+                        {latestFacialData.attentionLevel.toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="p-1.5 rounded bg-neutral-800/30">
+                      <span className="text-neutral-500">BLINK: </span>
+                      <span className="text-neutral-300">{blinkRate}/min</span>
+                    </div>
+                    <div className="p-1.5 rounded bg-neutral-800/30">
+                      <span className="text-neutral-500">GAZE: </span>
+                      <span className={latestFacialData.gazeDirection === "at_camera" ? "text-green-400" : latestFacialData.gazeDirection === "away" ? "text-yellow-400" : "text-neutral-400"}>
+                        {latestFacialData.gazeDirection.toUpperCase().replace("_", " ")}
+                      </span>
                     </div>
                   </div>
                 )}

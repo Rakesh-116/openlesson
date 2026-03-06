@@ -244,26 +244,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [latestFacialData, setLatestFacialData] = useState<FacialDataPoint | null>(null);
 
   // Facial Data Tracking
-  const [facialDataBuffer, setFacialDataBuffer] = useState<Array<{
-    timestamp: number;
-    facePresent: boolean;
-    blinkRate: number;
-    gazeDirection: "at_camera" | "away" | "unknown";
-    headPose: { pitch: number; yaw: number; roll: number };
-    mouthState: "open" | "closed";
-    faceDistance: "optimal" | "too_close" | "too_far";
-    engagementScore: number;
-  }>>([]);
-  const facialBufferRef = useRef<Array<{
-    timestamp: number;
-    facePresent: boolean;
-    blinkRate: number;
-    gazeDirection: "at_camera" | "away" | "unknown";
-    headPose: { pitch: number; yaw: number; roll: number };
-    mouthState: "open" | "closed";
-    faceDistance: "optimal" | "too_close" | "too_far";
-    engagementScore: number;
-  }>>([]);
+  const [facialDataBuffer, setFacialDataBuffer] = useState<FacialDataPoint[]>([]);
+  const facialBufferRef = useRef<FacialDataPoint[]>([]);
 
   // Logs
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -302,6 +284,27 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const isRecordingRef = useRef(isRecording);
   const museStatusRef = useRef(museStatus);
   const isWebcamEnabledRef = useRef(isWebcamEnabled);
+
+  const handleFacialData = useCallback((data: FacialDataPoint) => {
+    setLatestFacialData(data);
+    facialBufferRef.current.push(data);
+    if (facialBufferRef.current.length > 120) {
+      facialBufferRef.current = facialBufferRef.current.slice(-120);
+    }
+  }, []);
+
+  const handleFaceError = useCallback((error: string) => {
+    setWebcamError(error);
+    const entry: LogEntry = {
+      id: Date.now().toString(),
+      timestamp: Date.now(),
+      level: "error",
+      message: error,
+      source: "Face Tracker"
+    };
+    logsRef.current.push(entry);
+    setLogs(prev => [...prev, entry]);
+  }, []);
 
   // Keep refs in sync
   useEffect(() => { observerModeRef.current = observerMode; }, [observerMode]);
@@ -920,7 +923,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       });
       micStreamRef.current = mediaStream;
       setMicStatus("ready");
-    } catch {
+    } catch (err) {
       setMicStatus("denied");
       setError("Microphone access denied. Please allow microphone permission in your browser settings and try again.");
     }
@@ -1027,7 +1030,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             await saveSessionEEG(session.id, { channels, bandPowers }, museClientRef.current?.deviceName, eegIdx, Date.now());
             transferHealthRef.current.eeg.saved++;
             setTransferHealth({ ...transferHealthRef.current });
-          } catch {
+          } catch (err) {
             transferHealthRef.current.eeg.failed++;
             setTransferHealth({ ...transferHealthRef.current });
           }
@@ -1041,13 +1044,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             await saveFacialData(session.id, facialBufferRef.current, facialIdx, Date.now());
             transferHealthRef.current.facial.saved++;
             setTransferHealth({ ...transferHealthRef.current });
-          } catch {
+          } catch (err) {
             transferHealthRef.current.facial.failed++;
             setTransferHealth({ ...transferHealthRef.current });
           }
         }
       }, 60000);
-    } catch {
+    } catch (err) {
       setError("Could not access microphone. Please grant permission and try again.");
     }
   };
@@ -1255,7 +1258,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             await saveSessionEEG(session.id, { channels, bandPowers }, museClientRef.current?.deviceName, eegIdx, Date.now());
             transferHealthRef.current.eeg.saved++;
             setTransferHealth({ ...transferHealthRef.current });
-          } catch {
+          } catch (err) {
             transferHealthRef.current.eeg.failed++;
             setTransferHealth({ ...transferHealthRef.current });
           }
@@ -1269,13 +1272,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             await saveFacialData(session.id, facialBufferRef.current, facialIdx, Date.now());
             transferHealthRef.current.facial.saved++;
             setTransferHealth({ ...transferHealthRef.current });
-          } catch {
+          } catch (err) {
             transferHealthRef.current.facial.failed++;
             setTransferHealth({ ...transferHealthRef.current });
           }
         }
       }, 60000);
-    } catch {
+    } catch (err) {
       setError("Could not access microphone. Please grant permission and try again.");
     }
   };
@@ -1883,25 +1886,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         isWebcamEnabled={isWebcamEnabled}
                         onWebcamToggle={() => setIsWebcamEnabled(prev => !prev)}
                         latestFacialData={latestFacialData}
-                        onFacialData={(data) => {
-                          setLatestFacialData(data);
-                          facialBufferRef.current.push(data);
-                          if (facialBufferRef.current.length > 120) {
-                            facialBufferRef.current = facialBufferRef.current.slice(-120);
-                          }
-                        }}
-                        onFaceError={(error: string) => {
-                          setWebcamError(error);
-                          const entry: LogEntry = {
-                            id: Date.now().toString(),
-                            timestamp: Date.now(),
-                            level: "error",
-                            message: error,
-                            source: "Face Tracker"
-                          };
-                          logsRef.current.push(entry);
-                          setLogs(prev => [...prev, entry]);
-                        }}
+                        onFacialData={handleFacialData}
+                        onFaceError={handleFaceError}
                       />
                     </div>
                     {activeTool === "logs" && (
