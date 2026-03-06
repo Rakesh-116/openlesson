@@ -189,10 +189,13 @@ export function FaceTracker({ isEnabled, onDataPoint, onError }: FaceTrackerProp
 
     const init = async () => {
       try {
+        console.log("[FaceTracker] Loading FilesetResolver...");
         const vision = await FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
         );
+        console.log("[FaceTracker] FilesetResolver loaded");
         
+        console.log("[FaceTracker] Loading FaceLandmarker model...");
         const faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
@@ -205,7 +208,9 @@ export function FaceTracker({ isEnabled, onDataPoint, onError }: FaceTrackerProp
         if (!isMounted) return;
         
         faceLandmarkerRef.current = faceLandmarker;
+        console.log("[FaceTracker] FaceLandmarker created");
 
+        console.log("[FaceTracker] Requesting webcam...");
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { width: 320, height: 240, facingMode: "user" }
         });
@@ -223,6 +228,7 @@ export function FaceTracker({ isEnabled, onDataPoint, onError }: FaceTrackerProp
         
         setIsWebcamOn(true);
         setIsLoading(false);
+        console.log("[FaceTracker] Initialization complete!");
         setWebcamError(null);
 
         blinkRateIntervalRef.current = setInterval(() => {
@@ -244,6 +250,7 @@ export function FaceTracker({ isEnabled, onDataPoint, onError }: FaceTrackerProp
         trackingIntervalRef.current = setInterval(processFrame, 500);
         isInitializedRef.current = true;
       } catch (err) {
+        console.error("[FaceTracker] Init error:", err);
         if (!isMounted) return;
         const error = err as Error;
         setWebcamError(error.message || "Failed to initialize face tracking");
