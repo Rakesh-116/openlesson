@@ -1032,7 +1032,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             setTransferHealth({ ...transferHealthRef.current });
           }
         }
-        if (session && isRecording && isWebcamEnabled && facialBufferRef.current.length > 0) {
+        if (session && currentRecording && currentWebcamEnabled && facialBufferRef.current.length > 0) {
           console.log("[Facial] Saving periodic facial data...", { dataPoints: facialBufferRef.current.length });
           const facialIdx = facialChunkIndexRef.current++;
           transferHealthRef.current.facial.sent++;
@@ -1260,7 +1260,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             setTransferHealth({ ...transferHealthRef.current });
           }
         }
-        if (session && isRecording && isWebcamEnabled && facialBufferRef.current.length > 0) {
+        if (session && currentRecording && currentWebcamEnabled && facialBufferRef.current.length > 0) {
           console.log("[Facial] Saving periodic facial data...", { dataPoints: facialBufferRef.current.length });
           const facialIdx = facialChunkIndexRef.current++;
           transferHealthRef.current.facial.sent++;
