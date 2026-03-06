@@ -1577,6 +1577,47 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   )}
                   <div className="flex-1 min-h-0 overflow-hidden relative">
                     {activeTool === "chat" && <LLMChat problem={session.problem} />}
+                    {activeTool === "goals" && (
+                      <div className="h-full p-4 overflow-auto">
+                        <div className="mb-6">
+                          <h2 className="text-lg font-semibold text-white mb-2">Problem</h2>
+                          <p className="text-sm text-neutral-300">{session.problem}</p>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-wider mb-3">Learning Objectives</h3>
+                          {objectives.length === 0 ? (
+                            <p className="text-sm text-neutral-500">No objectives set for this session.</p>
+                          ) : (
+                            <div className="space-y-3">
+                              {objectives.map((objective, idx) => {
+                                const status = objectiveStatuses[idx] || "blue";
+                                const statusColors = {
+                                  red: "bg-red-500",
+                                  yellow: "bg-yellow-500",
+                                  green: "bg-green-500",
+                                  blue: "bg-blue-500",
+                                };
+                                const statusLabels = {
+                                  red: "Needs attention",
+                                  yellow: "In progress",
+                                  green: "On track",
+                                  blue: "Not started",
+                                };
+                                return (
+                                  <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/50">
+                                    <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${statusColors[status]}`} />
+                                    <div>
+                                      <p className="text-sm text-white">{objective}</p>
+                                      <span className="text-xs text-neutral-500">{statusLabels[status]}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     {activeTool === "canvas" && (
                       <WhiteboardCanvas
                         initialData={whiteboardData || undefined}
