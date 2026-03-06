@@ -166,7 +166,9 @@ export function FaceTracker({ isEnabled, onDataPoint, onError }: FaceTrackerProp
   }, [isEnabled, calculateEngagementScore]);
 
   useEffect(() => {
+    console.log("[FaceTracker] useEffect triggered, isEnabled:", isEnabled);
     if (!isEnabled) {
+      console.log("[FaceTracker] Cleaning up - stopping stream");
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
