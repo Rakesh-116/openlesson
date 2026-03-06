@@ -3,6 +3,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import { AudioRecorder, blobToBase64 } from "@/lib/audio";
 import { FacialDataPoint } from "./FaceTracker";
 import {
@@ -1543,9 +1547,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   setPrepToolContent(null);
                   setMobileTab("prep");
                 } else if (tool === "exercise" || tool === "reading") {
-                  if (!prepToolContent) {
-                    loadPrepToolContent(tool);
-                  }
+                  setPrepToolContent(null);
+                  loadPrepToolContent(tool);
                   setMobileTab("prep");
                 } else if (tool === "chat") {
                   setMobileTab("main");
@@ -1881,8 +1884,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                                 </button>
                               )}
                             </div>
-                            <div className="prose prose-invert prose-sm max-w-none text-neutral-300 whitespace-pre-wrap">
-                              {prepToolContent.content}
+                            <div className="prose prose-invert prose-sm max-w-none text-neutral-300">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm, remarkMath]}
+                                rehypePlugins={[rehypeKatex]}
+                              >
+                                {prepToolContent.content}
+                              </ReactMarkdown>
                             </div>
                             {activeTool === "grokipedia" && session?.problem && (
                               <a
@@ -2058,8 +2066,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   {prepToolContent && !prepToolLoading && (
                     <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
                       <h3 className="text-lg font-medium text-white mb-4">{prepToolContent.title}</h3>
-                      <div className="prose prose-invert prose-sm max-w-none text-neutral-300 whitespace-pre-wrap">
-                        {prepToolContent.content}
+                      <div className="prose prose-invert prose-sm max-w-none text-neutral-300">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeKatex]}
+                        >
+                          {prepToolContent.content}
+                        </ReactMarkdown>
                       </div>
                     </div>
                   )}
