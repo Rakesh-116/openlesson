@@ -1,6 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 
 interface Message {
   id: string;
@@ -16,6 +21,7 @@ export function LLMChat({ problem }: LLMChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -99,8 +105,31 @@ export function LLMChat({ problem }: LLMChatProps) {
     }
   };
 
+  const handleClear = () => {
+    setMessages([
+      {
+        id: "welcome",
+        role: "assistant",
+        content: "Hi! I'm here to help you with your learning. Feel free to ask me questions about the topic, get clarifications, or discuss concepts in a different way.\n\nRemember - I'm a separate assistant from the tutor. Let me know how I can help!",
+      },
+    ]);
+    setShowClearConfirm(false);
+  };
+
   return (
     <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-800">
+        <h3 className="text-sm font-medium text-white">Assistant</h3>
+        <button
+          onClick={() => setShowClearConfirm(true)}
+          className="p-1.5 text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800 rounded-lg transition-colors"
+          title="Clear chat"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
           <div
@@ -114,7 +143,14 @@ export function LLMChat({ problem }: LLMChatProps) {
                   : "bg-neutral-800 text-neutral-200"
               }`}
             >
-              <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
+              <div className="prose prose-invert prose-sm max-w-none">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm, remarkMath]}
+                  rehypePlugins={[rehypeKatex]}
+                >
+                  {message.content}
+                </ReactMarkdown>
+              </div>
             </div>
           </div>
         ))}
@@ -131,6 +167,29 @@ export function LLMChat({ problem }: LLMChatProps) {
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {showClearConfirm && (
+        <>
+          <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setShowClearConfirm(false)} />
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-50 bg-neutral-800 border border-neutral-700 rounded-xl p-4 shadow-xl">
+            <p className="text-sm text-neutral-200 mb-3">Clear chat history?</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                className="flex-1 px-3 py-2 text-sm bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleClear}
+                className="flex-1 px-3 py-2 text-sm bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       <form onSubmit={handleSubmit} className="p-3 bg-[#0a0a0a]">
         <div className="flex gap-2 items-end">

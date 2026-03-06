@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { data: chunks, error: chunksError } = await supabase
-      .from("transcript_chunks")
+      .from("transcript_rag_chunks")
       .select("content")
       .eq("session_id", session_id)
       .order("chunk_index", { ascending: true });

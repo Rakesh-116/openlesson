@@ -60,7 +60,7 @@ export async function GET(
         .eq("user_id", userId)
         .order("created_at", { ascending: false }),
       adminClient
-        .from("session_eeg_data")
+        .from("session_eeg")
         .select("session_id")
         .eq("user_id", userId),
     ]);

@@ -96,25 +96,25 @@ export function WhiteboardCanvas({ onCanvasChange, initialData }: WhiteboardCanv
 
     const resizeCanvas = () => {
       const rect = container.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
       const oldData = canvas.toDataURL("image/png");
       
-      canvas.width = rect.width * window.devicePixelRatio;
-      canvas.height = rect.height * window.devicePixelRatio;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
       canvas.style.width = `${rect.width}px`;
       canvas.style.height = `${rect.height}px`;
 
       const ctx = canvas.getContext("2d");
       if (ctx) {
-        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
         ctx.fillStyle = "#0a0a0a";
-        ctx.fillRect(0, 0, rect.width, rect.height);
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        if (initialData) {
+        if (oldData && oldData.length > 0) {
           const img = new Image();
           img.onload = () => {
-            ctx.drawImage(img, 0, 0, rect.width, rect.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           };
-          img.src = initialData;
+          img.src = oldData;
         }
       }
     };
@@ -122,7 +122,7 @@ export function WhiteboardCanvas({ onCanvasChange, initialData }: WhiteboardCanv
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
     return () => window.removeEventListener("resize", resizeCanvas);
-  }, [initialData]);
+  }, []);
 
   const colors = ["#ffffff", "#22c55e", "#3b82f6", "#ef4444"];
 

@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 
     const embedding = await generateEmbedding(topic);
     if (embedding) {
-      const { data: chunks, error } = await supabase.rpc("match_transcript_chunks", {
+      const { data: chunks, error } = await supabase.rpc("match_transcript_rag_chunks", {
         query_embedding: embedding,
         match_user_id: user.id,
         match_session_id: planNodeId || null,

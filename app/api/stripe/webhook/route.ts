@@ -62,6 +62,46 @@ export async function POST(request: NextRequest) {
             .from("profiles")
             .update({ extra_lessons: (profile?.extra_lessons ?? 0) + 1 })
             .eq("id", userId);
+
+          // Track partner revenue for extra lesson purchase
+          const amountPaid = session.amount_total || 0;
+          if (amountPaid > 0) {
+            const { data: referral } = await supabase
+              .from("partner_referrals")
+              .select("partner_id")
+              .eq("referred_user_id", userId)
+              .single();
+
+            if (referral) {
+              const { data: partner } = await supabase
+                .from("partners")
+                .select("tier")
+                .eq("id", referral.partner_id)
+                .single();
+
+              if (partner) {
+                const revenueShares: Record<string, number> = {
+                  bronze: 0.10,
+                  silver: 0.30,
+                  gold: 0.50,
+                };
+                const share = revenueShares[partner.tier] || 0.10;
+                const partnerRevenue = (amountPaid * share) / 100;
+
+                if (partnerRevenue > 0) {
+                  await supabase
+                    .from("partner_revenue")
+                    .insert({
+                      partner_id: referral.partner_id,
+                      amount: partnerRevenue,
+                      source_user_id: userId,
+                      source_subscription_id: null,
+                      description: "Revenue from extra lesson purchase",
+                    });
+                }
+              }
+            }
+          }
         }
         // Subscription checkout is handled by customer.subscription.updated
         break;
@@ -139,6 +179,46 @@ export async function POST(request: NextRequest) {
               extra_lessons: 0,
             })
             .eq("id", profile.id);
+
+          // Track partner revenue if user was referred
+          const { data: referral } = await supabase
+            .from("partner_referrals")
+            .select("partner_id")
+            .eq("referred_user_id", profile.id)
+            .single();
+
+          if (referral) {
+            // Get partner tier for revenue share calculation
+            const { data: partner } = await supabase
+              .from("partners")
+              .select("tier")
+              .eq("id", referral.partner_id)
+              .single();
+
+            if (partner) {
+              // Calculate revenue share (amount_paid is in cents)
+              const amountPaid = invoice.amount_paid || 0;
+              const revenueShares: Record<string, number> = {
+                bronze: 0.10,
+                silver: 0.30,
+                gold: 0.50,
+              };
+              const share = revenueShares[partner.tier] || 0.10;
+              const partnerRevenue = (amountPaid * share) / 100; // Convert from cents
+
+              if (partnerRevenue > 0) {
+                await supabase
+                  .from("partner_revenue")
+                  .insert({
+                    partner_id: referral.partner_id,
+                    amount: partnerRevenue,
+                    source_user_id: profile.id,
+                    source_subscription_id: subscriptionId,
+                    description: `Revenue from subscription payment`,
+                  });
+              }
+            }
+          }
         }
         break;
       }

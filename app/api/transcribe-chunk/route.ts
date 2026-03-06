@@ -9,17 +9,42 @@ const HESITATION_MARKERS = ["um", "uh", "hmm", "huh", "er", "ah", "like,", "you 
 const SELF_CORRECTION_MARKERS = ["actually", "no wait", "let me rethink", "scratch that", "I mean", "correction", "wait no"];
 const QUESTION_MARKERS = ["?", "why", "how", "what if", "could it be", "I wonder"];
 
+async function getAudioFromSupabase(supabase: ReturnType<typeof createServerClient>, storagePath: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
+  const { data, error } = await supabase.storage.from("session-audio").download(storagePath);
+  
+  if (error || !data) {
+    console.error("[transcribe-chunk] Failed to download audio from Supabase:", error);
+    return null;
+  }
+  
+  const arrayBuffer = await data.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  
+  // Determine mime type from extension
+  const ext = storagePath.split(".").pop()?.toLowerCase() || "webm";
+  const mimeMap: Record<string, string> = {
+    webm: "audio/webm",
+    mp4: "audio/mp4",
+    m4a: "audio/mp4",
+    mp3: "audio/mpeg",
+    wav: "audio/wav",
+    ogg: "audio/ogg",
+  };
+  const mimeType = mimeMap[ext] || "audio/webm";
+  
+  return { buffer, mimeType };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
+    const storagePath = formData.get("storage_path") as string | null;
     const audioFile = formData.get("audio") as File | null;
     const sessionId = formData.get("session_id") as string | null;
     const chunkIndex = formData.get("chunk_index") as string | null;
     const timestampMs = formData.get("timestamp_ms") as string | null;
 
-    if (!audioFile) {
-      return NextResponse.json({ error: "Missing audio file" }, { status: 400 });
-    }
+    // Validate required fields
     if (!sessionId) {
       return NextResponse.json({ error: "Missing session_id" }, { status: 400 });
     }
@@ -32,15 +57,6 @@ export async function POST(request: NextRequest) {
 
     const parsedChunkIndex = parseInt(chunkIndex);
     const parsedTimestampMs = parseInt(timestampMs);
-
-    const allowedTypes = ["audio/webm", "audio/mp4", "audio/mpeg", "audio/wav", "audio/ogg", "audio/mp3"];
-    const isAllowed = allowedTypes.some(type => 
-      audioFile.type === type || audioFile.type.startsWith(type + ";")
-    );
-    if (!isAllowed) {
-      console.log("[transcribe-chunk] Invalid audio format:", audioFile.type, "file:", audioFile.name);
-      return NextResponse.json({ error: "Invalid audio format" }, { status: 400 });
-    }
 
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -59,9 +75,45 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const arrayBuffer = await audioFile.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    
+    let buffer: Buffer;
+    let mimeType: string;
+    let fileName = "unknown";
+
+    // Two modes: new (storage_path) or legacy (audio file)
+    if (storagePath) {
+      // NEW MODE: Fetch audio from Supabase Storage (metadata-only, no double-upload)
+      console.log("[transcribe-chunk] New mode: fetching audio from Supabase:", storagePath);
+      const audioData = await getAudioFromSupabase(supabase, storagePath);
+      
+      if (!audioData) {
+        return NextResponse.json({ error: "Failed to fetch audio from storage" }, { status: 400 });
+      }
+      
+      buffer = audioData.buffer;
+      mimeType = audioData.mimeType;
+      fileName = storagePath.split("/").pop() || "audio.webm";
+      
+      console.log("[transcribe-chunk] Fetched audio from storage:", { size: buffer.length, mimeType });
+      
+    } else if (audioFile) {
+      // LEGACY MODE: Receive audio file directly (backward compatibility)
+      const allowedTypes = ["audio/webm", "audio/mp4", "audio/mpeg", "audio/wav", "audio/ogg", "audio/mp3"];
+      const isAllowed = allowedTypes.some(type => 
+        audioFile.type === type || audioFile.type.startsWith(type + ";")
+      );
+      if (!isAllowed) {
+        console.log("[transcribe-chunk] Invalid audio format:", audioFile.type, "file:", audioFile.name);
+        return NextResponse.json({ error: "Invalid audio format" }, { status: 400 });
+      }
+
+      const arrayBuffer = await audioFile.arrayBuffer();
+      buffer = Buffer.from(arrayBuffer);
+      mimeType = audioFile.type.split(";")[0].trim() || "audio/webm";
+      fileName = audioFile.name;
+    } else {
+      return NextResponse.json({ error: "Missing either storage_path or audio file" }, { status: 400 });
+    }
+
     if (buffer.length < 1000) {
       console.log("[transcribe-chunk] Audio too small, skipping transcription:", buffer.length);
       return NextResponse.json({
@@ -71,9 +123,8 @@ export async function POST(request: NextRequest) {
         wordCount: 0,
       });
     }
-    
-    const rawMimeType = audioFile.type;
-    const mimeType = rawMimeType.split(";")[0].trim() || "audio/webm";
+
+    // Determine audio format for OpenRouter
     let ext = mimeType.split("/")[1] || "webm";
     const formatMap: Record<string, string> = {
       webm: "wav",
@@ -85,7 +136,7 @@ export async function POST(request: NextRequest) {
     const audioFormat = formatMap[ext] || "wav";
     const audioBase64 = buffer.toString("base64");
 
-    console.log("[transcribe-chunk] Audio info:", { rawMimeType, mimeType, ext, bufferSize: buffer.length });
+    console.log("[transcribe-chunk] Audio info:", { mimeType, ext, bufferSize: buffer.length });
 
     const openrouterKey = process.env.OPENROUTER_API_KEY;
     if (!openrouterKey) {
@@ -136,25 +187,15 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
     let transcription = data.choices?.[0]?.message?.content?.trim() || "";
 
-    const ts = Date.now();
-    const audioStoragePath = `${user.id}/${sessionId}/chunk_${parsedChunkIndex}_${ts}.webm`;
-    const transcriptStoragePath = `${user.id}/${sessionId}/chunk_${parsedChunkIndex}_${ts}.txt`;
+    // Use the storage path if provided, otherwise generate new one
+    const audioStoragePath = storagePath || `${user.id}/${sessionId}/chunk_${parsedChunkIndex}_${Date.now()}.webm`;
+    const transcriptStoragePath = storagePath 
+      ? storagePath.replace("/session-audio/", "/session-transcript/").replace(/\.\w+$/, ".txt")
+      : `${user.id}/${sessionId}/chunk_${parsedChunkIndex}_${Date.now()}.txt`;
 
     console.log("[transcribe-chunk] Storage paths:", { audioStoragePath, transcriptStoragePath });
 
-    // Try to upload audio to storage (non-critical - continue even if fails)
-    try {
-      await supabase.storage
-        .from("session-audio")
-        .upload(audioStoragePath, buffer, {
-          contentType: mimeType,
-          upsert: false,
-        });
-    } catch (e) {
-      console.warn("Audio upload failed (non-critical):", e);
-    }
-
-    // Try to upload transcript to storage (non-critical)
+    // Only upload transcript to storage (audio already exists in Supabase)
     try {
       await supabase.storage
         .from("session-transcript")
@@ -167,38 +208,56 @@ export async function POST(request: NextRequest) {
     }
 
     const lower = transcription.toLowerCase();
+    const wordCount = transcription.split(/\s+/).filter((w: string) => w.length > 0).length;
     const toolData = {
       has_hesitation: HESITATION_MARKERS.some((m) => lower.includes(m)),
       has_self_correction: SELF_CORRECTION_MARKERS.some((m) => lower.includes(m)),
       has_questions: QUESTION_MARKERS.some((m) => lower.includes(m)),
-      word_count: transcription.split(/\s+/).length,
-      original_filename: audioFile.name,
+      word_count: wordCount,
+      original_filename: fileName,
       transcript_path: transcriptStoragePath,
     };
 
-    // Try to insert to DB (non-critical - don't fail the request)
+    // Insert to session_audio table (only if new path, avoid duplicates)
+    if (!storagePath) {
+      try {
+        await supabase
+          .from("session_audio")
+          .insert({
+            session_id: sessionId,
+            user_id: user.id,
+            timestamp_ms: parsedTimestampMs,
+            storage_path: audioStoragePath,
+            chunk_index: parsedChunkIndex,
+            metadata: { original_filename: fileName },
+          });
+      } catch (e) {
+        console.warn("session_audio insert failed (non-critical):", e);
+      }
+    }
+
+    // Insert to session_transcript table
     try {
       await supabase
-        .from("session_data")
+        .from("session_transcript")
         .insert({
           session_id: sessionId,
           user_id: user.id,
-          data_type: "audio",
           timestamp_ms: parsedTimestampMs,
+          storage_path: transcriptStoragePath,
           chunk_index: parsedChunkIndex,
-          audio_path: audioStoragePath,
-          transcript: transcriptStoragePath,
-          tool_data: toolData,
+          word_count: wordCount,
+          metadata: toolData,
         });
     } catch (e) {
-      console.warn("session_data insert failed (non-critical):", e);
+      console.warn("session_transcript insert failed (non-critical):", e);
     }
 
     return NextResponse.json({
       success: true,
       chunkIndex: parsedChunkIndex,
       transcript: transcription,
-      wordCount: toolData.word_count,
+      wordCount: wordCount,
     });
   } catch (error) {
     console.error("Transcribe chunk error:", error);

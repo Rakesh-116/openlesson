@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export type Tool = "chat" | "canvas" | "notebook" | "grokipedia" | "exercise" | "reading" | "rag" | "help" | "data-input" | "logs";
+export type Tool = "chat" | "canvas" | "notebook" | "grokipedia" | "exercise" | "reading" | "rag" | "help" | "data-input" | "logs" | "goals";
 
 interface ToolsPanelProps {
   activeTool: Tool;
@@ -10,6 +10,7 @@ interface ToolsPanelProps {
   problem: string;
   className?: string;
   ragNotification?: boolean;
+  errorNotification?: boolean;
 }
 
 const tools: { id: Tool; label: string; icon: React.ReactNode }[] = [
@@ -19,6 +20,15 @@ const tools: { id: Tool; label: string; icon: React.ReactNode }[] = [
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+      </svg>
+    ),
+  },
+  {
+    id: "goals",
+    label: "Topic & Goals",
+    icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
   },
@@ -106,7 +116,7 @@ const tools: { id: Tool; label: string; icon: React.ReactNode }[] = [
   },
 ];
 
-export function ToolsPanel({ activeTool, onToolChange, problem, className = "", ragNotification = false }: ToolsPanelProps) {
+export function ToolsPanel({ activeTool, onToolChange, problem, className = "", ragNotification = false, errorNotification = false }: ToolsPanelProps) {
   return (
     <div className={`w-48 shrink-0 flex flex-col gap-2 p-3 bg-neutral-900/50 border-r border-neutral-800 ${className}`}>
       <div className="text-[10px] uppercase tracking-wider font-medium text-neutral-500 mb-1 px-1">
@@ -124,9 +134,12 @@ export function ToolsPanel({ activeTool, onToolChange, problem, className = "", 
             }`}
           >
             {tool.icon}
-            {tool.label}
+            <span>{tool.label}</span>
             {tool.id === "rag" && ragNotification && (
               <span className="ml-auto w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            )}
+            {tool.id === "logs" && errorNotification && (
+              <span className="ml-auto w-2 h-2 rounded-full bg-red-500 animate-pulse" />
             )}
           </button>
         ))}

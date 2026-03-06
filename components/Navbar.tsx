@@ -50,6 +50,7 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
     { href: "/use-cases", label: "Use Cases" },
     { href: "/pricing", label: "Pricing" },
     { href: "/coaching", label: "Coaching" },
+    { href: "/community", label: "Community" },
     { href: "/dashboard", label: "Dashboard" },
   ];
 

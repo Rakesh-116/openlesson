@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/Navbar";
@@ -12,7 +12,25 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [referralPartner, setReferralPartner] = useState<{ username: string } | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) {
+      setReferralCode(ref);
+      fetch(`/api/referral/register?code=${encodeURIComponent(ref)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.username) {
+            setReferralPartner({ username: data.username });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [searchParams]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +52,25 @@ export default function RegisterPage() {
         return;
       }
 
+      // If there was a referral code, link it after registration
+      if (referralCode) {
+        try {
+          // Wait a moment for profile to be created
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            await fetch("/api/referral/register", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ referralCode, userId: user.id }),
+            });
+          }
+        } catch (err) {
+          console.error("Failed to link referral:", err);
+        }
+      }
+
       router.push("/dashboard");
       router.refresh();
     } catch {
@@ -51,6 +88,20 @@ export default function RegisterPage() {
         <div className="w-full max-w-sm">
           <h2 className="text-xl font-semibold text-white mb-1">Create an account</h2>
           <p className="text-sm text-neutral-500 mb-8">Start your Socratic learning journey.</p>
+
+          {referralPartner ? (
+            <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+              <p className="text-sm text-emerald-400">
+                🎉 You have been invited to openLesson by <span className="font-medium">@{referralPartner.username}</span>. Enjoy 15 lessons for free as a thank you gift for becoming a member of our community!
+              </p>
+            </div>
+          ) : referralCode ? (
+            <div className="mb-4 p-3 bg-neutral-800/50 border border-neutral-700 rounded-lg">
+              <p className="text-sm text-neutral-400">
+                Create an account to get started.
+              </p>
+            </div>
+          ) : null}
 
           <form onSubmit={handleRegister} className="space-y-3.5">
             <div>

@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { Probe } from "@/lib/storage";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 
 interface ActiveProbeProps {
   probe: Probe | null;
@@ -9,14 +14,25 @@ interface ActiveProbeProps {
   isLoading?: boolean;
   isRevealed?: boolean;
   onReveal?: () => void;
-  // Probe navigation
   hasPrev?: boolean;
   hasNext?: boolean;
   onPrevProbe?: () => void;
   onNextProbe?: () => void;
-  probePosition?: string; // e.g. "2 / 5"
-  // Star
+  probePosition?: string;
   onToggleStar?: (probeId: string, starred: boolean) => void;
+}
+
+function MarkdownContent({ content, className = "" }: { content: string; className?: string }) {
+  return (
+    <div className={className}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
 }
 
 export function ActiveProbe({
@@ -39,14 +55,12 @@ export function ActiveProbe({
   const [flashPulse, setFlashPulse] = useState(false);
   const prevProbeIdRef = useRef<string | null>(null);
 
-  // Ask state
   const [showAskInput, setShowAskInput] = useState(false);
   const [askText, setAskText] = useState("");
   const [askResponse, setAskResponse] = useState<string | null>(null);
   const [askLoading, setAskLoading] = useState(false);
   const askInputRef = useRef<HTMLInputElement>(null);
 
-  // Animate in when probe changes
   useEffect(() => {
     if (probe) {
       const isNewProbe = prevProbeIdRef.current !== null && prevProbeIdRef.current !== probe.id;
@@ -59,12 +73,10 @@ export function ActiveProbe({
       setAskText("");
       setAskResponse(null);
 
-      // Trigger animation on next frame
       requestAnimationFrame(() => {
         requestAnimationFrame(() => setAnimateIn(true));
       });
 
-      // Flash pulse for new probes (not the initial one)
       if (isNewProbe) {
         setFlashPulse(true);
         const timer = setTimeout(() => setFlashPulse(false), 2000);
@@ -107,7 +119,6 @@ export function ActiveProbe({
   const handleAskToggle = () => {
     setShowAskInput(!showAskInput);
     if (!showAskInput) {
-      // Focus input after it renders
       setTimeout(() => askInputRef.current?.focus(), 50);
     }
   };
@@ -151,7 +162,6 @@ export function ActiveProbe({
     }
   };
 
-  // Loading state -- tutor is thinking
   if (isLoading) {
     return (
       <div className="w-full h-full">
@@ -167,7 +177,6 @@ export function ActiveProbe({
     );
   }
 
-  // No probe yet -- listening state
   if (!probe) {
     return (
       <div className="w-full h-full">
@@ -185,7 +194,6 @@ export function ActiveProbe({
 
   return (
     <div className="w-full h-full relative">
-      {/* Full-width flash overlay on new probe */}
       {flashPulse && (
         <div className="absolute inset-0 rounded-2xl bg-blue-500/20 animate-probe-flash pointer-events-none z-10" />
       )}
@@ -199,21 +207,18 @@ export function ActiveProbe({
         }`}
         style={{ transition: "all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)" }}
       >
-        {/* Original topic — always visible */}
         <div className="mb-3 pb-3 border-b border-neutral-800/60">
           <p className="text-[11px] sm:text-xs text-amber-400/80 font-medium truncate" title={problem}>
             {problem}
           </p>
         </div>
 
-        {/* New question badge */}
         {flashPulse && (
           <div className="flex items-center gap-2 mb-3 animate-probe-badge">
             <div className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
             <span className="text-[11px] font-medium text-blue-400 uppercase tracking-wider">New question</span>
           </div>
         )}
-        {/* Probe content */}
         <div className="flex items-start gap-3 sm:gap-4">
           <div className={`flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all duration-700 ${
             flashPulse ? "bg-blue-600/40 scale-110" : "bg-blue-600/20"
@@ -240,10 +245,9 @@ export function ActiveProbe({
                 </div>
               </button>
             ) : (
-              <p className="text-white text-base sm:text-lg leading-relaxed break-words">{probe.text}</p>
+              <MarkdownContent content={probe.text} className="text-white text-base sm:text-lg leading-relaxed break-words" />
             )}
 
-            {/* Go deeper expanded content -- BLUE accent */}
             {isExpanded && (
               <div className="mt-4 pt-4 border-t border-neutral-700/50">
                 {expandLoading ? (
@@ -257,15 +261,12 @@ export function ActiveProbe({
                       <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
                       <span className="text-[10px] font-medium text-blue-400 uppercase tracking-wider">Go Deeper</span>
                     </div>
-                    <p className="text-blue-100/90 text-sm leading-relaxed whitespace-pre-line break-words">
-                      {expandedContent}
-                    </p>
+                    <MarkdownContent content={expandedContent} className="text-blue-100/90 text-sm leading-relaxed break-words" />
                   </div>
                 ) : null}
               </div>
             )}
 
-            {/* Ask response -- EMERALD/GREEN accent */}
             {askResponse && (
               <div className="mt-4 pt-4 border-t border-neutral-700/50">
                 <div className="border-l-2 border-emerald-500/50 pl-3 sm:pl-4 max-h-[40vh] overflow-y-auto">
@@ -273,14 +274,11 @@ export function ActiveProbe({
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                     <span className="text-[10px] font-medium text-emerald-400 uppercase tracking-wider">Answer</span>
                   </div>
-                  <p className="text-emerald-100/90 text-sm leading-relaxed whitespace-pre-line break-words">
-                    {askResponse}
-                  </p>
+                  <MarkdownContent content={askResponse} className="text-emerald-100/90 text-sm leading-relaxed break-words" />
                 </div>
               </div>
             )}
 
-            {/* Ask input bar */}
             {showAskInput && (
               <div className="mt-3 flex items-center gap-2">
                 <input
@@ -313,9 +311,7 @@ export function ActiveProbe({
               </div>
             )}
 
-            {/* Actions row */}
             <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-3">
-              {/* Go deeper -- highlighted button */}
               <button
                 onClick={handleExpand}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-blue-600/15 text-blue-400 border border-blue-500/30 hover:bg-blue-600/25 hover:border-blue-500/50 hover:shadow-[0_0_12px_rgba(59,130,246,0.15)]"
@@ -324,7 +320,6 @@ export function ActiveProbe({
                 {isExpanded ? "Collapse" : "Go deeper"}
               </button>
 
-              {/* Ask button */}
               <button
                 onClick={handleAskToggle}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
@@ -337,7 +332,6 @@ export function ActiveProbe({
                 Ask
               </button>
 
-              {/* Star button */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -353,7 +347,6 @@ export function ActiveProbe({
                 <StarIcon filled={!!probe.starred} />
               </button>
 
-              {/* Probe navigation */}
               {(hasPrev || hasNext) && (
                 <div className="flex items-center gap-0.5 rounded-lg border border-neutral-600/60 bg-neutral-800/60 px-1.5 py-1">
                   <button
@@ -395,8 +388,6 @@ export function ActiveProbe({
   );
 }
 
-// ---- Sub-components ----
-
 function ThinkingDots() {
   return (
     <div className="flex gap-1">
@@ -406,8 +397,6 @@ function ThinkingDots() {
     </div>
   );
 }
-
-// ---- Icons ----
 
 function QuestionIcon() {
   return (

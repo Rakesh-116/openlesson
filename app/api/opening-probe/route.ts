@@ -8,7 +8,7 @@ export const maxDuration = 15;
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { problem } = body;
+    const { problem, objectives } = body;
 
     if (!problem) {
       return NextResponse.json({ error: "Missing problem" }, { status: 400 });
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     const promptOverrides = await getUserPrompts();
 
-    const result = await generateOpeningProbe(problem, promptOverrides);
+    const result = await generateOpeningProbe(problem, promptOverrides, objectives);
 
     if (!result.success) {
       return NextResponse.json(

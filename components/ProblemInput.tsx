@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSession } from "@/lib/storage";
 
+const EXAMPLE_PROMPTS = [
+  "Explain quantum entanglement to me like I'm 5",
+  "Help me understand the French Revolution",
+  "What are the main arguments for and against utilitarianism?",
+  "How does photosynthesis work?",
+];
+
 interface ProblemInputProps {
   initialTopic?: string;
 }
@@ -69,7 +76,7 @@ export function ProblemInput({ initialTopic }: ProblemInputProps) {
           id="problem"
           value={problem}
           onChange={(e) => { setProblem(e.target.value); setUsageError(null); }}
-          placeholder="What do you want to think through?"
+          placeholder="What do you want to think through? (e.g., Explain recursion, How does GPS work?)"
           className="w-full h-28 px-4 pt-3.5 pb-14 pr-32 bg-neutral-900/80 border border-neutral-800 rounded-2xl text-white text-[15px] placeholder-neutral-600 focus:outline-none focus:border-neutral-600 resize-none transition-colors"
           disabled={isLoading}
         />
@@ -94,6 +101,7 @@ export function ProblemInput({ initialTopic }: ProblemInputProps) {
           </Link>
         </div>
       )}
+
     </div>
   );
 }

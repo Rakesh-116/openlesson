@@ -57,18 +57,13 @@ function ResultsContent() {
 
       const storagePath = `${user.id}/${sessionId}`;
 
-      const [audioFiles, transcriptFiles, eegFiles, toolFiles, sessionTranscriptRes, transcriptChunksRes] = await Promise.all([
+      const [audioFiles, transcriptFiles, eegFiles, toolFiles, transcriptChunksRes] = await Promise.all([
         supabase.storage.from("session-audio").list(storagePath, { limit: 100 }),
         supabase.storage.from("session-transcript").list(storagePath, { limit: 100 }),
         supabase.storage.from("session-eeg").list(storagePath, { limit: 100 }),
         supabase.storage.from("session-tool").list(storagePath, { limit: 100 }),
         supabase
-          .from("session_transcripts")
-          .select("chunk_count")
-          .eq("session_id", sessionId)
-          .maybeSingle(),
-        supabase
-          .from("transcript_chunks")
+          .from("transcript_rag_chunks")
           .select("chunk_index", { count: "exact", head: true })
           .eq("session_id", sessionId),
       ]);
@@ -79,7 +74,6 @@ function ResultsContent() {
       const toolCount = toolFiles.data?.length || 0;
 
       const finalTranscriptCount = 
-        (sessionTranscriptRes.data?.chunk_count || 0) || 
         (transcriptChunksRes.count || 0) ||
         transcriptCount;
 

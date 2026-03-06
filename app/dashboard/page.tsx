@@ -7,8 +7,197 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { getSessions, deleteSession, getLearningPlans, type Session, type LearningPlan } from "@/lib/storage";
 import { DEFAULT_PROMPTS, PROMPT_META, type PromptKey, type UserPrompts } from "@/lib/openrouter";
+import { BecomePartner } from "@/components/partner/BecomePartner";
+import { Crown, Users, DollarSign, Copy, Check, ExternalLink, AlertTriangle, Link2 } from "lucide-react";
 
-type Tab = "sessions" | "plans" | "agentic" | "config";
+type Tab = "sessions" | "usage" | "plans" | "agentic" | "config" | "partner";
+
+function PartnerTabContent() {
+  const [partnerData, setPartnerData] = useState<{
+    partner: {
+      tier: string;
+      stakeAmount: number;
+      referralCode: string;
+      stripeAccountStatus: string;
+      unclaimedRevenue: number;
+    };
+    stats: {
+      referralCount: number;
+      lifetimeEarnings: number;
+    };
+  } | null>(null);
+  const [referrerInfo, setReferrerInfo] = useState<{ username: string; tier: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    loadPartnerData();
+    loadReferrerInfo();
+  }, []);
+
+  const loadPartnerData = async () => {
+    try {
+      const res = await fetch("/api/partners/me");
+      const data = await res.json();
+      if (data.isPartner) {
+        setPartnerData({
+          partner: {
+            tier: data.partner.tier,
+            stakeAmount: data.partner.stakeAmount,
+            referralCode: data.partner.referralCode,
+            stripeAccountStatus: data.partner.stripeAccountStatus,
+            unclaimedRevenue: data.stats.unclaimedRevenue,
+          },
+          stats: {
+            referralCount: data.stats.referralCount,
+            lifetimeEarnings: data.stats.lifetimeEarnings,
+          },
+        });
+      }
+    } catch (err) {
+      console.error("Failed to load partner data:", err);
+    }
+  };
+
+  const loadReferrerInfo = async () => {
+    try {
+      const res = await fetch("/api/referral/who-referred");
+      const data = await res.json();
+      if (data.hasReferrer && data.referrer) {
+        setReferrerInfo({
+          username: data.referrer.username,
+          tier: data.referrer.tier,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to load referrer info:", err);
+    }
+  };
+
+  const copyLink = () => {
+    if (!partnerData) return;
+    const link = `${window.location.origin}/register?ref=${partnerData.partner.referralCode}`;
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (!partnerData) {
+    return (
+      <div className="text-center py-12 text-neutral-400">Loading partner data...</div>
+    );
+  }
+
+  const tierColors = {
+    gold: "bg-amber-500/20 text-amber-400",
+    silver: "bg-slate-400/20 text-slate-300",
+    bronze: "bg-amber-700/20 text-amber-600",
+  };
+
+  return (
+    <div className="space-y-6">
+      {referrerInfo && (
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
+          <p className="text-sm text-emerald-400">
+            🎉 You were invited by <strong>@{referrerInfo.username}</strong> ({referrerInfo.tier} partner)
+          </p>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-white">Partner Dashboard</h2>
+          <p className="text-sm text-neutral-400">Manage your partnership and referrals</p>
+        </div>
+        <Link
+          href="/dashboard/partner"
+          className="text-sm text-emerald-400 hover:text-emerald-300"
+        >
+          Full partner page →
+        </Link>
+      </div>
+
+      <div className="grid md:grid-cols-4 gap-4">
+        <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
+          <div className="flex items-center gap-2 text-neutral-400 mb-2">
+            <Crown className="w-4 h-4" />
+            <span className="text-sm">Tier</span>
+          </div>
+          <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${tierColors[partnerData.partner.tier as keyof typeof tierColors] || tierColors.bronze}`}>
+            {partnerData.partner.tier.charAt(0).toUpperCase() + partnerData.partner.tier.slice(1)}
+          </div>
+          <div className="text-xs text-neutral-500 mt-2">
+            {(partnerData.partner.stakeAmount / 1_000_000).toFixed(0)}M staked
+          </div>
+        </div>
+
+        <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
+          <div className="flex items-center gap-2 text-neutral-400 mb-2">
+            <Users className="w-4 h-4" />
+            <span className="text-sm">Referrals</span>
+          </div>
+          <div className="text-2xl font-bold text-white">{partnerData.stats.referralCount}</div>
+        </div>
+
+        <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
+          <div className="flex items-center gap-2 text-neutral-400 mb-2">
+            <DollarSign className="w-4 h-4" />
+            <span className="text-sm">Unclaimed</span>
+          </div>
+          <div className="text-2xl font-bold text-emerald-400">
+            ${partnerData.partner.unclaimedRevenue.toFixed(2)}
+          </div>
+        </div>
+
+        <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
+          <div className="flex items-center gap-2 text-neutral-400 mb-2">
+            <DollarSign className="w-4 h-4" />
+            <span className="text-sm">Lifetime</span>
+          </div>
+          <div className="text-2xl font-bold text-white">
+            ${partnerData.stats.lifetimeEarnings.toFixed(2)}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
+        <div className="flex items-center gap-2 text-neutral-400 mb-4">
+          <Link2 className="w-4 h-4" />
+          <span className="text-sm font-medium">Your Invite Link</span>
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={`${typeof window !== "undefined" ? window.location.origin : ""}/register?ref=${partnerData.partner.referralCode}`}
+            readOnly
+            className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white text-sm"
+          />
+          <button
+            onClick={copyLink}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 flex items-center gap-2"
+          >
+            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            {copied ? "Copied!" : "Copy"}
+          </button>
+        </div>
+      </div>
+
+      {partnerData.partner.stripeAccountStatus !== "connected" && (
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-yellow-400">
+            <AlertTriangle className="w-4 h-4" />
+            <span className="font-medium">Connect Stripe to receive payouts</span>
+          </div>
+          <Link
+            href="/dashboard/partner"
+            className="text-sm text-yellow-300 hover:text-yellow-200 mt-2 inline-flex items-center gap-1"
+          >
+            Go to partner settings <ExternalLink className="w-3 h-3" />
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface OpenRouterModel {
   id: string;
@@ -40,6 +229,19 @@ export default function DashboardPage() {
     isAdmin?: boolean;
     extraLessons?: number;
   } | null>(null);
+
+  const [isPartner, setIsPartner] = useState(false);
+
+  // Usage tab
+  const [usageData, setUsageData] = useState<{
+    plan: string;
+    used: number;
+    limit: number | null;
+    extraLessons: number;
+    periodEnd: string | null;
+    subscriptionStatus: string;
+  } | null>(null);
+  const [loadingUsage, setLoadingUsage] = useState(false);
 
   // Sessions tab
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -104,7 +306,7 @@ export default function DashboardPage() {
       // Fetch profile
       const { data: profile } = await supabase
         .from("profiles")
-        .select("username, metadata, plan, is_admin, extra_lessons")
+        .select("username, metadata, plan, is_admin, extra_lessons, subscription_status, current_period_end")
         .eq("id", authUser.id)
         .single();
 
@@ -135,9 +337,37 @@ export default function DashboardPage() {
       const loadedSessions = await getSessions();
       setSessions(loadedSessions);
 
-      // Load learning plans
-      const plans = await getLearningPlans();
-      setLearningPlans(plans);
+        // Load learning plans
+        const plans = await getLearningPlans();
+        setLearningPlans(plans);
+
+        // Check partner status
+        try {
+          const partnerRes = await fetch("/api/partners/me");
+          const partnerData = await partnerRes.json();
+          setIsPartner(partnerData.isPartner || false);
+        } catch (err) {
+          console.error("Failed to load partner status:", err);
+        }
+
+        // Load usage data
+        try {
+          const usageRes = await fetch("/api/check-usage");
+          if (!usageRes.ok) {
+            throw new Error(`HTTP ${usageRes.status}`);
+          }
+          const usageResult = await usageRes.json();
+          setUsageData({
+            plan: usageResult.plan || "free",
+            used: usageResult.used || 0,
+            limit: usageResult.limit ?? null,
+            extraLessons: profile?.extra_lessons ?? 0,
+            periodEnd: profile?.current_period_end ?? null,
+            subscriptionStatus: profile?.subscription_status ?? "inactive",
+          });
+        } catch (err) {
+          console.error("Failed to load usage data:", err);
+        }
 
       // Load API keys
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -387,14 +617,41 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       <Navbar />
 
+      {/* Partner CTA for non-partners */}
+      {!loading && !isPartner && (
+        <div className="border-b border-neutral-800/60 bg-neutral-900/50">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-500/20 rounded-lg">
+                  <Crown className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <div className="text-sm text-white font-medium">Become an openLesson Partner</div>
+                  <div className="text-xs text-neutral-400">Earn up to 50% revenue from your referrals</div>
+                </div>
+              </div>
+              <Link
+                href="/dashboard/partner"
+                className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-500"
+              >
+                Learn More
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="border-b border-neutral-800/60">
         <div className="max-w-5xl mx-auto flex gap-1 px-4 sm:px-6">
           {[
             { id: "sessions", label: "Sessions" },
             { id: "plans", label: "Plans" },
+            { id: "usage", label: "Usage" },
             { id: "agentic", label: "Agentic Usage" },
             { id: "config", label: "Configuration" },
+            ...(isPartner ? [{ id: "partner", label: "Partner" }] : []),
           ].map((tab) => (
             <button
               key={tab.id}
@@ -537,6 +794,129 @@ export default function DashboardPage() {
                   </button>
                 </div>
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Usage Tab */}
+        {activeTab === "usage" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Your Subscription</h2>
+              <Link href="/pricing" className="text-sm text-emerald-400 hover:text-emerald-300">
+                View all plans
+              </Link>
+            </div>
+            {loadingUsage ? (
+              <div className="text-center py-12 text-neutral-400">Loading...</div>
+            ) : usageData ? (
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-sm text-neutral-400">Current Plan</div>
+                    {usageData.plan === "pro" && (
+                      <span className="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full">Pro</span>
+                    )}
+                    {usageData.plan === "regular" && (
+                      <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">Regular</span>
+                    )}
+                    {usageData.plan === "free" && (
+                      <span className="px-2 py-1 bg-neutral-700 text-neutral-300 text-xs rounded-full">Free</span>
+                    )}
+                  </div>
+                  <div className="text-3xl font-bold text-white mb-1 capitalize">{usageData.plan}</div>
+                  <div className="text-sm text-neutral-500">
+                    {usageData.plan === "pro" ? "$14.99/month" : usageData.plan === "regular" ? "$4.99/month" : "Free forever"}
+                  </div>
+                </div>
+
+                <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
+                  <div className="text-sm text-neutral-400 mb-4">Sessions This Period</div>
+                  <div className="flex items-end gap-2 mb-3">
+                    <span className="text-3xl font-bold text-white">{usageData.used}</span>
+                    <span className="text-sm text-neutral-500 mb-1">/ {usageData.limit === null ? "∞" : usageData.limit}</span>
+                  </div>
+                  {usageData.limit !== null && (
+                    <div className="w-full bg-neutral-800 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full ${
+                          usageData.used >= usageData.limit
+                            ? "bg-red-500"
+                            : usageData.used >= usageData.limit * 0.8
+                            ? "bg-yellow-500"
+                            : "bg-emerald-500"
+                        }`}
+                        style={{ width: `${Math.min((usageData.used / usageData.limit) * 100, 100)}%` }}
+                      />
+                    </div>
+                  )}
+                  <div className="mt-3 text-xs text-neutral-500">
+                    {usageData.limit === null
+                      ? "Unlimited sessions"
+                      : `${usageData.limit - usageData.used} sessions remaining`}
+                  </div>
+                </div>
+
+                <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
+                  <div className="text-sm text-neutral-400 mb-4">Extra Lessons</div>
+                  <div className="text-3xl font-bold text-white mb-1">{usageData.extraLessons}</div>
+                  <div className="text-sm text-neutral-500 mb-4">purchased credits</div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const res = await fetch("/api/stripe/create-checkout", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ priceType: "extra_lesson" }),
+                        });
+                        const data = await res.json();
+                        if (data.url) {
+                          window.location.href = data.url;
+                        }
+                      } catch (err) {
+                        console.error("Failed to create checkout:", err);
+                      }
+                    }}
+                    className="w-full py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 transition-colors text-sm font-medium"
+                  >
+                    Buy Extra Lesson ($1.99)
+                  </button>
+                </div>
+
+                <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
+                  <div className="text-sm text-neutral-400 mb-4">Billing Period</div>
+                  {usageData.subscriptionStatus === "active" && usageData.periodEnd ? (
+                    <>
+                      <div className="text-lg font-medium text-white mb-1">
+                        Resets {new Date(usageData.periodEnd).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </div>
+                      <div className="text-sm text-neutral-500">
+                        {usageData.plan === "regular" && "5 sessions + any extras will be available"}
+                        {usageData.plan === "pro" && "Unlimited sessions continue"}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-lg font-medium text-white mb-1">
+                        {usageData.plan === "free" ? "No subscription" : "Inactive"}
+                      </div>
+                      <div className="text-sm text-neutral-500">
+                        {usageData.plan === "free" ? "1 free session available" : "Your subscription is not active"}
+                      </div>
+                    </>
+                  )}
+                  {(usageData.plan === "free" || usageData.plan === "regular") && (
+                    <Link
+                      href="/pricing"
+                      className="mt-4 block w-full py-2 text-center border border-emerald-600 text-emerald-400 rounded-lg hover:bg-emerald-600/10 transition-colors text-sm font-medium"
+                    >
+                      Upgrade to Pro
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12 text-neutral-400">Unable to load usage data</div>
             )}
           </div>
         )}
@@ -961,6 +1341,11 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Partner Tab */}
+        {activeTab === "partner" && isPartner && (
+          <PartnerTabContent />
         )}
       </main>
     </div>

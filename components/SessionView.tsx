@@ -1865,6 +1865,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   onImStuck={handleImStuck}
                   feedbackLoading={feedbackLoading}
                   stuckLoading={stuckLoading}
+                  elapsedSeconds={elapsedSeconds}
+                  cycleProgress={elapsedSeconds % 60}
+                  isAnalyzing={isAnalyzing}
                 />
               }
             />
@@ -1934,6 +1937,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   onImStuck={handleImStuck}
                   feedbackLoading={feedbackLoading}
                   stuckLoading={stuckLoading}
+                  elapsedSeconds={elapsedSeconds}
+                  cycleProgress={elapsedSeconds % 60}
+                  isAnalyzing={isAnalyzing}
                 />
               )}
               {mobileTab === "prep" && (

@@ -53,6 +53,7 @@ export interface Session {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapDbSession(s: any, probes: Probe[] = []): Session {
+  const metadata = s.metadata || {};
   return {
     id: s.id,
     problem: s.problem,
@@ -67,7 +68,8 @@ function mapDbSession(s: any, probes: Probe[] = []): Session {
     report: s.report ?? undefined,
     reportGeneratedAt: s.report_generated_at ?? undefined,
     transcript: s.transcript ?? undefined,
-    metadata: s.metadata || {},
+    planTitle: metadata.title ?? undefined,
+    metadata: metadata,
   };
 }
 
@@ -87,14 +89,19 @@ function mapDbProbe(p: any): Probe {
 
 // ---- Session CRUD ----
 
-export async function createSession(problem: string): Promise<Session> {
+export async function createSession(problem: string, title?: string): Promise<Session> {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
   const { data, error } = await supabase
     .from("sessions")
-    .insert({ user_id: user.id, problem, status: "active" })
+    .insert({ 
+      user_id: user.id, 
+      problem, 
+      status: "active",
+      metadata: title ? { ...(title ? { title } : {}) } : undefined
+    })
     .select()
     .single();
 
@@ -193,14 +200,14 @@ export async function deleteSession(id: string): Promise<void> {
 
   // Delete EEG data from Storage
   const { data: eegRows } = await supabase
-    .from("session_eeg_data")
-    .select("data_path")
+    .from("session_eeg")
+    .select("storage_path")
     .eq("session_id", id);
 
   if (eegRows && eegRows.length > 0) {
     await supabase.storage
       .from("session-eeg")
-      .remove(eegRows.map((r: { data_path: string }) => r.data_path));
+      .remove(eegRows.map((r: { storage_path: string }) => r.storage_path));
   }
 
   // Cascade delete handles probes, eeg rows
@@ -480,15 +487,15 @@ export async function logToolUsage(
     }
 
     const { error } = await supabase
-      .from("session_data")
+      .from("session_tool")
       .insert({
         session_id: sessionId,
         user_id: user.id,
-        data_type: "tool",
         timestamp_ms: timestampMs,
+        storage_path: toolStoragePath,
         tool_name: toolName,
         tool_action: toolAction,
-        tool_data: { path: toolStoragePath },
+        metadata: toolData,
       });
 
     if (error) {
@@ -534,14 +541,14 @@ export async function logEEGData(
     }
 
     const { error } = await supabase
-      .from("session_data")
+      .from("session_eeg")
       .insert({
         session_id: sessionId,
         user_id: user.id,
-        data_type: "eeg",
         timestamp_ms: timestampMs,
+        storage_path: eegStoragePath,
         chunk_index: chunkIndex,
-        eeg_data: { path: eegStoragePath },
+        band_powers: bandPowers,
       });
 
     if (error) {
@@ -581,13 +588,15 @@ export async function saveSessionEEG(
 
   const sampleCount = Object.values(eegData.channels)[0]?.length || 0;
 
-  await supabase.from("session_eeg_data").insert({
+  await supabase.from("session_eeg").insert({
     session_id: sessionId,
     user_id: user.id,
+    timestamp_ms: ts,
+    storage_path: path,
+    chunk_index: idx,
     device_name: deviceName || null,
-    data_path: path,
     sample_count: sampleCount,
-    avg_band_powers: eegData.bandPowers,
+    band_powers: eegData.bandPowers,
   });
 
   // Also save summary into session metadata
@@ -668,7 +677,7 @@ export async function retrieveRelevantChunks(
 
   // Check if any transcript chunks exist for this user
   const { count, error: countError } = await supabase
-    .from("transcript_chunks")
+    .from("transcript_rag_chunks")
     .select("*", { count: "exact", head: true })
     .eq("user_id", userId);
   
@@ -676,7 +685,7 @@ export async function retrieveRelevantChunks(
 
   // Check how many have embeddings
   const { count: embedCount, error: embedError } = await supabase
-    .from("transcript_chunks")
+    .from("transcript_rag_chunks")
     .select("*", { count: "exact", head: true })
     .eq("user_id", userId)
     .not("embedding", "is", null);
@@ -694,7 +703,7 @@ export async function retrieveRelevantChunks(
 
   // Get all chunks with embeddings for this user (skip session filter for now to debug)
   const { data: chunks, error } = await supabase
-    .from("transcript_chunks")
+    .from("transcript_rag_chunks")
     .select("id, session_id, content, created_at, embedding")
     .eq("user_id", userId)
     .not("embedding", "is", null)
@@ -708,7 +717,7 @@ export async function retrieveRelevantChunks(
     console.log("[retrieveRelevantChunks] No chunks with embeddings, falling back to recent chunks");
     
     const { data: recentChunks, error: recentError } = await supabase
-      .from("transcript_chunks")
+      .from("transcript_rag_chunks")
       .select("id, session_id, content, created_at")
       .eq("user_id", userId)
       .neq("session_id", sessionId || "")

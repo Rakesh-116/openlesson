@@ -156,6 +156,16 @@ export default function AdminPage() {
               Monitor sync status between Supabase and preprocessing server
             </p>
           </Link>
+
+          <Link 
+            href="/admin/partners" 
+            className="block bg-neutral-900/50 border border-neutral-800 rounded-lg p-6 hover:border-neutral-700 transition-colors"
+          >
+            <h2 className="text-lg font-semibold text-white mb-2">Partner Program</h2>
+            <p className="text-neutral-400 text-sm">
+              Manage partners, view referrals, and issue payouts
+            </p>
+          </Link>
         </div>
       </div>
     </div>

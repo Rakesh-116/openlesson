@@ -97,21 +97,6 @@ export async function POST(request: NextRequest) {
     const chunks = splitIntoChunks(transcriptResult.transcript, 200, 400);
     console.log("[process-session-transcript] Chunks created:", chunks.length);
     console.log("[process-session-transcript] First chunk:", chunks[0]?.substring(0, 200) || "empty");
-    
-    // Create session transcript record
-    console.log("[process-session-transcript] Inserting session_transcripts for session:", sessionId);
-    const { error: insertError } = await supabase.from("session_transcripts").upsert({
-      session_id: sessionId,
-      user_id: user.id,
-      content: transcriptResult.transcript,
-      chunk_count: chunks.length,
-      status: "processing",
-    }, { onConflict: 'session_id', ignoreDuplicates: false });
-
-    if (insertError) {
-      console.error("[process-session-transcript] session_transcripts insert error:", insertError);
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
-    }
 
     // Generate embeddings for all chunks in batch
     const embeddingResult = await generateEmbeddings(chunks);
@@ -124,7 +109,7 @@ export async function POST(request: NextRequest) {
       for (let i = 0; i < chunks.length; i++) {
         const submittedAt = new Date().toISOString();
         console.log("[process-session-transcript] Inserting chunk", i, "submitted_at:", submittedAt);
-        const { error: chunkError } = await supabase.from("transcript_chunks").insert({
+        const { error: chunkError } = await supabase.from("transcript_rag_chunks").insert({
           session_id: sessionId,
           user_id: user.id,
           chunk_index: i,
@@ -138,53 +123,30 @@ export async function POST(request: NextRequest) {
           console.log("[process-session-transcript] Chunk", i, "inserted OK");
         }
       }
-
-      await supabase
-        .from("session_transcripts")
-        .update({ status: "ready", processed_at: new Date().toISOString() })
-        .eq("session_id", sessionId);
-
-      // Mark session as having transcript
-      await supabase
-        .from("sessions")
-        .update({ has_transcript: true })
-        .eq("id", sessionId);
-
-      return NextResponse.json({
-        success: true,
-        chunkCount: chunks.length,
-        transcriptLength: transcriptResult.transcript.length,
-      });
-    }
-
-    // Store chunks with embeddings
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const embeddings = embeddingResult.embedding as number[][];
-    
-    for (let i = 0; i < chunks.length; i++) {
-      const submittedAt = new Date().toISOString();
-      console.log("[process-session-transcript] Inserting chunk with embedding", i, "submitted_at:", submittedAt);
-      const { error: chunkError } = await supabase.from("transcript_chunks").insert({
-        session_id: sessionId,
-        user_id: user.id,
-        chunk_index: i,
-        content: chunks[i],
-        metadata: { source: "session" },
-        embedding: embeddings[i] || [],
-        submitted_at: submittedAt,
-      });
-      if (chunkError) {
-        console.error("[process-session-transcript] Chunk insert error:", chunkError.code, chunkError.message);
-      } else {
-        console.log("[process-session-transcript] Chunk", i, "inserted OK");
+    } else {
+      // Store chunks with embeddings
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const embeddings = embeddingResult.embedding as number[][];
+      
+      for (let i = 0; i < chunks.length; i++) {
+        const submittedAt = new Date().toISOString();
+        console.log("[process-session-transcript] Inserting chunk with embedding", i, "submitted_at:", submittedAt);
+        const { error: chunkError } = await supabase.from("transcript_rag_chunks").insert({
+          session_id: sessionId,
+          user_id: user.id,
+          chunk_index: i,
+          content: chunks[i],
+          metadata: { source: "session" },
+          embedding: embeddings[i] || [],
+          submitted_at: submittedAt,
+        });
+        if (chunkError) {
+          console.error("[process-session-transcript] Chunk insert error:", chunkError.code, chunkError.message);
+        } else {
+          console.log("[process-session-transcript] Chunk", i, "inserted OK");
+        }
       }
     }
-
-    // Update session transcript status
-    await supabase
-      .from("session_transcripts")
-      .update({ status: "ready", processed_at: new Date().toISOString() })
-      .eq("session_id", sessionId);
 
     // Mark session as having transcript
     await supabase

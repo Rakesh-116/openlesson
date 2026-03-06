@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
-import { CommunityPlans } from "./CommunityPlans";
+import Link from "next/link";
 
 const WEEKS_OPTIONS = [
   { value: 1, label: "1 week" },
@@ -12,6 +12,15 @@ const WEEKS_OPTIONS = [
   { value: 8, label: "2 months" },
   { value: 12, label: "3 months" },
   { value: 26, label: "6 months" },
+];
+
+const EXAMPLE_TOPICS = [
+  "Machine Learning",
+  "Philosophy",
+  "Quantum Physics",
+  "World History",
+  "Creative Writing",
+  "Personal Finance",
 ];
 
 export function PlanModeSelect() {
@@ -83,39 +92,32 @@ export function PlanModeSelect() {
 
       {/* Topic Input with Button */}
       <div className="mb-8">
-        <label className="block text-sm text-neutral-400 mb-3">
-          What do you want to learn?
-        </label>
-        <div className="flex gap-3">
-          <input
-            type="text"
+        <div className="relative">
+          <textarea
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleGeneratePlan()}
-            placeholder="e.g., Machine Learning, Philosophy, Quantum Physics..."
-            className="flex-1 px-5 py-4 bg-neutral-900/50 border border-neutral-800 rounded-xl text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors"
+            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleGeneratePlan()}
+            placeholder="What do you want to learn? (e.g., Machine Learning, Philosophy)"
+            rows={3}
+            className="w-full h-28 px-4 pt-3.5 pb-14 pr-32 bg-neutral-900/80 border border-neutral-800 rounded-2xl text-white text-[15px] placeholder-neutral-600 focus:outline-none focus:border-neutral-600 resize-none transition-colors"
+            disabled={isGenerating}
           />
           <button
             onClick={handleGeneratePlan}
-            disabled={isGenerating || !topic.trim()}
-            className="px-6 py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-colors flex items-center gap-2 whitespace-nowrap"
+            disabled={!topic.trim() || isGenerating}
+            className="absolute right-4 bottom-4 px-4 py-2 bg-white hover:bg-neutral-200 disabled:bg-neutral-800 disabled:text-neutral-600 text-black text-sm font-medium rounded-xl transition-colors flex items-center gap-2"
           >
             {isGenerating ? (
-              <>
-                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Generating...
-              </>
+              <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
             ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                Generate
-              </>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
             )}
+            {isGenerating ? "Generating..." : "Generate"}
           </button>
         </div>
         {error && (
@@ -124,7 +126,7 @@ export function PlanModeSelect() {
       </div>
 
       {/* Weeks Selector */}
-      <div className="mb-10">
+      <div className="mb-6">
         <label className="block text-sm text-neutral-400 mb-3">
           How long should the learning plan be?
         </label>
@@ -135,7 +137,7 @@ export function PlanModeSelect() {
               onClick={() => setWeeks(option.value)}
               className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
                 weeks === option.value
-                  ? "bg-blue-500/20 border-blue-500/40 text-blue-400"
+                  ? "bg-white/15 text-white border-neutral-600"
                   : "bg-neutral-900/30 border-neutral-800 text-neutral-400 hover:border-neutral-700 hover:text-neutral-300"
               }`}
             >
@@ -145,7 +147,25 @@ export function PlanModeSelect() {
         </div>
       </div>
 
-      <CommunityPlans user={user} />
+      <div className="flex flex-wrap gap-2">
+        {EXAMPLE_TOPICS.map((topic) => (
+          <button
+            key={topic}
+            onClick={() => setTopic(topic)}
+            disabled={isGenerating}
+            className="px-3 py-1.5 text-xs text-neutral-500 hover:text-white bg-neutral-900/50 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 rounded-full transition-colors"
+          >
+            {topic}
+          </button>
+        ))}
+      </div>
+
+      <div className="text-center mt-8 pt-6 border-t border-neutral-800">
+        <Link href="/community" className="text-sm text-neutral-500 hover:text-white transition-colors">
+          Explore community plans →
+        </Link>
+      </div>
+
     </div>
   );
 }

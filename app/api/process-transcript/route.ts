@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     // Insert chunks
     if (taggedChunks.length > 0) {
       const { error: insertError } = await supabase
-        .from("transcript_chunks")
+        .from("transcript_rag_chunks")
         .insert(taggedChunks);
 
       if (insertError) {

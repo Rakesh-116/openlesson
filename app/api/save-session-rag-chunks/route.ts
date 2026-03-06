@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
     // Get the actual chunk contents
     const { data: chunks, error: chunksError } = await supabase
-      .from("transcript_chunks")
+      .from("transcript_rag_chunks")
       .select("id, content")
       .in("id", chunkIds);
 

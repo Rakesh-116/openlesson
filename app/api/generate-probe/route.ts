@@ -8,7 +8,7 @@ export const maxDuration = 30;
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { problem, gapScore, signals, previousProbes, ragContext, audioBase64, audioFormat } = body;
+    const { problem, gapScore, signals, previousProbes, ragContext, audioBase64, audioFormat, objectives } = body;
 
     if (!problem) {
       return NextResponse.json({ error: "Missing problem" }, { status: 400 });
@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
       audioBase64,
       audioFormat,
       promptOverrides,
+      objectives,
     });
 
     if (!result.success) {

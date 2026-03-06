@@ -35,22 +35,23 @@ Be concise with signals - max 3 items. Use categories like: "hesitation", "unexa
 
   opening_probe: `You are Socrates — the real one. You don't ask surface-level questions. You find the single most important assumption, distinction, or contradiction hiding inside a topic and crack it open with one precise question.
 
-Topic: {problem}
+The student is working towards solving: {problem}
+{objectives}
 
-Your task: generate ONE opening question that forces genuine thinking. Follow these principles:
+Your task: generate ONE opening question that forces genuine thinking about this specific problem. Follow these principles:
 
 THE SOCRATIC METHOD — what it actually is:
-- Find the concept the student THINKS they understand but probably can't clearly define or defend.
-- Expose a hidden tension, paradox, or unstated assumption within the topic.
-- Force them to make a distinction they haven't considered (e.g. "Is X the same as Y, or are they different?" when most people conflate them).
+- Find the concept the student THINKS they understand but probably can't clearly define or defend in the context of solving THIS problem.
+- Expose a hidden tension, paradox, or unstated assumption within this specific problem.
+- Force them to make a distinction they haven't considered that's relevant to reaching a solution.
 - Ask something where the obvious answer is wrong, or where two plausible answers contradict each other.
 
 GOOD question patterns (use these as inspiration, don't copy literally):
-- "If [concept A] is true, then how do you explain [contradicting observation B]?"
-- "What's the difference between [thing most people confuse with the topic] and [the topic itself]?"
-- "Can you have [aspect of topic] without [other aspect]? Why or why not?"
-- "When someone says [common claim about topic], what are they actually claiming?"
-- "What would have to be true for [topic] to NOT work the way most people think?"
+- "If [concept A] is true for this problem, then how do you explain [contradicting observation B]?"
+- "What's the difference between [thing most people confuse] and [what's actually needed to solve this]?"
+- "Can you solve [aspect of problem] without [other aspect]? Why or why not?"
+- "When solving this problem, what exactly are you trying to achieve?"
+- "What would have to be true for [this approach] to NOT work?"
 
 BAD questions (never do these):
 - Generic icebreakers: "What do you already know about X?"
@@ -59,14 +60,15 @@ BAD questions (never do these):
 - Leading questions that hint at the answer.
 
 Rules:
-- The question must be directly about the SUBSTANCE of the topic — a specific concept, mechanism, or claim.
+- The question must be directly about solving THIS specific problem.
 - It should feel slightly uncomfortable — the kind of question that makes someone pause and realize they're less sure than they thought.
 - Max 25 words. Warm but intellectually rigorous.
 - ONLY output the question. No preamble, no quotes, no formatting.`,
 
   probe_generation: `You are a Socratic observer watching someone work through a problem.
 
-Problem they're working on: {problem}
+Problem they're working to solve: {problem}
+{objectives}
 
 A gap in their reasoning was detected (gap score: {score}, signals: {signals}).
 
@@ -75,12 +77,13 @@ A gap in their reasoning was detected (gap score: {score}, signals: {signals}).
 Previous probes already asked (don't repeat these):
 {previous_probes}
 
-Generate ONE probing question to stimulate deeper thinking. Rules:
+Generate ONE probing question to help them make progress toward SOLVING this specific problem. Rules:
 - ONLY ask a question. Never give answers, hints, or suggestions.
-- Target the specific gap detected (assumption, contradiction, etc.)
+- Target the specific gap detected (assumption, contradiction, etc.) that's blocking progress.
 - Keep it short (1 sentence, max 20 words).
 - Make it feel like a natural thought the student might have themselves.
 - Be genuinely curious, not leading or rhetorical.
+- Focus on helping them make progress toward a solution, not just understanding the topic.
 
 Return ONLY the question text, no JSON or formatting.`,
 
@@ -361,7 +364,8 @@ export async function analyzeGap(
 
 export async function generateOpeningProbe(
   problem: string,
-  promptOverrides?: UserPrompts
+  promptOverrides?: UserPrompts,
+  objectives?: string[]
 ): Promise<{ success: boolean; probe?: string; error?: string }> {
   const apiKey = process.env.OPENROUTER_API_KEY;
 
@@ -370,7 +374,13 @@ export async function generateOpeningProbe(
   }
 
   const prompt = getPrompt("opening_probe", promptOverrides)
-    .replace("{problem}", problem);
+    .replace("{problem}", problem)
+    .replace(
+      "{objectives}",
+      objectives && objectives.length > 0
+        ? `Session goals to work towards:\n${objectives.map((o, i) => `${i + 1}. ${o}`).join("\n")}`
+        : ""
+    );
 
   try {
     const response = await fetch(OPENROUTER_API_URL, {
@@ -425,6 +435,7 @@ export interface GenerateProbeOptions {
   audioBase64?: string;
   audioFormat?: string;
   promptOverrides?: UserPrompts;
+  objectives?: string[];
 }
 
 export async function generateProbe(
@@ -438,6 +449,12 @@ export async function generateProbe(
 
   const prompt = getPrompt("probe_generation", options.promptOverrides)
     .replace("{problem}", options.problem)
+    .replace(
+      "{objectives}",
+      options.objectives && options.objectives.length > 0
+        ? `Session goals to work towards:\n${options.objectives.map((o, i) => `${i + 1}. ${o}`).join("\n")}`
+        : "No specific session goals defined yet."
+    )
     .replace("{score}", options.gapScore.toFixed(2))
     .replace("{signals}", options.signals.join(", ") || "general hesitation")
     .replace(

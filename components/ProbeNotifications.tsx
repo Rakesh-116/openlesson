@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { type Probe, toggleProbeStarred, updateProbeRevealed } from "@/lib/storage";
 
 interface ProbeNotificationsProps {
@@ -20,6 +20,10 @@ interface ProbeNotificationsProps {
   feedbackLoading?: boolean;
   stuckLoading?: boolean;
   showControls?: boolean;
+  elapsedSeconds?: number;
+  cycleProgress?: number;
+  isAnalyzing?: boolean;
+  feedbackItems?: Array<{ id: string; text: string; timestamp: number }>;
 }
 
 const objectiveStatusColors: Record<string, { bg: string; border: string; text: string; dot: string }> = {
@@ -46,9 +50,14 @@ export function ProbeNotifications({
   feedbackLoading,
   stuckLoading,
   showControls = true,
+  elapsedSeconds = 0,
+  cycleProgress = 0,
+  isAnalyzing = false,
+  feedbackItems = [],
 }: ProbeNotificationsProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [hidePastProbes, setHidePastProbes] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (containerRef.current && probes.length > 0) {
@@ -57,6 +66,27 @@ export function ProbeNotifications({
   }, [probes.length]);
 
   const latestUnrevealedIndex = probes.findLastIndex((p) => !p.isRevealed);
+
+  const filteredProbes = useMemo(() => {
+    let result = probes;
+    if (hidePastProbes && latestUnrevealedIndex !== -1) {
+      result = probes.slice(latestUnrevealedIndex);
+    }
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(p => p.text.toLowerCase().includes(query));
+    }
+    return result;
+  }, [probes, hidePastProbes, latestUnrevealedIndex, searchQuery]);
+
+  const filteredFeedback = useMemo(() => {
+    let result = feedbackItems.filter(f => f.text && f.text !== "null");
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(f => f.text.toLowerCase().includes(query));
+    }
+    return result;
+  }, [feedbackItems, searchQuery]);
 
   const handleReveal = async (probe: Probe) => {
     if (probe.isRevealed) return;
@@ -78,40 +108,83 @@ export function ProbeNotifications({
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
+  const formatTime = (totalSeconds: number) => {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  };
+
   return (
     <div className="flex-1 min-w-0 flex flex-col bg-[#0a0a0a] h-full">
-      <div className="px-3 py-2 border-b border-neutral-800 shrink-0 md:hidden">
-        <h2 className="text-xs font-medium text-neutral-400 uppercase tracking-wider">
-          Questions
-        </h2>
+      <div className="px-3 py-2 border-b border-neutral-800 shrink-0 space-y-2">
+        <div>
+          <h2 className="text-xs font-medium text-white uppercase tracking-wider mb-1">
+            Student Monitoring
+          </h2>
+          <p className="text-[10px] text-neutral-500">
+            Questions and feedback from an AI that monitors your thinking and actions in the ILE
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={hidePastProbes}
+              onChange={(e) => setHidePastProbes(e.target.checked)}
+              className="w-3 h-3 rounded border-neutral-600 bg-neutral-800 text-cyan-500 focus:ring-0 focus:ring-offset-0"
+            />
+            <span className="text-[10px] text-neutral-400">Hide past</span>
+          </label>
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              placeholder="Filter..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-6 px-2 pr-6 text-[10px] bg-neutral-800 border border-neutral-700 rounded text-neutral-300 placeholder-neutral-500 focus:outline-none focus:border-neutral-600"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-1 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-400"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
       </div>
+
+      {isRecording && (
+        <div className="px-3 py-2 border-b border-neutral-800 flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            {isAnalyzing && (
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+            )}
+            <span className="text-[11px] text-blue-400">{isAnalyzing ? "Observing" : "Monitoring"}</span>
+          </div>
+          <div className="text-xs font-mono text-neutral-300 tabular-nums">
+            {formatTime(elapsedSeconds)}
+          </div>
+          <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-cyan-500 transition-all duration-1000 ease-linear rounded-full"
+              style={{ width: `${(cycleProgress / 60) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
       
       <div ref={containerRef} className="flex-1 overflow-y-auto p-3 space-y-2">
-        {!bannerDismissed && (
-          <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 flex items-start gap-2">
-            <svg className="w-5 h-5 text-green-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div className="flex-1">
-              <p className="text-sm text-green-300">Start the session, reveal the question and think out loud</p>
-            </div>
-            <button
-              onClick={() => setBannerDismissed(true)}
-              className="text-green-500 hover:text-green-400 shrink-0"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        )}
-        {probes.length === 0 ? (
+        {filteredProbes.length === 0 && filteredFeedback.length === 0 ? (
           <p className="text-xs text-neutral-600 text-center py-4">
-            No questions yet
+            {searchQuery ? "No matching questions or feedback" : "No questions yet"}
           </p>
         ) : (
-          probes.map((probe, index) => {
-            const isLatestUnrevealed = index === latestUnrevealedIndex;
+          filteredProbes.map((probe) => {
+            const isLatestUnrevealed = probe.id === probes[latestUnrevealedIndex]?.id;
             const shouldBlur = isLatestUnrevealed && !probe.isRevealed;
 
             return (
@@ -150,41 +223,33 @@ export function ProbeNotifications({
             );
           })
         )}
+        {filteredFeedback.length > 0 && (
+          <>
+            <div className="text-[10px] font-medium text-purple-400 uppercase tracking-wider pt-2">
+              AI Feedback
+            </div>
+            {filteredFeedback.map((feedback) => (
+              <div
+                key={feedback.id}
+                className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/30"
+              >
+                <div className="flex items-start gap-2 mb-1.5">
+                  <span className="text-[10px] font-mono text-purple-500/70">
+                    {formatTimestamp(feedback.timestamp)}
+                  </span>
+                </div>
+                <p className="text-sm text-purple-200 leading-snug">
+                  {feedback.text}
+                </p>
+              </div>
+            ))}
+          </>
+        )}
       </div>
       
       {showControls && (
         <div className="shrink-0 border-t border-neutral-800 flex flex-col">
-          {/* Objectives */}
-          {objectives.length > 0 && (
-            <div className="p-3 border-b border-neutral-800">
-              <div className="text-[10px] uppercase tracking-wider font-medium text-neutral-500 mb-2">
-                Goals
-              </div>
-              <div className="flex flex-col gap-2">
-                {objectives.map((objective, index) => {
-                  const status = objectiveStatuses[index] || "blue";
-                  const colors = objectiveStatusColors[status];
-                  
-                  return (
-                    <div
-                      key={index}
-                      className={`p-2.5 rounded-lg border ${colors.bg} ${colors.border}`}
-                    >
-                      <div className="flex items-start gap-2">
-                        <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${colors.dot}`} />
-                        <span className="text-xs text-neutral-300">
-                          {objective}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          
-          {/* Session Controls */}
-          <div className="p-3 space-y-2">
+          <div className="p-3">
             {!isRecording && !isPaused ? (
               <button onClick={onStartRecording} className="w-full py-3 border border-neutral-600 hover:border-neutral-400 text-white font-medium rounded-xl flex items-center justify-center gap-2">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -210,48 +275,32 @@ export function ProbeNotifications({
                 </button>
               </div>
             ) : (
-              <div className="flex flex-col gap-2">
-                <div className="flex gap-2">
-                  <button onClick={onGetFeedback} disabled={feedbackLoading} className="flex-1 py-3 border border-cyan-500/50 hover:bg-cyan-500/10 text-cyan-400 font-medium rounded-xl flex items-center justify-center gap-2">
-                    {feedbackLoading ? (
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                    )}
-                    {feedbackLoading ? "Loading..." : "Next Question"}
-                  </button>
-                  <button onClick={onImStuck} disabled={stuckLoading} className="flex-1 py-3 border border-neutral-600 hover:border-neutral-400 text-neutral-400 font-medium rounded-xl flex items-center justify-center gap-2">
-                    {stuckLoading ? (
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                      </svg>
-                    )}
-                    {stuckLoading ? "Loading..." : "Need Help"}
-                  </button>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={onPause} className="flex-1 py-3 border border-neutral-600 hover:border-neutral-400 text-neutral-400 font-medium rounded-xl flex items-center justify-center gap-2">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <div className="flex gap-2">
+                <button onClick={onImStuck} disabled={stuckLoading} className="flex-1 py-2.5 border border-cyan-500/50 hover:bg-cyan-500/10 text-cyan-400 font-medium rounded-xl flex items-center justify-center gap-1.5 text-xs">
+                  {stuckLoading ? (
+                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                    Pause
-                  </button>
-                  <button onClick={onStopRecording} className="flex-1 py-3 border border-neutral-600 hover:border-neutral-400 text-neutral-400 font-medium rounded-xl flex items-center justify-center gap-2">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                  ) : (
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                     </svg>
-                    End
-                  </button>
-                </div>
+                  )}
+                  {stuckLoading ? "Loading..." : "Need Help"}
+                </button>
+                <button onClick={onPause} className="flex-1 py-2.5 border border-neutral-600 hover:border-neutral-400 text-neutral-400 font-medium rounded-xl flex items-center justify-center gap-1.5 text-xs">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Pause
+                </button>
+                <button onClick={onStopRecording} className="flex-1 py-2.5 border border-neutral-600 hover:border-neutral-400 text-neutral-400 font-medium rounded-xl flex items-center justify-center gap-1.5 text-xs">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                  </svg>
+                  End
+                </button>
               </div>
             )}
           </div>
