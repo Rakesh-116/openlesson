@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import { FAQ, COACHING_FAQ_ITEMS } from "@/components/FAQ";
 
 export const metadata = {
   title: "Coaching - openLesson",
@@ -70,6 +71,42 @@ const APPROACH = [
   },
 ];
 
+const WHAT_YOULL_GET = [
+  {
+    icon: "🎯",
+    title: "A Systematic Approach",
+    description: "A repeatable process for attacking unfamiliar problems that you can use forever.",
+  },
+  {
+    icon: "🔍",
+    title: "Your Blind Spots Identified",
+    description: "Clarity on exactly where your reasoning tends to break down and why.",
+  },
+  {
+    icon: "💡",
+    title: "New Mental Models",
+    description: "Frameworks for building intuition and recognizing when you're stuck vs. on track.",
+  },
+  {
+    icon: "📋",
+    title: "Personalized Strategies",
+    description: "Specific techniques tailored to your goals — competition math, research, certifications.",
+  },
+];
+
+const PLACEHOLDER_COACHING_TESTIMONIALS = [
+  {
+    quote: "Daniel helped me see that I wasn't actually understanding proofs — I was just pattern matching. One session completely changed how I approach mathematics.",
+    name: "Michael",
+    context: "Graduate student, Mathematics",
+  },
+  {
+    quote: "I went from dreading physics problems to actually enjoying them. The systematic approach he taught me works for everything.",
+    name: "Sarah",
+    context: "Competition math preparation",
+  },
+];
+
 export default function CoachingPage() {
   return (
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
@@ -83,11 +120,11 @@ export default function CoachingPage() {
             1-on-1 Coaching
           </div>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-5 tracking-tight">
-            Learn to think through anything
+            Unlock Your Problem-Solving Mind
           </h1>
           <p className="text-slate-400 text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed">
-            Personalized coaching on how to approach and solve any problem
-            — even the hardest levels of mathematics and quantum physics.
+            1-on-1 coaching from the creator of Uncertain Systems. Learn the systematic approach 
+            to tackling any hard problem — math, physics, CS, or anything else.
           </p>
         </div>
 
@@ -125,17 +162,18 @@ export default function CoachingPage() {
               ))}
             </ul>
 
+            {/* Cal.com booking - placeholder link */}
             <a
-              href="https://x.com/uncertainsys"
+              href="https://cal.com/uncertainsys/coaching"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full py-3.5 text-center text-sm font-medium text-black bg-amber-500 hover:bg-amber-400 rounded-xl transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3.5 text-center text-sm font-medium text-black bg-amber-500 hover:bg-amber-400 rounded-xl transition-colors flex items-center justify-center gap-2 mb-3"
             >
-              <XIcon />
-              Get in touch on X
+              <CalendarIcon />
+              Book Your Session
             </a>
-            <p className="text-[11px] text-slate-600 text-center mt-3">
-              DM @uncertainsys to book your session
+            <p className="text-[11px] text-slate-600 text-center">
+              Or DM <a href="https://x.com/uncertainsys" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white">@uncertainsys</a> on X
             </p>
           </div>
 
@@ -154,6 +192,64 @@ export default function CoachingPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+
+        {/* What You'll Get Section */}
+        <div className="mb-16">
+          <h2 className="text-xl sm:text-2xl font-semibold text-white text-center mb-3">
+            What You'll Walk Away With
+          </h2>
+          <p className="text-slate-500 text-center text-sm mb-8 max-w-lg mx-auto">
+            After our session, you'll have the tools to tackle any unfamiliar problem.
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {WHAT_YOULL_GET.map((item, index) => (
+              <div
+                key={index}
+                className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 text-center"
+              >
+                <span className="text-3xl mb-3 block">{item.icon}</span>
+                <h3 className="text-sm font-medium text-white mb-2">{item.title}</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">{item.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Testimonials */}
+        <div className="mb-16">
+          <h2 className="text-xl sm:text-2xl font-semibold text-white text-center mb-8">
+            What Clients Say
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto">
+            {PLACEHOLDER_COACHING_TESTIMONIALS.map((testimonial, index) => (
+              <div
+                key={index}
+                className="rounded-xl border border-slate-800 bg-slate-900/50 p-5"
+              >
+                <svg 
+                  className="w-6 h-6 text-slate-700 mb-3" 
+                  fill="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
+                </svg>
+                <p className="text-sm text-slate-300 leading-relaxed mb-4">
+                  "{testimonial.quote}"
+                </p>
+                <div className="flex items-center gap-3 pt-3 border-t border-slate-800">
+                  <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-sm text-slate-400 font-medium">
+                    {testimonial.name.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="text-sm text-white font-medium">{testimonial.name}</p>
+                    <p className="text-xs text-slate-500">{testimonial.context}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -223,6 +319,11 @@ export default function CoachingPage() {
           </div>
         </div>
 
+        {/* FAQ Section */}
+        <div className="mb-16">
+          <FAQ items={COACHING_FAQ_ITEMS} />
+        </div>
+
         {/* Testimonial / Quote */}
         <div className="max-w-2xl mx-auto text-center mb-16">
           <div className="rounded-2xl border border-slate-800 bg-slate-900/30 p-8">
@@ -240,16 +341,16 @@ export default function CoachingPage() {
         {/* CTA */}
         <div className="text-center">
           <a
-            href="https://x.com/uncertainsys"
+            href="https://cal.com/uncertainsys/coaching"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-6 py-3 bg-white hover:bg-slate-200 text-black text-sm font-medium rounded-xl transition-colors"
           >
-            <XIcon />
+            <CalendarIcon />
             Book your session
           </a>
           <p className="text-xs text-slate-600 mt-3">
-            Limited availability — DM @uncertainsys on X
+            Limited availability — Or DM <a href="https://x.com/uncertainsys" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white">@uncertainsys</a> on X
           </p>
         </div>
       </div>
@@ -269,10 +370,13 @@ function YoutubeIcon() {
   );
 }
 
-function XIcon() {
+function CalendarIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+      <line x1="16" x2="16" y1="2" y2="6" />
+      <line x1="8" x2="8" y1="2" y2="6" />
+      <line x1="3" x2="21" y1="10" y2="10" />
     </svg>
   );
 }

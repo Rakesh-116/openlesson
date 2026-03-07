@@ -5,6 +5,8 @@ import { ProblemInput } from "@/components/ProblemInput";
 import { PlanModeSelect } from "@/components/PlanModeSelect";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
+import { RoadmapBadge } from "@/components/FeatureStatus";
+import { LeadCapture } from "@/components/LeadCapture";
 
 type Mode = "session" | "plan";
 
@@ -25,10 +27,11 @@ export default function SchoolsPage() {
 
       <div className="flex-1 flex flex-col lg:flex-row">
         {/* Left Column - Scrollable with lighter background (shows below on mobile) */}
-        <div className="order-2 lg:order-1 lg:w-1/2 bg-slate-900/40 lg:border-r border-t lg:border-t-0 border-slate-800 overflow-y-auto">
-          <div className="w-full max-w-xl mx-auto lg:ml-auto lg:mr-0 p-6 lg:p-8 flex flex-col gap-8">
+        <div className="order-2 lg:order-1 lg:w-1/2 bg-slate-900/40 lg:border-r border-t lg:border-t-0 border-slate-800 lg:h-[calc(100vh-73px)] lg:overflow-y-auto px-4 sm:px-6 py-6 lg:py-8">
+          <div className="w-full max-w-xl mx-auto flex flex-col gap-8">
             {/* Mockup */}
-            <div className="rounded-2xl border border-slate-700 bg-slate-800/30 overflow-hidden flex flex-col">
+            <div className="rounded-2xl border border-slate-700 bg-slate-800/30 overflow-hidden flex flex-col relative">
+              <RoadmapBadge label="Classroom Preview" eta="Q2 2026" />
               <div className="bg-slate-700/50 px-5 py-2.5 border-b border-slate-700 flex items-center justify-between">
                 <span className="text-sm font-medium text-slate-300">Classroom — Period 3 Algebra</span>
                 <div className="flex items-center gap-1.5">
@@ -93,26 +96,52 @@ export default function SchoolsPage() {
               </div>
             </div>
 
-            {/* Value Proposition */}
+            {/* Value Proposition - Updated to bullet format */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-white">Why openLesson for Schools?</h3>
-              <p className="text-sm text-slate-400 leading-relaxed">
-                Teachers can't give every student one-on-one attention, but openLesson can. Assign topics as homework and let our AI 
-                tutor each student through Socratic dialogue — asking questions that reveal misunderstandings in real-time. 
-                You get a classroom dashboard showing exactly which students are struggling and with what concepts, so you can 
-                differentiate instruction where it matters most.
-              </p>
-              <div className="flex flex-wrap gap-2 pt-2">
-                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">LMS integration</span>
-                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Gap identification</span>
-                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Class-wide insights</span>
-              </div>
+              <h3 className="text-lg font-semibold text-white">The Classroom Challenge</h3>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-red-400 mt-0.5">✗</span>
+                  <span>Can't give 30 students individual attention</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-red-400 mt-0.5">✗</span>
+                  <span>Homework shows if they got it right, not if they understand</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-red-400 mt-0.5">✗</span>
+                  <span>Struggling students don't always ask for help</span>
+                </li>
+              </ul>
+              
+              <h3 className="text-lg font-semibold text-white pt-4">How openLesson Helps</h3>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-emerald-400 mt-0.5">✓</span>
+                  <span>Every student gets patient, 1-on-1 Socratic tutoring</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-emerald-400 mt-0.5">✓</span>
+                  <span>AI identifies conceptual gaps, not just wrong answers</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-emerald-400 mt-0.5">✓</span>
+                  <span>You see class-wide patterns to adjust instruction</span>
+                </li>
+              </ul>
             </div>
+
+            {/* Lead Capture Form */}
+            <LeadCapture 
+              audience="schools"
+              title="Request a School Pilot"
+              subtitle="We're partnering with early-adopter educators to build classroom tools."
+            />
           </div>
         </div>
 
-        {/* Right Column - Fixed, no scroll (shows on top on mobile) */}
-        <div className="order-1 lg:order-2 w-full lg:w-1/2 flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4 overflow-hidden">
+        {/* Right Column - Sticky at top (shows on top on mobile) */}
+        <div className="order-1 lg:order-2 w-full lg:w-1/2 lg:sticky lg:top-[73px] lg:h-[calc(100vh-73px)] flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4">
           <div className="w-full max-w-xl flex flex-col">
             {/* Label */}
             <div className="flex justify-center mb-3">
@@ -149,10 +178,10 @@ export default function SchoolsPage() {
               <div className="flex flex-col flex-1">
                 <div className="text-center mb-5">
                   <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">
-                    AI that detects student misunderstandings
+                    See What Every Student Misunderstands — Before the Test
                   </h2>
                   <p className="text-slate-500 max-w-md mx-auto text-sm leading-relaxed">
-                    Assign homework that reveals where students get stuck. Personalized 1-on-1 AI tutoring.
+                    Assign topics as homework. AI tutors each student 1-on-1. You get reports showing exactly who needs help with what.
                   </p>
                 </div>
 

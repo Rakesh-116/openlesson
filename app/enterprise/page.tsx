@@ -5,6 +5,8 @@ import { ProblemInput } from "@/components/ProblemInput";
 import { PlanModeSelect } from "@/components/PlanModeSelect";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
+import { RoadmapBadge } from "@/components/FeatureStatus";
+import { LeadCapture } from "@/components/LeadCapture";
 
 type Mode = "session" | "plan";
 
@@ -25,10 +27,11 @@ export default function EnterprisePage() {
 
       <div className="flex-1 flex flex-col lg:flex-row">
         {/* Left Column - Scrollable with lighter background (shows below on mobile) */}
-        <div className="order-2 lg:order-1 lg:w-1/2 bg-slate-900/40 lg:border-r border-t lg:border-t-0 border-slate-800 overflow-y-auto">
-          <div className="w-full max-w-xl mx-auto lg:ml-auto lg:mr-0 p-6 lg:p-8 flex flex-col gap-8">
+        <div className="order-2 lg:order-1 lg:w-1/2 bg-slate-900/40 lg:border-r border-t lg:border-t-0 border-slate-800 lg:h-[calc(100vh-73px)] lg:overflow-y-auto px-4 sm:px-6 py-6 lg:py-8">
+          <div className="w-full max-w-xl mx-auto flex flex-col gap-8">
             {/* Mockup */}
-            <div className="rounded-2xl border border-slate-700 bg-slate-800/30 overflow-hidden flex flex-col">
+            <div className="rounded-2xl border border-slate-700 bg-slate-800/30 overflow-hidden flex flex-col relative">
+              <RoadmapBadge label="Dashboard Preview" eta="Q2 2026" />
               <div className="bg-slate-700/50 px-5 py-2.5 border-b border-slate-700 flex items-center justify-between">
                 <span className="text-sm font-medium text-slate-300">Team Training Dashboard</span>
                 <span className="text-xs text-slate-500">Enterprise View</span>
@@ -79,26 +82,52 @@ export default function EnterprisePage() {
               </div>
             </div>
 
-            {/* Value Proposition */}
+            {/* Value Proposition - Updated to bullet format */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-white">Why openLesson for Sales Teams?</h3>
-              <p className="text-sm text-slate-400 leading-relaxed">
-                Traditional sales training fails because reps memorize scripts without understanding the reasoning behind them. 
-                When prospects go off-script, they freeze. openLesson uses Socratic dialogue to build genuine product mastery — 
-                your team learns to think through objections, not just recite answers. Our AI detects knowledge gaps in real-time, 
-                ensuring every rep truly understands your value proposition before they're customer-facing.
-              </p>
-              <div className="flex flex-wrap gap-2 pt-2">
-                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Reasoning-based learning</span>
-                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Real-time gap detection</span>
-                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Scales to any team size</span>
-              </div>
+              <h3 className="text-lg font-semibold text-white">The Problem With Sales Training</h3>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-red-400 mt-0.5">✗</span>
+                  <span>Reps memorize scripts but freeze when prospects go off-script</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-red-400 mt-0.5">✗</span>
+                  <span>Knowledge tests show memorization, not understanding</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-red-400 mt-0.5">✗</span>
+                  <span>Managers can't scale 1-on-1 coaching to every rep</span>
+                </li>
+              </ul>
+              
+              <h3 className="text-lg font-semibold text-white pt-4">How openLesson Helps</h3>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-emerald-400 mt-0.5">✓</span>
+                  <span>Reps explain products verbally — AI detects knowledge gaps</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-emerald-400 mt-0.5">✓</span>
+                  <span>Socratic questions build genuine understanding, not recitation</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-emerald-400 mt-0.5">✓</span>
+                  <span>Managers see exactly where each rep needs coaching</span>
+                </li>
+              </ul>
             </div>
+
+            {/* Lead Capture Form */}
+            <LeadCapture 
+              audience="enterprise"
+              title="Get Early Access to Team Features"
+              subtitle="Join the waitlist for team dashboards, SSO, and enterprise features."
+            />
           </div>
         </div>
 
-        {/* Right Column - Fixed, no scroll (shows on top on mobile) */}
-        <div className="order-1 lg:order-2 w-full lg:w-1/2 flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4 overflow-hidden">
+        {/* Right Column - Sticky at top (shows on top on mobile) */}
+        <div className="order-1 lg:order-2 w-full lg:w-1/2 lg:sticky lg:top-[73px] lg:h-[calc(100vh-73px)] flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4">
           <div className="w-full max-w-xl flex flex-col">
             {/* Label */}
             <div className="flex justify-center mb-3">
@@ -135,10 +164,10 @@ export default function EnterprisePage() {
               <div className="flex flex-col flex-1">
                 <div className="text-center mb-5">
                   <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">
-                    Train your team with AI that identifies reasoning gaps
+                    Turn Product Knowledge Into Sales Confidence
                   </h2>
                   <p className="text-slate-500 max-w-md mx-auto text-sm leading-relaxed">
-                    Consistent, personalized training at scale. Track progress across departments.
+                    Your reps explain concepts out loud. Our AI finds gaps in their understanding — before customers do.
                   </p>
                 </div>
 

@@ -5,6 +5,8 @@ import { ProblemInput } from "@/components/ProblemInput";
 import { PlanModeSelect } from "@/components/PlanModeSelect";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
+import { RoadmapBadge } from "@/components/FeatureStatus";
+import { LeadCapture } from "@/components/LeadCapture";
 
 type Mode = "session" | "plan";
 
@@ -25,10 +27,11 @@ export default function EvalPage() {
 
       <div className="flex-1 flex flex-col lg:flex-row">
         {/* Left Column - Scrollable with lighter background (shows below on mobile) */}
-        <div className="order-2 lg:order-1 lg:w-1/2 bg-slate-900/40 lg:border-r border-t lg:border-t-0 border-slate-800 overflow-y-auto">
-          <div className="w-full max-w-xl mx-auto lg:ml-auto lg:mr-0 p-6 lg:p-8 flex flex-col gap-8">
+        <div className="order-2 lg:order-1 lg:w-1/2 bg-slate-900/40 lg:border-r border-t lg:border-t-0 border-slate-800 lg:h-[calc(100vh-73px)] lg:overflow-y-auto px-4 sm:px-6 py-6 lg:py-8">
+          <div className="w-full max-w-xl mx-auto flex flex-col gap-8">
             {/* Mockup */}
-            <div className="rounded-2xl border border-slate-700 bg-slate-800/30 overflow-hidden flex flex-col">
+            <div className="rounded-2xl border border-slate-700 bg-slate-800/30 overflow-hidden flex flex-col relative">
+              <RoadmapBadge label="Report Preview" eta="Q2 2026" />
               <div className="bg-slate-700/50 px-5 py-2.5 border-b border-slate-700 flex items-center justify-between">
                 <span className="text-sm font-medium text-slate-300">Assessment Results</span>
                 <span className="text-xs text-slate-500">Sample Report</span>
@@ -71,26 +74,75 @@ export default function EvalPage() {
               </div>
             </div>
 
-            {/* Value Proposition */}
+            {/* Value Proposition - Updated to bullet format */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-white">Why openLesson for HR & Recruiting?</h3>
-              <p className="text-sm text-slate-400 leading-relaxed">
-                Traditional technical interviews and multiple-choice tests reveal what candidates have memorized, not what they truly understand. 
-                openLesson's conversational assessments probe deeper — candidates explain their reasoning out loud while our AI identifies 
-                genuine competency gaps. You get actionable reports that show exactly where each candidate excels or struggles, 
-                making hiring decisions based on real understanding, not rehearsed answers.
-              </p>
-              <div className="flex flex-wrap gap-2 pt-2">
-                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Competency mapping</span>
-                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Detailed reports</span>
-                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Scalable screening</span>
+              <h3 className="text-lg font-semibold text-white">The Problem With Technical Interviews</h3>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-red-400 mt-0.5">✗</span>
+                  <span>Candidates memorize LeetCode solutions without understanding</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-red-400 mt-0.5">✗</span>
+                  <span>Take-home tests get outsourced or AI-assisted</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-red-400 mt-0.5">✗</span>
+                  <span>Live coding creates anxiety that masks true ability</span>
+                </li>
+              </ul>
+              
+              <h3 className="text-lg font-semibold text-white pt-4">How openLesson Helps</h3>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-emerald-400 mt-0.5">✓</span>
+                  <span>Candidates explain their reasoning verbally</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-emerald-400 mt-0.5">✓</span>
+                  <span>AI probes with follow-up questions, like a patient interviewer</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-emerald-400 mt-0.5">✓</span>
+                  <span>Reports show exactly where understanding breaks down</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Trust Elements */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 text-center">
+                <span className="text-2xl mb-2 block">⚖️</span>
+                <p className="text-xs text-slate-400">Fair & Consistent</p>
+              </div>
+              <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 text-center">
+                <span className="text-2xl mb-2 block">📊</span>
+                <p className="text-xs text-slate-400">Detailed Reports</p>
+              </div>
+              <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 text-center">
+                <span className="text-2xl mb-2 block">📈</span>
+                <p className="text-xs text-slate-400">Scalable Screening</p>
               </div>
             </div>
+
+            {/* Disclaimer */}
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+              <p className="text-xs text-amber-400/80">
+                <strong>Note:</strong> openLesson is a supplementary assessment tool, not a replacement for human judgment in hiring decisions.
+              </p>
+            </div>
+
+            {/* Lead Capture Form */}
+            <LeadCapture 
+              audience="hr"
+              title="Request a Demo for Your Team"
+              subtitle="See how conversational assessments can improve your hiring process."
+            />
           </div>
         </div>
 
-        {/* Right Column - Fixed, no scroll (shows on top on mobile) */}
-        <div className="order-1 lg:order-2 w-full lg:w-1/2 flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4 overflow-hidden">
+        {/* Right Column - Sticky at top (shows on top on mobile) */}
+        <div className="order-1 lg:order-2 w-full lg:w-1/2 lg:sticky lg:top-[73px] lg:h-[calc(100vh-73px)] flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4">
           <div className="w-full max-w-xl flex flex-col">
             {/* Solution Label */}
             <div className="flex justify-center mb-4">
@@ -127,10 +179,10 @@ export default function EvalPage() {
               <div className="flex flex-col flex-1">
                 <div className="text-center mb-5">
                   <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">
-                    Test candidate skills through conversation
+                    Assess What Candidates Actually Understand
                   </h2>
                   <p className="text-slate-500 max-w-md mx-auto text-sm leading-relaxed">
-                    AI-powered assessments that identify gaps. Get competency reports — no multiple choice.
+                    Conversational assessments that probe reasoning — not memorized answers. Get competency reports, not pass/fail scores.
                   </p>
                 </div>
 

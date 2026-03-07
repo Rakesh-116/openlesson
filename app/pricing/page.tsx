@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { PLANS, type PlanId } from "@/lib/plans";
 import { Footer } from "@/components/Footer";
+import { FAQ, PRICING_FAQ_ITEMS } from "@/components/FAQ";
 import { createClient } from "@/lib/supabase/client";
 
 interface UserState {
@@ -15,6 +16,30 @@ interface UserState {
   tokenTier: string | null;
   tokenValidityExpiresAt: string | null;
 }
+
+// Improved feature descriptions for display (more user-friendly)
+const DISPLAY_FEATURES: Record<PlanId, string[]> = {
+  free: [
+    "1 learning session to try it out",
+    "AI listens as you think out loud",
+    "Get a report showing your understanding",
+  ],
+  regular: [
+    "5 learning sessions per month",
+    "Need more? Add sessions for $1.99 each",
+    "Upload recordings for analysis",
+    "Customize your tutor's style",
+    "Full history and progress tracking",
+  ],
+  pro: [
+    "Unlimited learning sessions",
+    "Upload recordings for analysis",
+    "Customize your tutor's style",
+    "Full history and progress tracking",
+    "Priority support",
+    "Developer API access",
+  ],
+};
 
 export default function PricingPage() {
   const [user, setUser] = useState<UserState | null>(null);
@@ -190,7 +215,7 @@ export default function PricingPage() {
               <span className="text-sm text-slate-600">forever</span>
             </div>
             <ul className="space-y-2.5 mb-6 flex-1">
-              {PLANS.free.features.map((f) => (
+              {DISPLAY_FEATURES.free.map((f) => (
                 <li key={f} className="flex items-start gap-2 text-sm text-slate-400">
                   <CheckIcon />
                   <span>{f}</span>
@@ -231,7 +256,7 @@ export default function PricingPage() {
               <span className="text-sm text-slate-600">/month</span>
             </div>
             <ul className="space-y-2.5 mb-6 flex-1">
-              {PLANS.regular.features.map((f) => (
+              {DISPLAY_FEATURES.regular.map((f) => (
                 <li key={f} className="flex items-start gap-2 text-sm text-slate-400">
                   <CheckIcon />
                   <span>{f}</span>
@@ -270,7 +295,7 @@ export default function PricingPage() {
               <span className="text-sm text-slate-600">/month</span>
             </div>
             <ul className="space-y-2.5 mb-6 flex-1">
-              {PLANS.pro.features.map((f) => (
+              {DISPLAY_FEATURES.pro.map((f) => (
                 <li key={f} className="flex items-start gap-2 text-sm text-slate-400">
                   <CheckIcon />
                   <span>{f}</span>
@@ -291,6 +316,19 @@ export default function PricingPage() {
               </button>
             )}
           </div>
+          </div>
+
+          {/* All plans include */}
+          <div className="text-center text-xs text-slate-600 mb-12">
+            <p>
+              All plans include real-time audio analysis and AI-generated session reports.
+              Cancel anytime from your Stripe dashboard.
+            </p>
+          </div>
+
+          {/* FAQ Section */}
+          <div className="mb-16">
+            <FAQ items={PRICING_FAQ_ITEMS} />
           </div>
           </>
         ) : (
@@ -351,7 +389,7 @@ export default function PricingPage() {
                   <ol className="space-y-2 text-sm text-slate-400">
                     <li className="flex gap-2">
                       <span className="text-slate-600">1.</span>
-                      Enter your Solana wallet address above
+                      Enter your Solana wallet address below
                     </li>
                     <li className="flex gap-2">
                       <span className="text-slate-600">2.</span>
@@ -421,30 +459,50 @@ export default function PricingPage() {
           </>
         )}
 
-        {/* FAQ / Extra info */}
-        {viewMode === "regular" && (
-          <div className="text-center text-xs text-slate-700 mb-12">
-            <p>
-              All plans include real-time audio analysis and AI-generated session reports.
-              Cancel anytime from your Stripe dashboard.
-            </p>
-          </div>
-        )}
-
         {/* Enterprise Section */}
         <div className="max-w-3xl mx-auto mb-12">
-          <div className="rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900/50 to-slate-900/30 p-8 text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-500/10 border border-slate-500/20 text-slate-400 text-xs mb-4">
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-              Enterprise
+          <div className="rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900/50 to-slate-900/30 p-8">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-500/10 border border-slate-500/20 text-slate-400 text-xs mb-4">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                Enterprise & Education
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
+                Need a custom solution?
+              </h2>
+              <p className="text-slate-400 text-sm max-w-lg mx-auto mb-6">
+                For teams, schools, and organizations. We're building dedicated features for enterprise use cases.
+              </p>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
-              Need a custom solution?
-            </h2>
-            <p className="text-slate-400 text-sm max-w-lg mx-auto mb-6">
-              For teams, schools, and organizations. Custom integrations, SSO, dedicated support,
-              and volume pricing available.
-            </p>
+            
+            {/* Enterprise Features */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+              <div className="flex items-start gap-2">
+                <CheckIcon />
+                <span className="text-sm text-slate-400">Dedicated onboarding & support</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckIcon />
+                <span className="text-sm text-slate-400">Custom topic libraries</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckIcon />
+                <span className="text-sm text-slate-400">Usage analytics & reporting</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckIcon />
+                <span className="text-sm text-slate-400">Volume pricing</span>
+              </div>
+              <div className="flex items-start gap-2 opacity-60">
+                <ClockIcon />
+                <span className="text-sm text-slate-500">SSO integration (coming soon)</span>
+              </div>
+              <div className="flex items-start gap-2 opacity-60">
+                <ClockIcon />
+                <span className="text-sm text-slate-500">LMS integration (coming soon)</span>
+              </div>
+            </div>
+            
             <div className="flex flex-wrap items-center justify-center gap-3">
               <a
                 href="https://x.com/uncertainsys"
@@ -480,6 +538,14 @@ function CheckIcon() {
   return (
     <svg className="w-4 h-4 text-slate-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg className="w-4 h-4 text-slate-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   );
 }

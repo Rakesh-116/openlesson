@@ -18,8 +18,8 @@ export default function Home() {
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
       <Navbar />
 
-      {/* Hero */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-6">
+      {/* Hero Section */}
+      <div className="flex flex-col items-center px-4 sm:px-6 py-8 sm:py-12">
         {/* Mode Toggle */}
         <div className="flex justify-center mb-8">
           <div className="bg-slate-900/80 rounded-xl p-1 flex gap-1 border border-slate-800">
@@ -31,7 +31,7 @@ export default function Home() {
                   : "text-slate-500 hover:text-white"
               }`}
             >
-              Session
+              Learn
             </button>
             <button
               onClick={() => setMode("plan")}
@@ -58,23 +58,25 @@ export default function Home() {
 
         {mode === "session" && (
           <>
+            {/* Hero Text */}
             <div className="text-center mb-8">
-              <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
-                What do you want to Learn today?
-              </h2>
-              <p className="text-slate-500 max-w-lg mx-auto text-sm leading-relaxed">
-                Pick a topic, start talking through it. Your tutor listens for reasoning gaps
-                and asks you the right questions — never gives answers.
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 tracking-tight">
+                The AI Tutor That Listens to You Think
+              </h1>
+              <p className="text-slate-400 max-w-xl mx-auto text-base sm:text-lg leading-relaxed">
+                Speak your reasoning out loud. Our AI detects gaps in your understanding 
+                and asks the right questions — never gives answers away.
               </p>
             </div>
 
+            {/* Problem Input */}
             <ProblemInput initialTopic={selectedTopic} theme="slate" />
 
-            <div className="w-full my-8">
-              <div className="h-px bg-slate-800" />
+            {/* Topic Browser */}
+            <div className="w-full mt-8">
+              <div className="h-px bg-slate-800 mb-8" />
+              <TopicBrowser onSelectTopic={setSelectedTopic} fullWidth />
             </div>
-
-            <TopicBrowser onSelectTopic={setSelectedTopic} fullWidth />
           </>
         )}
 

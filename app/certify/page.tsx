@@ -5,6 +5,7 @@ import { ProblemInput } from "@/components/ProblemInput";
 import { PlanModeSelect } from "@/components/PlanModeSelect";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
+import { RoadmapBadge } from "@/components/FeatureStatus";
 
 type Mode = "session" | "plan";
 
@@ -13,6 +14,10 @@ const CERTIFY_TOPICS = [
   { topic: "CompTIA A+: troubleshoot a network connectivity issue", category: "Hardware", emoji: "🔧" },
   { topic: "PMP: estimate project duration using PERT", category: "Management", emoji: "📋" },
   { topic: "Google Cloud: design a scalable data pipeline", category: "Cloud", emoji: "📊" },
+];
+
+const CERTIFICATION_BADGES = [
+  "AWS", "GCP", "Azure", "PMP", "CompTIA", "CISSP", "CPA", "CCNA"
 ];
 
 export default function CertifyPage() {
@@ -25,10 +30,11 @@ export default function CertifyPage() {
 
       <div className="flex-1 flex flex-col lg:flex-row">
         {/* Left Column - Scrollable with lighter background (shows below on mobile) */}
-        <div className="order-2 lg:order-1 lg:w-1/2 bg-slate-900/40 lg:border-r border-t lg:border-t-0 border-slate-800 overflow-y-auto">
-          <div className="w-full max-w-xl mx-auto lg:ml-auto lg:mr-0 p-6 lg:p-8 flex flex-col gap-8">
+        <div className="order-2 lg:order-1 lg:w-1/2 bg-slate-900/40 lg:border-r border-t lg:border-t-0 border-slate-800 lg:h-[calc(100vh-73px)] lg:overflow-y-auto px-4 sm:px-6 py-6 lg:py-8">
+          <div className="w-full max-w-xl mx-auto flex flex-col gap-8">
             {/* Mockup */}
-            <div className="rounded-2xl border border-slate-700 bg-slate-800/30 overflow-hidden flex flex-col">
+            <div className="rounded-2xl border border-slate-700 bg-slate-800/30 overflow-hidden flex flex-col relative">
+              <RoadmapBadge label="Roadmap Preview" eta="Q2 2026" />
               <div className="bg-slate-700/50 px-5 py-2.5 border-b border-slate-700 flex items-center justify-between">
                 <span className="text-sm font-medium text-slate-300">Certification Roadmap</span>
                 <span className="text-xs text-slate-500">AWS Solutions Architect</span>
@@ -104,26 +110,63 @@ export default function CertifyPage() {
               </div>
             </div>
 
-            {/* Value Proposition */}
+            {/* Value Proposition - Updated to bullet format */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-white">Why openLesson for Certifications?</h3>
-              <p className="text-sm text-slate-400 leading-relaxed">
-                Most certification prep relies on memorizing dumps and practice tests — you pass the exam but forget everything a week later. 
-                openLesson builds genuine understanding through Socratic dialogue. When you explain concepts back, our AI identifies exactly 
-                where your reasoning breaks down. You'll walk into your exam confident because you actually understand the material, not 
-                because you've seen similar questions before.
-              </p>
-              <div className="flex flex-wrap gap-2 pt-2">
-                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Deep understanding</span>
-                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Gap identification</span>
-                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Progress tracking</span>
+              <h3 className="text-lg font-semibold text-white">The Problem With Cert Prep</h3>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-red-400 mt-0.5">✗</span>
+                  <span>Brain dumps teach pattern matching, not understanding</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-red-400 mt-0.5">✗</span>
+                  <span>You pass the exam but can't apply knowledge on the job</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-red-400 mt-0.5">✗</span>
+                  <span>Concepts fade within weeks of passing</span>
+                </li>
+              </ul>
+              
+              <h3 className="text-lg font-semibold text-white pt-4">How openLesson Helps</h3>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-emerald-400 mt-0.5">✓</span>
+                  <span>Explain concepts back — see exactly what you don't understand</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-emerald-400 mt-0.5">✓</span>
+                  <span>Socratic questions build lasting comprehension</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-slate-400">
+                  <span className="text-emerald-400 mt-0.5">✓</span>
+                  <span>Walk into your exam confident because you actually know it</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Certification Badges */}
+            <div>
+              <p className="text-sm text-slate-400 mb-3">Works for any certification</p>
+              <div className="flex flex-wrap gap-2">
+                {CERTIFICATION_BADGES.map((badge) => (
+                  <span 
+                    key={badge} 
+                    className="text-xs px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-300"
+                  >
+                    {badge}
+                  </span>
+                ))}
+                <span className="text-xs px-2.5 py-1 rounded-lg bg-slate-800/50 border border-slate-700/50 text-slate-500">
+                  + more
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right Column - Fixed, no scroll (shows on top on mobile) */}
-        <div className="order-1 lg:order-2 w-full lg:w-1/2 flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4 overflow-hidden">
+        {/* Right Column - Sticky at top (shows on top on mobile) */}
+        <div className="order-1 lg:order-2 w-full lg:w-1/2 lg:sticky lg:top-[73px] lg:h-[calc(100vh-73px)] flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4">
           <div className="w-full max-w-xl flex flex-col">
             {/* Solution Label */}
             <div className="flex justify-center mb-4">
@@ -160,10 +203,10 @@ export default function CertifyPage() {
               <div className="flex flex-col flex-1">
                 <div className="text-center mb-5">
                   <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">
-                    Prepare for certifications by truly understanding
+                    Pass Your Certification by Actually Understanding It
                   </h2>
                   <p className="text-slate-500 max-w-md mx-auto text-sm leading-relaxed">
-                    Don't memorize — reason through problems. Track progress with AI that identifies gaps.
+                    Memorizing dumps gets you a pass. Understanding gets you a career. Our AI helps you build genuine mastery.
                   </p>
                 </div>
 
