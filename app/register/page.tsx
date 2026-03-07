@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/Navbar";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -172,5 +172,29 @@ export default function RegisterPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
+        <Navbar showNav={false} />
+        <div className="flex-1 flex items-center justify-center px-6">
+          <div className="w-full max-w-sm">
+            <h2 className="text-xl font-semibold text-white mb-1">Create an account</h2>
+            <p className="text-sm text-neutral-500 mb-8">Start your Socratic learning journey.</p>
+            <div className="animate-pulse space-y-3.5">
+              <div className="h-10 bg-neutral-800 rounded-xl" />
+              <div className="h-10 bg-neutral-800 rounded-xl" />
+              <div className="h-10 bg-neutral-800 rounded-xl" />
+              <div className="h-10 bg-neutral-800 rounded-xl" />
+            </div>
+          </div>
+        </div>
+      </main>
+    }>
+      <RegisterForm />
+    </Suspense>
   );
 }
