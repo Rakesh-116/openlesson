@@ -135,7 +135,11 @@ export default function EvalPage() {
                 </div>
 
                 <div className="w-full max-w-lg mx-auto">
-                  <ProblemInput initialTopic={selectedTopic} theme="slate" />
+                  <ProblemInput 
+                    initialTopic={selectedTopic} 
+                    theme="slate" 
+                    placeholder="Define an assessment topic (e.g., Python OOP, System Design, SQL joins)"
+                  />
                 </div>
 
                 <div className="mt-6 flex-1 flex flex-col">
@@ -165,7 +169,13 @@ export default function EvalPage() {
 
             {mode === "plan" && (
               <div className="w-full flex-1 flex flex-col">
-                <PlanModeSelect theme="slate" />
+                <PlanModeSelect 
+                  theme="slate"
+                  title="Build Your Assessment"
+                  subtitle="Create a structured assessment covering multiple competency areas."
+                  placeholder="What skills should this assessment evaluate? (e.g., Backend Engineering, Data Analysis)"
+                  exampleTopics={["Backend Engineering", "Data Analysis", "System Design", "Product Management", "DevOps", "Frontend"]}
+                />
               </div>
             )}
           </div>

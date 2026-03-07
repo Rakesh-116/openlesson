@@ -143,7 +143,11 @@ export default function EnterprisePage() {
                 </div>
 
                 <div className="w-full max-w-lg mx-auto">
-                  <ProblemInput initialTopic={selectedTopic} theme="slate" />
+                  <ProblemInput 
+                    initialTopic={selectedTopic} 
+                    theme="slate" 
+                    placeholder="Enter a training topic (e.g., Product demo, Objection handling, Compliance)"
+                  />
                 </div>
 
                 <div className="mt-6 flex-1 flex flex-col">
@@ -173,7 +177,13 @@ export default function EnterprisePage() {
 
             {mode === "plan" && (
               <div className="w-full flex-1 flex flex-col">
-                <PlanModeSelect theme="slate" />
+                <PlanModeSelect 
+                  theme="slate"
+                  title="Build Your Training Program"
+                  subtitle="Design a multi-week training curriculum for your team."
+                  placeholder="What should the training cover? (e.g., Product knowledge, Sales methodology)"
+                  exampleTopics={["Product Knowledge", "Sales Objections", "GDPR Compliance", "Technical Demos", "Onboarding", "Leadership"]}
+                />
               </div>
             )}
           </div>

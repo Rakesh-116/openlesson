@@ -54,9 +54,10 @@ const themeStyles: Record<ThemeColor, {
 interface ProblemInputProps {
   initialTopic?: string;
   theme?: ThemeColor;
+  placeholder?: string;
 }
 
-export function ProblemInput({ initialTopic, theme = "neutral" }: ProblemInputProps) {
+export function ProblemInput({ initialTopic, theme = "neutral", placeholder = "What do you want to think through? (e.g., Explain recursion, How does GPS work?)" }: ProblemInputProps) {
   const [problem, setProblem] = useState(initialTopic || "");
   const [isLoading, setIsLoading] = useState(false);
   const [usageError, setUsageError] = useState<string | null>(null);
@@ -118,7 +119,7 @@ export function ProblemInput({ initialTopic, theme = "neutral" }: ProblemInputPr
           id="problem"
           value={problem}
           onChange={(e) => { setProblem(e.target.value); setUsageError(null); }}
-          placeholder="What do you want to think through? (e.g., Explain recursion, How does GPS work?)"
+          placeholder={placeholder}
           className={`w-full h-28 px-4 pt-3.5 pb-14 pr-32 border rounded-2xl text-white text-[15px] focus:outline-none resize-none transition-colors scrollbar-hide overflow-hidden ${styles.textarea}`}
           disabled={isLoading}
         />

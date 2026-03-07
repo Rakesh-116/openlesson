@@ -168,7 +168,11 @@ export default function CertifyPage() {
                 </div>
 
                 <div className="w-full max-w-lg mx-auto">
-                  <ProblemInput initialTopic={selectedTopic} theme="slate" />
+                  <ProblemInput 
+                    initialTopic={selectedTopic} 
+                    theme="slate" 
+                    placeholder="Practice a certification topic (e.g., AWS VPC design, PMP risk assessment)"
+                  />
                 </div>
 
                 <div className="mt-6 flex-1 flex flex-col">
@@ -198,7 +202,13 @@ export default function CertifyPage() {
 
             {mode === "plan" && (
               <div className="w-full flex-1 flex flex-col">
-                <PlanModeSelect theme="slate" />
+                <PlanModeSelect 
+                  theme="slate"
+                  title="Build Your Certification Roadmap"
+                  subtitle="Enter a certification and we'll create a structured study plan with milestones."
+                  placeholder="Which certification are you preparing for? (e.g., AWS SAA, PMP, CPA)"
+                  exampleTopics={["AWS Solutions Architect", "PMP", "CPA", "CompTIA A+", "CISSP", "Google Cloud"]}
+                />
               </div>
             )}
           </div>

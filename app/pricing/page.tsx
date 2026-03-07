@@ -138,13 +138,13 @@ export default function PricingPage() {
           <h1 className="text-3xl sm:text-5xl font-bold text-white mb-4 tracking-tight">
             Simple pricing
           </h1>
-          <p className="text-neutral-500 text-base max-w-lg mx-auto leading-relaxed">
+          <p className="text-slate-500 text-base max-w-lg mx-auto leading-relaxed">
             openLesson is free to use and{" "}
               <a
               href="https://github.com/dncolomer/openLesson"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-neutral-300 hover:text-white underline underline-offset-2 transition-colors"
+              className="text-slate-300 hover:text-white underline underline-offset-2 transition-colors"
             >
               open source on GitHub
             </a>
@@ -154,13 +154,13 @@ export default function PricingPage() {
 
         {/* Toggle */}
         <div className="flex justify-center mb-8">
-          <div className="inline-flex items-center bg-neutral-900 rounded-lg p-1 border border-neutral-800">
+          <div className="inline-flex items-center bg-slate-900 rounded-lg p-1 border border-slate-800">
             <button
               onClick={() => setViewMode("regular")}
               className={`px-4 py-2 text-sm rounded-md transition-colors ${
                 viewMode === "regular" 
-                  ? "bg-white text-black font-medium" 
-                  : "text-neutral-400 hover:text-white"
+                  ? "bg-slate-200 text-slate-900 font-medium" 
+                  : "text-slate-400 hover:text-white"
               }`}
             >
               Monthly
@@ -170,7 +170,7 @@ export default function PricingPage() {
               className={`px-4 py-2 text-sm rounded-md transition-colors ${
                 viewMode === "lifetime" 
                   ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium" 
-                  : "text-neutral-400 hover:text-white"
+                  : "text-slate-400 hover:text-white"
               }`}
             >
               Lifetime (Token)
@@ -183,15 +183,15 @@ export default function PricingPage() {
             {/* Regular Monthly Plans */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
           {/* Free */}
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6 flex flex-col">
-            <p className="text-sm text-neutral-400 mb-1">{PLANS.free.name}</p>
+          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6 flex flex-col">
+            <p className="text-sm text-slate-400 mb-1">{PLANS.free.name}</p>
             <div className="flex items-baseline gap-1 mb-4">
               <span className="text-3xl font-bold text-white">$0</span>
-              <span className="text-sm text-neutral-600">forever</span>
+              <span className="text-sm text-slate-600">forever</span>
             </div>
             <ul className="space-y-2.5 mb-6 flex-1">
               {PLANS.free.features.map((f) => (
-                <li key={f} className="flex items-start gap-2 text-sm text-neutral-400">
+                <li key={f} className="flex items-start gap-2 text-sm text-slate-400">
                   <CheckIcon />
                   <span>{f}</span>
                 </li>
@@ -199,13 +199,13 @@ export default function PricingPage() {
             </ul>
             {isCurrentPlan("free") ? (
               <div className="flex flex-col gap-2">
-                <div className="w-full py-2.5 text-center text-xs text-neutral-600 border border-neutral-800 rounded-xl">
+                <div className="w-full py-2.5 text-center text-xs text-slate-600 border border-slate-800 rounded-xl">
                   Current plan
                 </div>
                 <button
                   onClick={() => handleCheckout("extra_lesson")}
                   disabled={loadingPlan === "extra_lesson"}
-                  className="w-full py-2.5 text-center text-xs text-neutral-400 hover:text-white border border-neutral-700 hover:border-neutral-500 rounded-xl transition-colors"
+                  className="w-full py-2.5 text-center text-xs text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 rounded-xl transition-colors"
                 >
                   {loadingPlan === "extra_lesson" ? "Loading..." : "Buy extra session — $1.99"}
                 </button>
@@ -213,7 +213,7 @@ export default function PricingPage() {
             ) : !user?.authenticated ? (
               <Link
                 href="/register"
-                className="w-full py-2.5 text-center text-sm text-white bg-white/10 hover:bg-white/15 rounded-xl transition-colors block"
+                className="w-full py-2.5 text-center text-sm text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors block"
               >
                 Get started
               </Link>
@@ -221,18 +221,18 @@ export default function PricingPage() {
           </div>
 
           {/* Regular */}
-          <div className="rounded-xl border border-neutral-700 bg-neutral-900/80 p-6 flex flex-col relative">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-white text-black text-[11px] font-medium rounded-full">
+          <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-6 flex flex-col relative">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-slate-200 text-slate-900 text-[11px] font-medium rounded-full">
               Popular
             </div>
-            <p className="text-sm text-neutral-400 mb-1">{PLANS.regular.name}</p>
+            <p className="text-sm text-slate-400 mb-1">{PLANS.regular.name}</p>
             <div className="flex items-baseline gap-1 mb-4">
               <span className="text-3xl font-bold text-white">$4.99</span>
-              <span className="text-sm text-neutral-600">/month</span>
+              <span className="text-sm text-slate-600">/month</span>
             </div>
             <ul className="space-y-2.5 mb-6 flex-1">
               {PLANS.regular.features.map((f) => (
-                <li key={f} className="flex items-start gap-2 text-sm text-neutral-400">
+                <li key={f} className="flex items-start gap-2 text-sm text-slate-400">
                   <CheckIcon />
                   <span>{f}</span>
                 </li>
@@ -240,13 +240,13 @@ export default function PricingPage() {
             </ul>
             {isCurrentPlan("regular") ? (
               <div className="flex flex-col gap-2">
-                <div className="w-full py-2.5 text-center text-xs text-neutral-600 border border-neutral-800 rounded-xl">
+                <div className="w-full py-2.5 text-center text-xs text-slate-600 border border-slate-800 rounded-xl">
                   Current plan
                 </div>
                 <button
                   onClick={() => handleCheckout("extra_lesson")}
                   disabled={loadingPlan === "extra_lesson"}
-                  className="w-full py-2.5 text-center text-xs text-neutral-400 hover:text-white border border-neutral-700 hover:border-neutral-500 rounded-xl transition-colors"
+                  className="w-full py-2.5 text-center text-xs text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 rounded-xl transition-colors"
                 >
                   {loadingPlan === "extra_lesson" ? "Loading..." : "Buy extra session — $1.99"}
                 </button>
@@ -255,7 +255,7 @@ export default function PricingPage() {
               <button
                 onClick={() => handleCheckout("regular")}
                 disabled={loadingPlan === "regular"}
-                className="w-full py-2.5 text-center text-sm font-medium text-black bg-white hover:bg-neutral-200 disabled:opacity-50 rounded-xl transition-colors"
+                className="w-full py-2.5 text-center text-sm font-medium text-slate-900 bg-slate-200 hover:bg-white disabled:opacity-50 rounded-xl transition-colors"
               >
                 {loadingPlan === "regular" ? "Loading..." : "Subscribe"}
               </button>
@@ -263,29 +263,29 @@ export default function PricingPage() {
           </div>
 
           {/* Pro */}
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6 flex flex-col">
-            <p className="text-sm text-neutral-400 mb-1">{PLANS.pro.name}</p>
+          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6 flex flex-col">
+            <p className="text-sm text-slate-400 mb-1">{PLANS.pro.name}</p>
             <div className="flex items-baseline gap-1 mb-4">
               <span className="text-3xl font-bold text-white">$14.99</span>
-              <span className="text-sm text-neutral-600">/month</span>
+              <span className="text-sm text-slate-600">/month</span>
             </div>
             <ul className="space-y-2.5 mb-6 flex-1">
               {PLANS.pro.features.map((f) => (
-                <li key={f} className="flex items-start gap-2 text-sm text-neutral-400">
+                <li key={f} className="flex items-start gap-2 text-sm text-slate-400">
                   <CheckIcon />
                   <span>{f}</span>
                 </li>
               ))}
             </ul>
             {isCurrentPlan("pro") ? (
-              <div className="w-full py-2.5 text-center text-xs text-neutral-600 border border-neutral-800 rounded-xl">
+              <div className="w-full py-2.5 text-center text-xs text-slate-600 border border-slate-800 rounded-xl">
                 {user?.isAdmin ? "Admin — unlimited" : "Current plan"}
               </div>
             ) : (
               <button
                 onClick={() => handleCheckout("pro")}
                 disabled={loadingPlan === "pro"}
-                className="w-full py-2.5 text-center text-sm text-white bg-white/10 hover:bg-white/15 disabled:opacity-50 rounded-xl transition-colors"
+                className="w-full py-2.5 text-center text-sm text-white bg-slate-800 hover:bg-slate-700 disabled:opacity-50 rounded-xl transition-colors"
               >
                 {loadingPlan === "pro" ? "Loading..." : "Subscribe"}
               </button>
@@ -297,7 +297,7 @@ export default function PricingPage() {
           <>
             {/* Lifetime Token Access */}
             <div className="max-w-2xl mx-auto mb-12">
-              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-8">
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-8">
                 <div className="text-center mb-6">
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 text-blue-400 text-xs mb-4">
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
@@ -310,7 +310,7 @@ export default function PricingPage() {
                       className="w-16 h-16 rounded-full"
                     />
                   </div>
-                  <p className="text-xs text-neutral-500 font-mono mb-2">
+                  <p className="text-xs text-slate-500 font-mono mb-2">
                     CA: Dza3Bey5tvyYiPgcGRKoXKU6rNrdoNrWNVmjqePcpump
                   </p>
                   <a
@@ -325,44 +325,44 @@ export default function PricingPage() {
                     Buy $UNSYS on pump.fun
                   </a>
                   <h2 className="text-2xl font-bold text-white mb-2">Hold $UNSYS Tokens</h2>
-                  <p className="text-neutral-400 text-sm">
+                  <p className="text-slate-400 text-sm">
                     Get lifetime access to openLesson by holding $UNSYS tokens in your Solana wallet.
                     You don't need to send us anything — just prove you own the tokens. Validated holdings
                     must be reconfirmed every 3 months to maintain access.
                   </p>
                 </div>
 
-                <div className="bg-neutral-950 rounded-xl p-4 mb-6">
+                <div className="bg-slate-950 rounded-xl p-4 mb-6">
                   <h3 className="text-sm font-medium text-white mb-3">Token Tier Mapping</h3>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-neutral-400">2M+ $UNSYS</span>
+                      <span className="text-sm text-slate-400">2M+ $UNSYS</span>
                       <span className="text-sm font-medium text-blue-400">Regular Tier</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-neutral-400">5M+ $UNSYS</span>
+                      <span className="text-sm text-slate-400">5M+ $UNSYS</span>
                       <span className="text-sm font-medium text-purple-400">Pro Tier</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-neutral-950 rounded-xl p-4 mb-6">
+                <div className="bg-slate-950 rounded-xl p-4 mb-6">
                   <h3 className="text-sm font-medium text-white mb-2">How it works</h3>
-                  <ol className="space-y-2 text-sm text-neutral-400">
+                  <ol className="space-y-2 text-sm text-slate-400">
                     <li className="flex gap-2">
-                      <span className="text-neutral-600">1.</span>
+                      <span className="text-slate-600">1.</span>
                       Enter your Solana wallet address above
                     </li>
                     <li className="flex gap-2">
-                      <span className="text-neutral-600">2.</span>
+                      <span className="text-slate-600">2.</span>
                       We verify your token balance on-chain
                     </li>
                     <li className="flex gap-2">
-                      <span className="text-neutral-600">3.</span>
+                      <span className="text-slate-600">3.</span>
                       Your account is upgraded — tokens stay in your wallet!
                     </li>
                     <li className="flex gap-2">
-                      <span className="text-neutral-600">4.</span>
+                      <span className="text-slate-600">4.</span>
                       Re-verify every 3 months to maintain access
                     </li>
                   </ol>
@@ -370,9 +370,9 @@ export default function PricingPage() {
 
                 {user?.walletVerified && user.tokenTier ? (
                   <div className="text-center">
-                    <div className="inline-flex flex-col items-center gap-3 bg-neutral-950 rounded-xl px-4 py-3">
+                    <div className="inline-flex flex-col items-center gap-3 bg-slate-950 rounded-xl px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <span className="text-sm text-neutral-400">Verified</span>
+                        <span className="text-sm text-slate-400">Verified</span>
                         <span
                           className={`inline-flex px-3 py-1 rounded-lg text-sm font-medium ${
                             user.tokenTier === "pro"
@@ -384,7 +384,7 @@ export default function PricingPage() {
                         </span>
                       </div>
                       {user.tokenValidityExpiresAt && (
-                        <span className="text-xs text-neutral-500">
+                        <span className="text-xs text-slate-500">
                           Valid until {new Date(user.tokenValidityExpiresAt).toLocaleDateString()}
                         </span>
                       )}
@@ -399,7 +399,7 @@ export default function PricingPage() {
                       placeholder="Enter your Solana wallet address"
                       value={walletAddress}
                       onChange={(e) => setWalletAddress(e.target.value)}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-3 text-sm text-neutral-200 focus:outline-none focus:border-neutral-600 placeholder:text-neutral-600"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-slate-600 placeholder:text-slate-600"
                     />
                     {walletError && (
                       <p className="text-xs text-red-400 text-center">{walletError}</p>
@@ -407,11 +407,11 @@ export default function PricingPage() {
                     <button
                       type="button"
                       disabled={true}
-                      className="w-full py-3 text-sm font-medium text-neutral-500 bg-neutral-800 rounded-lg cursor-not-allowed"
+                      className="w-full py-3 text-sm font-medium text-slate-500 bg-slate-800 rounded-lg cursor-not-allowed"
                     >
                       Verify Token Ownership (Coming Soon)
                     </button>
-                    <p className="text-xs text-neutral-700 text-center">
+                    <p className="text-xs text-slate-700 text-center">
                       We only check your balance — tokens never leave your wallet
                     </p>
                   </div>
@@ -423,7 +423,7 @@ export default function PricingPage() {
 
         {/* FAQ / Extra info */}
         {viewMode === "regular" && (
-          <div className="text-center text-xs text-neutral-700 mb-12">
+          <div className="text-center text-xs text-slate-700 mb-12">
             <p>
               All plans include real-time audio analysis and AI-generated session reports.
               Cancel anytime from your Stripe dashboard.
@@ -433,7 +433,7 @@ export default function PricingPage() {
 
         {/* Enterprise Section */}
         <div className="max-w-3xl mx-auto mb-12">
-          <div className="rounded-2xl border border-neutral-800 bg-gradient-to-b from-slate-900/50 to-neutral-900/30 p-8 text-center">
+          <div className="rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900/50 to-slate-900/30 p-8 text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-500/10 border border-slate-500/20 text-slate-400 text-xs mb-4">
               <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
               Enterprise
@@ -441,7 +441,7 @@ export default function PricingPage() {
             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
               Need a custom solution?
             </h2>
-            <p className="text-neutral-400 text-sm max-w-lg mx-auto mb-6">
+            <p className="text-slate-400 text-sm max-w-lg mx-auto mb-6">
               For teams, schools, and organizations. Custom integrations, SSO, dedicated support,
               and volume pricing available.
             </p>
@@ -450,7 +450,7 @@ export default function PricingPage() {
                 href="https://x.com/uncertainsys"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 border border-neutral-700 text-white text-sm font-medium hover:bg-white/15 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700 text-white text-sm font-medium hover:bg-slate-800 transition-colors"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
@@ -459,7 +459,7 @@ export default function PricingPage() {
               </a>
               <a
                 href="mailto:daniel@uncertain.systems"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 border border-neutral-700 text-white text-sm font-medium hover:bg-white/15 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700 text-white text-sm font-medium hover:bg-slate-800 transition-colors"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect width="20" height="16" x="2" y="4" rx="2"/>
@@ -478,7 +478,7 @@ export default function PricingPage() {
 
 function CheckIcon() {
   return (
-    <svg className="w-4 h-4 text-neutral-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg className="w-4 h-4 text-slate-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
     </svg>
   );

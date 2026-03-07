@@ -13,7 +13,7 @@ const WEEKS_OPTIONS = [
   { value: 26, label: "6 months" },
 ];
 
-const EXAMPLE_TOPICS = [
+const DEFAULT_EXAMPLE_TOPICS = [
   "Machine Learning",
   "Philosophy",
   "Quantum Physics",
@@ -98,9 +98,19 @@ const themeStyles: Record<ThemeColor, {
 
 interface PlanModeSelectProps {
   theme?: ThemeColor;
+  title?: string;
+  subtitle?: string;
+  placeholder?: string;
+  exampleTopics?: string[];
 }
 
-export function PlanModeSelect({ theme = "neutral" }: PlanModeSelectProps) {
+export function PlanModeSelect({ 
+  theme = "neutral",
+  title = "Build Your Learning Path",
+  subtitle = "Enter a topic and we'll create a structured learning plan. Explore concepts in a structured way, one session at a time.",
+  placeholder = "What do you want to learn? (e.g., Machine Learning, Philosophy)",
+  exampleTopics = DEFAULT_EXAMPLE_TOPICS,
+}: PlanModeSelectProps) {
   const [topic, setTopic] = useState("");
   const [weeks, setWeeks] = useState(4);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -161,11 +171,10 @@ export function PlanModeSelect({ theme = "neutral" }: PlanModeSelectProps) {
     <div className="w-full max-w-2xl p-6">
       <div className="text-center mb-10">
         <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
-          Build Your Learning Path
+          {title}
         </h2>
         <p className={`max-w-lg mx-auto text-sm leading-relaxed ${styles.description}`}>
-          Enter a topic and we'll create a structured learning plan. 
-          Explore concepts in a structured way, one session at a time.
+          {subtitle}
         </p>
       </div>
 
@@ -176,7 +185,7 @@ export function PlanModeSelect({ theme = "neutral" }: PlanModeSelectProps) {
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleGeneratePlan()}
-            placeholder="What do you want to learn? (e.g., Machine Learning, Philosophy)"
+            placeholder={placeholder}
             rows={3}
             className={`w-full h-28 px-4 pt-3.5 pb-14 pr-32 border rounded-2xl text-white text-[15px] focus:outline-none resize-none transition-colors ${styles.textarea}`}
             disabled={isGenerating}
@@ -227,7 +236,7 @@ export function PlanModeSelect({ theme = "neutral" }: PlanModeSelectProps) {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {EXAMPLE_TOPICS.map((t) => (
+        {exampleTopics.map((t) => (
           <button
             key={t}
             onClick={() => setTopic(t)}

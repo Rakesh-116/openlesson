@@ -157,7 +157,11 @@ export default function SchoolsPage() {
                 </div>
 
                 <div className="w-full max-w-lg mx-auto">
-                  <ProblemInput initialTopic={selectedTopic} theme="slate" />
+                  <ProblemInput 
+                    initialTopic={selectedTopic} 
+                    theme="slate" 
+                    placeholder="Enter a topic to assign (e.g., Quadratic equations, Essay thesis, Cell biology)"
+                  />
                 </div>
 
                 <div className="mt-6 flex-1 flex flex-col">
@@ -187,7 +191,13 @@ export default function SchoolsPage() {
 
             {mode === "plan" && (
               <div className="w-full flex-1 flex flex-col">
-                <PlanModeSelect theme="slate" />
+                <PlanModeSelect 
+                  theme="slate"
+                  title="Build Your Syllabus"
+                  subtitle="Design a multi-week unit plan for your classroom."
+                  placeholder="What unit are you planning? (e.g., Algebra 1 Unit 3, AP Biology Genetics, Essay Writing)"
+                  exampleTopics={["Algebra 1", "AP Biology", "US History", "Essay Writing", "Chemistry", "Physics"]}
+                />
               </div>
             )}
           </div>

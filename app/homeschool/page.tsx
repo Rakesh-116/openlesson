@@ -161,7 +161,11 @@ export default function HomeschoolPage() {
                 </div>
 
                 <div className="w-full max-w-lg mx-auto">
-                  <ProblemInput initialTopic={selectedTopic} theme="slate" />
+                  <ProblemInput 
+                    initialTopic={selectedTopic} 
+                    theme="slate" 
+                    placeholder="What should your child learn today? (e.g., Fractions, Photosynthesis, WWII)"
+                  />
                 </div>
 
                 <div className="mt-6 flex-1 flex flex-col">
@@ -191,7 +195,13 @@ export default function HomeschoolPage() {
 
             {mode === "plan" && (
               <div className="w-full flex-1 flex flex-col">
-                <PlanModeSelect theme="slate" />
+                <PlanModeSelect 
+                  theme="slate"
+                  title="Build Your Curriculum"
+                  subtitle="Create a structured learning plan aligned with your child's grade level."
+                  placeholder="What subject or unit should we plan? (e.g., 4th Grade Math, US History, Biology)"
+                  exampleTopics={["4th Grade Math", "US History", "Life Science", "Grammar & Writing", "World Geography", "Chemistry"]}
+                />
               </div>
             )}
           </div>
