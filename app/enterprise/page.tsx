@@ -23,10 +23,10 @@ export default function EnterprisePage() {
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
       <Navbar />
 
-      <div className="flex-1 flex">
-        {/* Left Column - Scrollable with lighter background */}
-        <div className="hidden lg:flex lg:w-1/2 bg-slate-900/40 border-r border-slate-800 overflow-y-auto">
-          <div className="w-full max-w-xl ml-auto p-8 flex flex-col gap-8">
+      <div className="flex-1 flex flex-col lg:flex-row">
+        {/* Left Column - Scrollable with lighter background (shows below on mobile) */}
+        <div className="order-2 lg:order-1 lg:w-1/2 bg-slate-900/40 lg:border-r border-t lg:border-t-0 border-slate-800 overflow-y-auto">
+          <div className="w-full max-w-xl mx-auto lg:ml-auto lg:mr-0 p-6 lg:p-8 flex flex-col gap-8">
             {/* Mockup */}
             <div className="rounded-2xl border border-slate-700 bg-slate-800/30 overflow-hidden flex flex-col">
               <div className="bg-slate-700/50 px-5 py-2.5 border-b border-slate-700 flex items-center justify-between">
@@ -97,8 +97,8 @@ export default function EnterprisePage() {
           </div>
         </div>
 
-        {/* Right Column - Fixed, no scroll */}
-        <div className="w-full lg:w-1/2 flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4 overflow-hidden">
+        {/* Right Column - Fixed, no scroll (shows on top on mobile) */}
+        <div className="order-1 lg:order-2 w-full lg:w-1/2 flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4 overflow-hidden">
           <div className="w-full max-w-xl flex flex-col">
             {/* Label */}
             <div className="flex justify-center mb-3">
