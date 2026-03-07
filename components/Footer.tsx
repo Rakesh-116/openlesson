@@ -2,9 +2,26 @@
 
 import Link from "next/link";
 
+const productLinks = [
+  { label: "Pricing", href: "/pricing" },
+  { label: "1-on-1 Coaching", href: "/coaching" },
+];
+
+const solutionLinks = [
+  { label: "AI Sales Training", href: "/enterprise" },
+  { label: "AI Hiring Assessments", href: "/eval" },
+  { label: "AI Classroom Tutor", href: "/schools" },
+  { label: "AI Homeschool Tutor", href: "/homeschool" },
+  { label: "AI Certification Prep", href: "/certify" },
+];
+
+const companyLinks = [
+  { label: "About", href: "/about" },
+];
+
 const legalLinks = [
-  { label: "Privacy Policy", href: "/privacy" },
-  { label: "Terms & Conditions", href: "/terms" },
+  { label: "Privacy", href: "/privacy" },
+  { label: "Terms", href: "/terms" },
   { label: "Cookies", href: "/cookies" },
   { label: "Legal Notice", href: "/legal" },
 ];
@@ -14,22 +31,98 @@ export function Footer() {
 
   return (
     <footer className="mt-auto border-t border-slate-800/40 bg-[#0a0a0a]">
-      <div className="max-w-5xl mx-auto px-6 py-8">
-        {/* Legal links */}
-        <div className="flex flex-wrap items-center justify-center gap-5 pb-5 border-b border-slate-800/40">
-          {legalLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="text-xs text-slate-600 hover:text-slate-400 transition-colors"
-            >
-              {link.label}
-            </Link>
-          ))}
+      <div className="max-w-6xl mx-auto px-6 py-12">
+        {/* Multi-column links */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 pb-8 border-b border-slate-800/40">
+          {/* Product */}
+          <div>
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
+              Product
+            </h3>
+            <ul className="space-y-3">
+              {productLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-slate-500 hover:text-white transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Solutions */}
+          <div>
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
+              Solutions
+            </h3>
+            <ul className="space-y-3">
+              {solutionLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-slate-500 hover:text-white transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Company */}
+          <div>
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
+              Company
+            </h3>
+            <ul className="space-y-3">
+              {companyLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-slate-500 hover:text-white transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+              <li>
+                <a
+                  href="https://github.com/dncolomer/openlesson"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-slate-500 hover:text-white transition-colors"
+                >
+                  GitHub
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          {/* Legal */}
+          <div>
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
+              Legal
+            </h3>
+            <ul className="space-y-3">
+              {legalLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-slate-500 hover:text-white transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
-        {/* Contact / social */}
-        <div className="flex flex-wrap items-center justify-center gap-3 py-5">
+        {/* Social links */}
+        <div className="flex flex-wrap items-center justify-center gap-3 py-6">
           <a
             href="https://x.com/uncertainsys"
             target="_blank"
