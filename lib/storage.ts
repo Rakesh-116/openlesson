@@ -46,6 +46,11 @@ export interface Session {
     whiteboardData?: string | null;
     notebookData?: string | null;
     trafficLight?: TrafficLight;
+    codingData?: {
+      code: string;
+      output: Array<{ type: string; content: string }>;
+      chatHistory?: Array<{ role: string; content: string }>;
+    } | null;
   };
 }
 
@@ -485,7 +490,7 @@ export async function saveFacialData(
 
 // ---- Tool Usage Tracking ----
 
-export type ToolName = "chat" | "canvas" | "notebook" | "grokipedia" | "exercise" | "reading" | "rag" | "help" | "data-input" | "logs";
+export type ToolName = "chat" | "canvas" | "notebook" | "grokipedia" | "exercise" | "reading" | "rag" | "help" | "data-input" | "logs" | "goals" | "coding";
 
 export type ToolAction = 
   | "open" 
@@ -498,7 +503,9 @@ export type ToolAction =
   | "rag_query"
   | "rag_select_chunk"
   | "prep_material_load"
-  | "help_view";
+  | "help_view"
+  | "coding_run"
+  | "coding_chat";
 
 export async function logToolUsage(
   sessionId: string,

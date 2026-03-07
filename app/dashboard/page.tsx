@@ -269,6 +269,7 @@ export default function DashboardPage() {
   const [tutorModel, setTutorModel] = useState<string>("");
   const [askModel, setAskModel] = useState<string>("");
   const [plannerModel, setPlannerModel] = useState<string>("");
+  const [coderModel, setCoderModel] = useState<string>("minimax/minimax-m2.5");
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelSaving, setModelSaving] = useState(false);
   const [modelSaved, setModelSaved] = useState(false);
@@ -330,6 +331,9 @@ export default function DashboardPage() {
         }
         if (profile.metadata?.planner_model) {
           setPlannerModel(profile.metadata.planner_model as string);
+        }
+        if (profile.metadata?.coder_model) {
+          setCoderModel(profile.metadata.coder_model as string);
         }
       }
 
@@ -456,6 +460,7 @@ export default function DashboardPage() {
             tutor_model: tutorModel,
             ask_model: askModel,
             planner_model: plannerModel,
+            coder_model: coderModel,
           },
         })
         .eq("id", authUser.id);
@@ -1161,11 +1166,11 @@ export default function DashboardPage() {
               <h2 className="text-lg font-semibold mb-4">API Usage</h2>
               <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
                 <p className="text-sm text-neutral-400 mb-3">
-                  Use your API key to access Socratic tutoring programmatically.
+                  Use your API key to access tutoring programmatically.
                 </p>
                 <div className="bg-neutral-950 rounded-lg p-4 font-mono text-xs text-neutral-300 overflow-x-auto">
                   <p className="text-neutral-500 mb-2">// Example request</p>
-                  <p>curl -X POST https://socrates.example.com/api/agent/session/analyze \</p>
+                  <p>curl -X POST https://openlesson.academy/api/agent/session/analyze \</p>
                   <p className="pl-4">-H "Authorization: Bearer YOUR_API_KEY" \</p>
                   <p className="pl-4">-H "Content-Type: application/json" \</p>
                   <p className="pl-4">-d '{`{"problem": "your problem", "audio": "base64..."}`}'</p>
@@ -1245,6 +1250,31 @@ export default function DashboardPage() {
                   <select
                     value={plannerModel}
                     onChange={(e) => setPlannerModel(e.target.value)}
+                    disabled={modelsLoading}
+                    className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-neutral-500"
+                  >
+                    {modelsLoading ? (
+                      <option>Loading models...</option>
+                    ) : (
+                      availableModels.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.label}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+                <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
+                  <label className="block text-sm font-medium text-neutral-300 mb-1">
+                    Coder Model
+                  </label>
+                  <p className="text-xs text-neutral-500 mb-3">
+                    The model used in the Coding tool sandbox to help write JavaScript code
+                  </p>
+                  <select
+                    value={coderModel}
+                    onChange={(e) => setCoderModel(e.target.value)}
                     disabled={modelsLoading}
                     className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-neutral-500"
                   >

@@ -43,6 +43,7 @@ import { ToolsHelp } from "./ToolsHelp";
 import { LLMChat } from "./LLMChat";
 import { DataInputTool } from "./DataInputTool";
 import { LogsTool, type LogEntry } from "./LogsTool";
+import { CodingTool } from "./CodingTool";
 
 // Configuration
 const ANALYSIS_INTERVALS: Record<Frequency, number> = {
@@ -114,6 +115,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [notebookAnalyzing, setNotebookAnalyzing] = useState(false);
   const notebookAnalysisRef = useRef<NodeJS.Timeout | null>(null);
   const lastNotebookAnalysisRef = useRef(0);
+
+  // Coding tool
+  const [codingData, setCodingData] = useState<{
+    code: string;
+    output: Array<{ type: string; content: string }>;
+    chatHistory?: Array<{ role: string; content: string }>;
+  } | null>(null);
 
   // New 3-panel layout state
   const [activeTool, setActiveTool] = useState<Tool>("chat");
@@ -1091,6 +1099,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       ...finalSession.metadata,
       whiteboardData: whiteboardData || undefined,
       notebookData: notebookContent || undefined,
+      codingData: codingData || undefined,
     };
 
     // Persist to Supabase
@@ -1370,8 +1379,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       // Only when recording, and not typing in an input/textarea
       if (!isRecording) return;
       if (e.code !== "Space") return;
-      const tag = (e.target as HTMLElement)?.tagName;
+      const target = e.target as HTMLElement;
+      const tag = target?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      // Don't capture space when inside Monaco Editor
+      if (target?.closest(".monaco-editor")) return;
       e.preventDefault();
       handleForceProbe();
     };
@@ -1734,6 +1746,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         </div>
                       </div>
                     )}
+                    {activeTool === "coding" && (
+                      <CodingTool
+                        sessionId={session.id}
+                        problem={session.problem}
+                        initialCode={codingData?.code}
+                        initialChatHistory={codingData?.chatHistory}
+                        onDataChange={setCodingData}
+                      />
+                    )}
                     {activeTool === "rag" && (
                       <div className="h-full p-4 overflow-auto">
                         {ragLoading && (
@@ -1929,7 +1950,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                               onClick={() => loadPrepToolContent(activeTool)}
                               className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-medium rounded-xl transition-all"
                             >
-                              Load {activeTool === "exercise" ? "Exercise" : "Reading"}
+                              Load {activeTool === "exercise" ? "Practice" : "Theory"}
                             </button>
                           </div>
                         )}

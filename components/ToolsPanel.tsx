@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export type Tool = "chat" | "canvas" | "notebook" | "grokipedia" | "exercise" | "reading" | "rag" | "help" | "data-input" | "logs" | "goals";
+export type Tool = "chat" | "canvas" | "notebook" | "grokipedia" | "exercise" | "reading" | "rag" | "help" | "data-input" | "logs" | "goals" | "coding";
 
 interface ToolsPanelProps {
   activeTool: Tool;
@@ -16,7 +16,7 @@ interface ToolsPanelProps {
 const tools: { id: Tool; label: string; icon: React.ReactNode }[] = [
   {
     id: "chat",
-    label: "LLM Chat",
+    label: "Teaching Assistant",
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -51,6 +51,15 @@ const tools: { id: Tool; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
+    id: "coding",
+    label: "Coding",
+    icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
+  {
     id: "rag",
     label: "RAG Matches",
     icon: (
@@ -71,7 +80,7 @@ const tools: { id: Tool; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: "exercise",
-    label: "Exercise Prep",
+    label: "Practice",
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
@@ -80,7 +89,7 @@ const tools: { id: Tool; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: "reading",
-    label: "Prep Reading",
+    label: "Theory",
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -121,7 +130,7 @@ const mainTools = tools.filter((t) => !bottomTools.includes(t.id));
 
 export function ToolsPanel({ activeTool, onToolChange, problem, className = "", ragNotification = false, errorNotification = false }: ToolsPanelProps) {
   return (
-    <div className={`w-48 shrink-0 flex flex-col p-3 bg-neutral-900/50 border-r border-neutral-800 ${className}`}>
+    <div className={`w-52 shrink-0 flex flex-col p-3 bg-neutral-900/50 border-r border-neutral-800 ${className}`}>
       <div className="flex flex-col gap-1">
         <div className="text-[10px] uppercase tracking-wider font-medium text-neutral-500 mb-1 px-1">
           Tools
