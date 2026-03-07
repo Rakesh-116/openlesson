@@ -178,7 +178,7 @@ export function AgenticModeSelect() {
         <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
           Agentic Mode
         </h2>
-        <p className="text-neutral-500 max-w-lg mx-auto text-sm leading-relaxed">
+        <p className="text-slate-500 max-w-lg mx-auto text-sm leading-relaxed">
           Let your own personal assistant teach you using our tools. Programmatic access to 
           openLesson for AI agents and autonomous apps.
         </p>
@@ -189,9 +189,9 @@ export function AgenticModeSelect() {
         {/* ElizaOS Card */}
         <a
           href="/skill-elizaos.md"
-          className="block p-6 bg-neutral-900/50 border border-neutral-800 rounded-xl hover:border-purple-500/50 transition-all group"
+          className="block p-6 bg-slate-900/50 border border-slate-800 rounded-xl hover:border-purple-500/50 transition-all group"
         >
-          <div className="aspect-square rounded-lg mb-4 flex items-center justify-center overflow-hidden bg-neutral-800/50">
+          <div className="aspect-square rounded-lg mb-4 flex items-center justify-center overflow-hidden bg-slate-800/50">
             <img 
               src="https://avatars.githubusercontent.com/u/186240462?s=200&v=4" 
               alt="ElizaOS" 
@@ -201,7 +201,7 @@ export function AgenticModeSelect() {
           <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-purple-400 transition-colors">
             ElizaOS
           </h3>
-          <p className="text-sm text-neutral-400">
+          <p className="text-sm text-slate-400">
             Turn your ElizaOS agent into an openLesson-powered personal tutor.
           </p>
           <button
@@ -219,9 +219,9 @@ export function AgenticModeSelect() {
         {/* OpenClaw Card */}
         <a
           href="/skill-openclaw.md"
-          className="block p-6 bg-neutral-900/50 border border-neutral-800 rounded-xl hover:border-blue-500/50 transition-all group"
+          className="block p-6 bg-slate-900/50 border border-slate-800 rounded-xl hover:border-blue-500/50 transition-all group"
         >
-          <div className="aspect-square rounded-lg mb-4 flex items-center justify-center overflow-hidden bg-neutral-800/50">
+          <div className="aspect-square rounded-lg mb-4 flex items-center justify-center overflow-hidden bg-slate-800/50">
             <img 
               src="https://avatars.githubusercontent.com/u/252820863?s=200&v=4" 
               alt="OpenClaw" 
@@ -231,7 +231,7 @@ export function AgenticModeSelect() {
           <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-blue-400 transition-colors">
             OpenClaw
           </h3>
-          <p className="text-sm text-neutral-400">
+          <p className="text-sm text-slate-400">
             Turn your OpenClaw agent into an openLesson-powered personal tutor.
           </p>
           <span 
@@ -260,10 +260,10 @@ export function AgenticModeSelect() {
         {/* Any Agent Card */}
         <a
           href="/skill.md"
-          className="block p-6 bg-neutral-900/50 border border-neutral-800 rounded-xl hover:border-green-500/50 transition-all group"
+          className="block p-6 bg-slate-900/50 border border-slate-800 rounded-xl hover:border-green-500/50 transition-all group"
         >
-          <div className="aspect-square rounded-lg mb-4 flex items-center justify-center bg-neutral-800/50">
-            <svg className="w-16 h-16 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <div className="aspect-square rounded-lg mb-4 flex items-center justify-center bg-slate-800/50">
+            <svg className="w-16 h-16 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a6 6 0 100-12 6 6 0 000 12z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 14a2 2 0 100-4 2 2 0 000 4z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v2M12 20v2M2 12h2M20 12h2" />
@@ -273,38 +273,38 @@ export function AgenticModeSelect() {
           <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-green-400 transition-colors">
             Any Agent
           </h3>
-          <p className="text-sm text-neutral-400">
+          <p className="text-sm text-slate-400">
             Turn any AI agent into an openLesson-powered personal tutor.
           </p>
         </a>
       </div>
 
-      <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6 mb-8">
+      <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 mb-8">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-white">API Endpoints</h3>
         </div>
 
         <div className="space-y-6">
           {ENDPOINTS.map((endpoint, idx) => (
-            <div key={idx} className="border border-neutral-800 rounded-lg p-4">
+            <div key={idx} className="border border-slate-800 rounded-lg p-4">
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 text-xs font-mono bg-blue-500/20 text-blue-400 rounded">
                       {endpoint.method}
                     </span>
-                    <span className="text-sm font-mono text-neutral-300">
+                    <span className="text-sm font-mono text-slate-300">
                       {endpoint.path}
                     </span>
                   </div>
-                  <p className="text-sm text-neutral-400 mt-1">{endpoint.description}</p>
+                  <p className="text-sm text-slate-400 mt-1">{endpoint.description}</p>
                 </div>
               </div>
 
               <div className="text-xs mb-3">
-                <span className="text-neutral-500">Parameters: </span>
+                <span className="text-slate-500">Parameters: </span>
                 {endpoint.params.map((p, i) => (
-                  <span key={i} className={p.required ? "text-white" : "text-neutral-400"}>
+                  <span key={i} className={p.required ? "text-white" : "text-slate-400"}>
                     {p.name}
                     {p.required ? "*" : ""}
                     {i < endpoint.params.length - 1 ? ", " : ""}
@@ -313,7 +313,7 @@ export function AgenticModeSelect() {
               </div>
 
               <div className="bg-black/40 rounded-lg p-3 overflow-x-auto">
-                <pre className="text-xs font-mono text-neutral-300 whitespace-pre-wrap break-all">{endpoint.curl}</pre>
+                <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap break-all">{endpoint.curl}</pre>
               </div>
               
               <button

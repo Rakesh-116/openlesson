@@ -1,0 +1,169 @@
+"use client";
+
+import { useState } from "react";
+import { ProblemInput } from "@/components/ProblemInput";
+import { PlanModeSelect } from "@/components/PlanModeSelect";
+import { Footer } from "@/components/Footer";
+import { Navbar } from "@/components/Navbar";
+
+type Mode = "session" | "plan";
+
+const ENTERPRISE_TOPICS = [
+  { topic: "Product knowledge: explain our pricing model to a customer", category: "Sales", emoji: "💰" },
+  { topic: "Sales objection: handle 'your solution is too expensive'", category: "Sales", emoji: "🤝" },
+  { topic: "Compliance training: GDPR key requirements", category: "Compliance", emoji: "📋" },
+  { topic: "Technical demo: explain our API to a developer", category: "Technical", emoji: "🔧" },
+];
+
+export default function EnterprisePage() {
+  const [selectedTopic, setSelectedTopic] = useState("");
+  const [mode, setMode] = useState<Mode>("session");
+
+  return (
+    <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
+      <Navbar />
+
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4">
+        <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 items-stretch">
+          
+          {/* Left Column - Visual/Mock */}
+          <div className="order-2 lg:order-1 flex flex-col">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/30 overflow-hidden flex-1 flex flex-col">
+              <div className="bg-slate-800/50 px-5 py-2.5 border-b border-slate-800 flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-300">Team Training Dashboard</span>
+                <span className="text-xs text-slate-500">Enterprise View</span>
+              </div>
+              <div className="p-5 flex-1 flex flex-col justify-between">
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="bg-slate-800/50 rounded-xl p-3">
+                    <p className="text-[10px] text-slate-400 mb-0.5">Active Users</p>
+                    <p className="text-xl font-bold text-white">247</p>
+                    <p className="text-[10px] text-emerald-400">+12 this week</p>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-xl p-3">
+                    <p className="text-[10px] text-slate-400 mb-0.5">Sessions</p>
+                    <p className="text-xl font-bold text-white">1,842</p>
+                    <p className="text-[10px] text-slate-500">Avg 7.4/user</p>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-xl p-3">
+                    <p className="text-[10px] text-slate-400 mb-0.5">Proficiency</p>
+                    <p className="text-xl font-bold text-white">78%</p>
+                    <p className="text-[10px] text-emerald-400">+5% vs last mo</p>
+                  </div>
+                </div>
+                <div className="bg-slate-800/30 rounded-xl p-4 flex-1 flex flex-col justify-center">
+                  <p className="text-xs text-slate-400 mb-3">Department Progress</p>
+                  <div className="space-y-2.5">
+                    {[
+                      { dept: "Sales", progress: 85, color: "bg-emerald-500" },
+                      { dept: "Engineering", progress: 91, color: "bg-blue-500" },
+                      { dept: "Support", progress: 72, color: "bg-amber-500" },
+                      { dept: "Marketing", progress: 68, color: "bg-rose-500" },
+                    ].map(({ dept, progress, color }) => (
+                      <div key={dept} className="flex items-center gap-3">
+                        <span className="text-xs text-slate-400 w-20">{dept}</span>
+                        <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+                          <div className={`h-full ${color} rounded-full`} style={{ width: `${progress}%` }} />
+                        </div>
+                        <span className="text-xs text-white w-8">{progress}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between">
+                  <span className="text-xs text-slate-500">SSO: Active | API: Enabled</span>
+                  <button className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors">
+                    Export Report
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Right Column - Mode Toggle + Prompt + Topics */}
+          <div className="order-1 lg:order-2 flex flex-col">
+            {/* Label */}
+            <div className="flex justify-center mb-3">
+              <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">For Sales</span>
+            </div>
+            
+            {/* Mode Toggle */}
+            <div className="flex justify-center mb-5">
+              <div className="bg-slate-900/80 rounded-xl p-1 flex gap-1 border border-slate-800">
+                <button
+                  onClick={() => setMode("session")}
+                  className={`px-5 py-2 text-sm font-medium rounded-lg transition-all ${
+                    mode === "session"
+                      ? "bg-slate-700/50 text-slate-200 shadow-sm border border-slate-600"
+                      : "text-slate-500 hover:text-white"
+                  }`}
+                >
+                  Assign Training
+                </button>
+                <button
+                  onClick={() => setMode("plan")}
+                  className={`px-5 py-2 text-sm font-medium rounded-lg transition-all ${
+                    mode === "plan"
+                      ? "bg-slate-700/50 text-slate-200 shadow-sm border border-slate-600"
+                      : "text-slate-500 hover:text-white"
+                  }`}
+                >
+                  View Analytics
+                </button>
+              </div>
+            </div>
+
+            {mode === "session" && (
+              <div className="flex flex-col flex-1">
+                <div className="text-center mb-5">
+                  <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">
+                    Train your team with AI that identifies reasoning gaps
+                  </h2>
+                  <p className="text-slate-500 max-w-md mx-auto text-sm leading-relaxed">
+                    Consistent, personalized training at scale. Track progress across departments.
+                  </p>
+                </div>
+
+                <div className="w-full max-w-lg mx-auto">
+                  <ProblemInput initialTopic={selectedTopic} theme="slate" />
+                </div>
+
+                <div className="mt-6 flex-1 flex flex-col">
+                  <p className="text-sm text-slate-500 mb-3 text-center">
+                    Popular training modules:
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 flex-1">
+                    {ENTERPRISE_TOPICS.map(({ topic, category, emoji }) => (
+                      <button
+                        key={topic}
+                        onClick={() => setSelectedTopic(topic)}
+                        className="text-left p-3 rounded-xl border border-slate-800 bg-slate-900/50 hover:bg-slate-800/80 hover:border-slate-600 transition-all duration-200"
+                      >
+                        <p className="text-[13px] text-slate-300 hover:text-white leading-snug mb-1.5">
+                          {topic}
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs">{emoji}</span>
+                          <span className="text-[11px] text-slate-600">{category}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {mode === "plan" && (
+              <div className="w-full flex-1 flex flex-col">
+                <PlanModeSelect theme="slate" />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <Footer />
+    </main>
+  );
+}

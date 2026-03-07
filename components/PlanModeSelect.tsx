@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 const WEEKS_OPTIONS = [
   { value: 1, label: "1 week" },
@@ -23,7 +22,85 @@ const EXAMPLE_TOPICS = [
   "Personal Finance",
 ];
 
-export function PlanModeSelect() {
+type ThemeColor = "neutral" | "teal" | "slate" | "blue" | "amber" | "violet";
+
+const themeStyles: Record<ThemeColor, {
+  textarea: string;
+  button: string;
+  buttonDisabled: string;
+  weekActive: string;
+  weekInactive: string;
+  topicPill: string;
+  label: string;
+  description: string;
+}> = {
+  neutral: {
+    textarea: "bg-neutral-900/80 border-neutral-800 focus:border-neutral-600 placeholder-neutral-600",
+    button: "bg-white hover:bg-neutral-200 text-black",
+    buttonDisabled: "disabled:bg-neutral-800 disabled:text-neutral-600",
+    weekActive: "bg-white/15 text-white border-neutral-600",
+    weekInactive: "bg-neutral-900/30 border-neutral-800 text-neutral-400 hover:border-neutral-700 hover:text-neutral-300",
+    topicPill: "text-neutral-500 hover:text-white bg-neutral-900/50 hover:bg-neutral-800 border-neutral-800 hover:border-neutral-700",
+    label: "text-neutral-400",
+    description: "text-neutral-500",
+  },
+  teal: {
+    textarea: "bg-teal-950/50 border-teal-900/50 focus:border-teal-700 placeholder-teal-600/50",
+    button: "bg-teal-500 hover:bg-teal-400 text-white",
+    buttonDisabled: "disabled:bg-teal-900/50 disabled:text-teal-700",
+    weekActive: "bg-teal-500/20 text-teal-400 border-teal-500/50",
+    weekInactive: "bg-teal-950/30 border-teal-900/50 text-teal-400/60 hover:border-teal-700 hover:text-teal-300",
+    topicPill: "text-teal-400/60 hover:text-teal-300 bg-teal-950/30 hover:bg-teal-900/40 border-teal-900/50 hover:border-teal-700",
+    label: "text-teal-400/70",
+    description: "text-teal-400/60",
+  },
+  slate: {
+    textarea: "bg-slate-900/50 border-slate-800 focus:border-slate-600 placeholder-slate-600",
+    button: "bg-slate-200 hover:bg-white text-slate-900",
+    buttonDisabled: "disabled:bg-slate-800 disabled:text-slate-600",
+    weekActive: "bg-slate-700/50 text-slate-200 border-slate-600",
+    weekInactive: "bg-slate-900/30 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-300",
+    topicPill: "text-slate-400 hover:text-white bg-slate-900/50 hover:bg-slate-800 border-slate-800 hover:border-slate-700",
+    label: "text-slate-400",
+    description: "text-slate-500",
+  },
+  blue: {
+    textarea: "bg-blue-950/50 border-blue-900/50 focus:border-blue-700 placeholder-blue-600/50",
+    button: "bg-blue-500 hover:bg-blue-400 text-white",
+    buttonDisabled: "disabled:bg-blue-900/50 disabled:text-blue-700",
+    weekActive: "bg-blue-500/20 text-blue-400 border-blue-500/50",
+    weekInactive: "bg-blue-950/30 border-blue-900/50 text-blue-400/60 hover:border-blue-700 hover:text-blue-300",
+    topicPill: "text-blue-400/60 hover:text-blue-300 bg-blue-950/30 hover:bg-blue-900/40 border-blue-900/50 hover:border-blue-700",
+    label: "text-blue-400/70",
+    description: "text-blue-300/60",
+  },
+  amber: {
+    textarea: "bg-amber-950/50 border-amber-900/50 focus:border-amber-700 placeholder-amber-600/50",
+    button: "bg-amber-500 hover:bg-amber-400 text-black",
+    buttonDisabled: "disabled:bg-amber-900/50 disabled:text-amber-700",
+    weekActive: "bg-amber-500/20 text-amber-400 border-amber-500/50",
+    weekInactive: "bg-amber-950/30 border-amber-900/50 text-amber-400/60 hover:border-amber-700 hover:text-amber-300",
+    topicPill: "text-amber-400/60 hover:text-amber-300 bg-amber-950/30 hover:bg-amber-900/40 border-amber-900/50 hover:border-amber-700",
+    label: "text-amber-400/70",
+    description: "text-amber-400/60",
+  },
+  violet: {
+    textarea: "bg-violet-950/50 border-violet-900/50 focus:border-violet-700 placeholder-violet-600/50",
+    button: "bg-violet-500 hover:bg-violet-400 text-white",
+    buttonDisabled: "disabled:bg-violet-900/50 disabled:text-violet-700",
+    weekActive: "bg-violet-500/20 text-violet-400 border-violet-500/50",
+    weekInactive: "bg-violet-950/30 border-violet-900/50 text-violet-400/60 hover:border-violet-700 hover:text-violet-300",
+    topicPill: "text-violet-400/60 hover:text-violet-300 bg-violet-950/30 hover:bg-violet-900/40 border-violet-900/50 hover:border-violet-700",
+    label: "text-violet-400/70",
+    description: "text-violet-400/60",
+  },
+};
+
+interface PlanModeSelectProps {
+  theme?: ThemeColor;
+}
+
+export function PlanModeSelect({ theme = "neutral" }: PlanModeSelectProps) {
   const [topic, setTopic] = useState("");
   const [weeks, setWeeks] = useState(4);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -34,6 +111,8 @@ export function PlanModeSelect() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
+
+  const styles = themeStyles[theme];
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -84,7 +163,7 @@ export function PlanModeSelect() {
         <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
           Build Your Learning Path
         </h2>
-        <p className="text-neutral-500 max-w-lg mx-auto text-sm leading-relaxed">
+        <p className={`max-w-lg mx-auto text-sm leading-relaxed ${styles.description}`}>
           Enter a topic and we'll create a structured learning plan. 
           Explore concepts in a structured way, one session at a time.
         </p>
@@ -99,13 +178,13 @@ export function PlanModeSelect() {
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleGeneratePlan()}
             placeholder="What do you want to learn? (e.g., Machine Learning, Philosophy)"
             rows={3}
-            className="w-full h-28 px-4 pt-3.5 pb-14 pr-32 bg-neutral-900/80 border border-neutral-800 rounded-2xl text-white text-[15px] placeholder-neutral-600 focus:outline-none focus:border-neutral-600 resize-none transition-colors"
+            className={`w-full h-28 px-4 pt-3.5 pb-14 pr-32 border rounded-2xl text-white text-[15px] focus:outline-none resize-none transition-colors ${styles.textarea}`}
             disabled={isGenerating}
           />
           <button
             onClick={handleGeneratePlan}
             disabled={!topic.trim() || isGenerating}
-            className="absolute right-4 bottom-4 px-4 py-2 bg-white hover:bg-neutral-200 disabled:bg-neutral-800 disabled:text-neutral-600 text-black text-sm font-medium rounded-xl transition-colors flex items-center gap-2"
+            className={`absolute right-4 bottom-4 px-4 py-2 text-sm font-medium rounded-xl transition-colors flex items-center gap-2 ${styles.button} ${styles.buttonDisabled}`}
           >
             {isGenerating ? (
               <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -127,7 +206,7 @@ export function PlanModeSelect() {
 
       {/* Weeks Selector */}
       <div className="mb-6">
-        <label className="block text-sm text-neutral-400 mb-3">
+        <label className={`block text-sm mb-3 ${styles.label}`}>
           How long should the learning plan be?
         </label>
         <div className="flex flex-wrap gap-2">
@@ -137,8 +216,8 @@ export function PlanModeSelect() {
               onClick={() => setWeeks(option.value)}
               className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
                 weeks === option.value
-                  ? "bg-white/15 text-white border-neutral-600"
-                  : "bg-neutral-900/30 border-neutral-800 text-neutral-400 hover:border-neutral-700 hover:text-neutral-300"
+                  ? styles.weekActive
+                  : styles.weekInactive
               }`}
             >
               {option.label}
@@ -148,24 +227,17 @@ export function PlanModeSelect() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {EXAMPLE_TOPICS.map((topic) => (
+        {EXAMPLE_TOPICS.map((t) => (
           <button
-            key={topic}
-            onClick={() => setTopic(topic)}
+            key={t}
+            onClick={() => setTopic(t)}
             disabled={isGenerating}
-            className="px-3 py-1.5 text-xs text-neutral-500 hover:text-white bg-neutral-900/50 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 rounded-full transition-colors"
+            className={`px-3 py-1.5 text-xs border rounded-full transition-colors ${styles.topicPill}`}
           >
-            {topic}
+            {t}
           </button>
         ))}
       </div>
-
-      <div className="text-center mt-8 pt-6 border-t border-neutral-800">
-        <Link href="/community" className="text-sm text-neutral-500 hover:text-white transition-colors">
-          Explore community plans →
-        </Link>
-      </div>
-
     </div>
   );
 }

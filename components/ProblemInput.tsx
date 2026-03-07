@@ -12,15 +12,57 @@ const EXAMPLE_PROMPTS = [
   "How does photosynthesis work?",
 ];
 
+type ThemeColor = "neutral" | "teal" | "slate" | "blue" | "amber" | "violet";
+
+const themeStyles: Record<ThemeColor, {
+  textarea: string;
+  button: string;
+  buttonDisabled: string;
+}> = {
+  neutral: {
+    textarea: "bg-neutral-900/80 border-neutral-800 focus:border-neutral-600 placeholder-neutral-600",
+    button: "bg-white hover:bg-neutral-200 text-black",
+    buttonDisabled: "disabled:bg-neutral-800 disabled:text-neutral-600",
+  },
+  teal: {
+    textarea: "bg-teal-950/50 border-teal-900/50 focus:border-teal-700 placeholder-teal-600/50",
+    button: "bg-teal-500 hover:bg-teal-400 text-white",
+    buttonDisabled: "disabled:bg-teal-900/50 disabled:text-teal-700",
+  },
+  slate: {
+    textarea: "bg-slate-900/50 border-slate-800 focus:border-slate-600 placeholder-slate-600",
+    button: "bg-slate-200 hover:bg-white text-slate-900",
+    buttonDisabled: "disabled:bg-slate-800 disabled:text-slate-600",
+  },
+  blue: {
+    textarea: "bg-blue-950/50 border-blue-900/50 focus:border-blue-700 placeholder-blue-600/50",
+    button: "bg-blue-500 hover:bg-blue-400 text-white",
+    buttonDisabled: "disabled:bg-blue-900/50 disabled:text-blue-700",
+  },
+  amber: {
+    textarea: "bg-amber-950/50 border-amber-900/50 focus:border-amber-700 placeholder-amber-600/50",
+    button: "bg-amber-500 hover:bg-amber-400 text-black",
+    buttonDisabled: "disabled:bg-amber-900/50 disabled:text-amber-700",
+  },
+  violet: {
+    textarea: "bg-violet-950/50 border-violet-900/50 focus:border-violet-700 placeholder-violet-600/50",
+    button: "bg-violet-500 hover:bg-violet-400 text-white",
+    buttonDisabled: "disabled:bg-violet-900/50 disabled:text-violet-700",
+  },
+};
+
 interface ProblemInputProps {
   initialTopic?: string;
+  theme?: ThemeColor;
 }
 
-export function ProblemInput({ initialTopic }: ProblemInputProps) {
+export function ProblemInput({ initialTopic, theme = "neutral" }: ProblemInputProps) {
   const [problem, setProblem] = useState(initialTopic || "");
   const [isLoading, setIsLoading] = useState(false);
   const [usageError, setUsageError] = useState<string | null>(null);
   const router = useRouter();
+
+  const styles = themeStyles[theme];
 
   // Sync when parent changes the topic
   if (initialTopic && initialTopic !== problem && !isLoading) {
@@ -77,13 +119,13 @@ export function ProblemInput({ initialTopic }: ProblemInputProps) {
           value={problem}
           onChange={(e) => { setProblem(e.target.value); setUsageError(null); }}
           placeholder="What do you want to think through? (e.g., Explain recursion, How does GPS work?)"
-          className="w-full h-28 px-4 pt-3.5 pb-14 pr-32 bg-neutral-900/80 border border-neutral-800 rounded-2xl text-white text-[15px] placeholder-neutral-600 focus:outline-none focus:border-neutral-600 resize-none transition-colors"
+          className={`w-full h-28 px-4 pt-3.5 pb-14 pr-32 border rounded-2xl text-white text-[15px] focus:outline-none resize-none transition-colors scrollbar-hide overflow-hidden ${styles.textarea}`}
           disabled={isLoading}
         />
         <button
           onClick={handleStart}
           disabled={!problem.trim() || isLoading}
-          className="absolute right-4 bottom-4 px-4 py-2 bg-white hover:bg-neutral-200 disabled:bg-neutral-800 disabled:text-neutral-600 text-black text-sm font-medium rounded-xl transition-colors flex items-center gap-2"
+          className={`absolute right-4 bottom-4 px-4 py-2 text-sm font-medium rounded-xl transition-colors flex items-center gap-2 ${styles.button} ${styles.buttonDisabled}`}
         >
           {isLoading ? (
             <LoadingSpinner />

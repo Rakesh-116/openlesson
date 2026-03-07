@@ -5,12 +5,13 @@ import { TOPIC_CATALOGUE } from "@/lib/topics";
 
 interface TopicBrowserProps {
   onSelectTopic: (topic: string) => void;
+  fullWidth?: boolean;
 }
 
 const ALL_LABEL = "All";
 const SCROLL_AMOUNT = 200;
 
-export function TopicBrowser({ onSelectTopic }: TopicBrowserProps) {
+export function TopicBrowser({ onSelectTopic, fullWidth = false }: TopicBrowserProps) {
   const [activeFilter, setActiveFilter] = useState(ALL_LABEL);
   const [visibleTopics, setVisibleTopics] = useState<
     { topic: string; category: string; emoji: string }[]
@@ -78,15 +79,15 @@ export function TopicBrowser({ onSelectTopic }: TopicBrowserProps) {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto">
+    <div className={`w-full ${fullWidth ? "" : "max-w-5xl"} mx-auto`}>
       {/* Section header */}
       <div className="flex items-center justify-between mb-5">
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-slate-500">
           Not sure where to start? Pick one of these.
         </p>
         <button
           onClick={handleReshuffle}
-          className="text-xs text-neutral-600 hover:text-white transition-colors inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md hover:bg-neutral-800"
+          className="text-xs text-slate-600 hover:text-white transition-colors inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md hover:bg-slate-800"
         >
           <ShuffleIcon />
           Shuffle
@@ -100,8 +101,8 @@ export function TopicBrowser({ onSelectTopic }: TopicBrowserProps) {
           disabled={!canScrollLeft}
           className={`shrink-0 w-8 h-8 rounded-full border flex items-center justify-center transition-colors ${
             canScrollLeft
-              ? "border-neutral-600 text-neutral-400 hover:border-neutral-500 hover:text-white hover:bg-neutral-800"
-              : "border-neutral-800 text-neutral-700 cursor-default"
+              ? "border-slate-600 text-slate-400 hover:border-slate-500 hover:text-white hover:bg-slate-800"
+              : "border-slate-800 text-slate-700 cursor-default"
           }`}
           aria-label="Scroll left"
         >
@@ -116,8 +117,8 @@ export function TopicBrowser({ onSelectTopic }: TopicBrowserProps) {
             onClick={() => handleFilterClick(ALL_LABEL)}
             className={`shrink-0 px-3 py-1.5 text-xs rounded-full border transition-colors ${
               activeFilter === ALL_LABEL
-                ? "bg-white text-black border-white"
-                : "text-neutral-400 border-neutral-700 hover:border-neutral-500 hover:text-white"
+                ? "bg-slate-200 text-slate-900 border-slate-200"
+                : "text-slate-400 border-slate-700 hover:border-slate-500 hover:text-white"
             }`}
           >
             All
@@ -129,8 +130,8 @@ export function TopicBrowser({ onSelectTopic }: TopicBrowserProps) {
               onClick={() => handleFilterClick(cat.name)}
               className={`shrink-0 px-3 py-1.5 text-xs rounded-full border transition-colors inline-flex items-center gap-1.5 ${
                 activeFilter === cat.name
-                  ? "bg-white text-black border-white"
-                  : "text-neutral-400 border-neutral-700 hover:border-neutral-500 hover:text-white"
+                  ? "bg-slate-200 text-slate-900 border-slate-200"
+                  : "text-slate-400 border-slate-700 hover:border-slate-500 hover:text-white"
               }`}
             >
               <span>{cat.emoji}</span>
@@ -143,8 +144,8 @@ export function TopicBrowser({ onSelectTopic }: TopicBrowserProps) {
           disabled={!canScrollRight}
           className={`shrink-0 w-8 h-8 rounded-full border flex items-center justify-center transition-colors ${
             canScrollRight
-              ? "border-neutral-600 text-neutral-400 hover:border-neutral-500 hover:text-white hover:bg-neutral-800"
-              : "border-neutral-800 text-neutral-700 cursor-default"
+              ? "border-slate-600 text-slate-400 hover:border-slate-500 hover:text-white hover:bg-slate-800"
+              : "border-slate-800 text-slate-700 cursor-default"
           }`}
           aria-label="Scroll right"
         >
@@ -158,14 +159,14 @@ export function TopicBrowser({ onSelectTopic }: TopicBrowserProps) {
           <button
             key={topic}
             onClick={() => onSelectTopic(topic)}
-            className="group text-left p-4 rounded-xl border border-neutral-800 bg-neutral-900/50 hover:bg-neutral-800/80 hover:border-neutral-600 transition-all duration-200"
+            className="group text-left p-4 rounded-xl border border-slate-800 bg-slate-900/50 hover:bg-slate-800/80 hover:border-slate-600 transition-all duration-200"
           >
-            <p className="text-[13px] text-neutral-300 group-hover:text-white leading-snug mb-2.5">
+            <p className="text-[13px] text-slate-300 group-hover:text-white leading-snug mb-2.5">
               {topic}
             </p>
             <div className="flex items-center gap-1.5">
               <span className="text-xs">{emoji}</span>
-              <span className="text-[11px] text-neutral-600 group-hover:text-neutral-400 transition-colors">
+              <span className="text-[11px] text-slate-600 group-hover:text-slate-400 transition-colors">
                 {category}
               </span>
             </div>

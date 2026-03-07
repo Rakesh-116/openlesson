@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
@@ -19,6 +19,8 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [solutionsOpen, setSolutionsOpen] = useState(false);
+  const solutionsRef = useRef<HTMLDivElement>(null);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,6 +41,16 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
     };
   }, [supabase]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (solutionsRef.current && !solutionsRef.current.contains(event.target as Node)) {
+        setSolutionsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setIsLoggedIn(false);
@@ -46,11 +58,18 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
     router.refresh();
   };
 
+  const solutionsItems = [
+    { href: "/", label: "For Individuals", desc: "Personal learning & skill building" },
+    { href: "/enterprise", label: "For Sales", desc: "Team training & enablement" },
+    { href: "/eval", label: "For HR", desc: "Candidate testing & competency reports" },
+    { href: "/homeschool", label: "For Families", desc: "Homeschool & parent dashboard" },
+    { href: "/schools", label: "For Schools", desc: "Teachers & classroom management" },
+    { href: "/certify", label: "For Careers", desc: "Certification prep & career growth" },
+  ];
+
   const navLinks = [
-    { href: "/use-cases", label: "Use Cases" },
     { href: "/pricing", label: "Pricing" },
     { href: "/coaching", label: "Coaching" },
-    { href: "/community", label: "Community" },
     { href: "/dashboard", label: "Dashboard" },
   ];
 
@@ -84,6 +103,34 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
         {/* Desktop Navigation */}
         {showNav && (
           <div className="hidden md:flex items-center gap-4">
+            {/* Solutions Dropdown */}
+            <div className="relative" ref={solutionsRef}>
+              <button
+                onClick={() => setSolutionsOpen(!solutionsOpen)}
+                className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors inline-flex items-center gap-1"
+              >
+                Solutions
+                <svg className={`w-3 h-3 transition-transform ${solutionsOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {solutionsOpen && (
+                <div className="absolute top-full left-0 mt-2 w-64 bg-neutral-900 border border-neutral-800 rounded-xl shadow-xl py-2 z-50">
+                  {solutionsItems.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setSolutionsOpen(false)}
+                      className="block px-4 py-2 hover:bg-neutral-800 transition-colors"
+                    >
+                      <p className="text-sm text-white">{item.label}</p>
+                      <p className="text-[10px] text-neutral-500">{item.desc}</p>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {navLinks.map((link) => (
               <Link 
                 key={link.href} 
@@ -133,6 +180,20 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
       {showNav && mobileMenuOpen && (
         <div className="md:hidden mt-4 pb-4 border-t border-neutral-800 pt-4">
           <nav className="flex flex-col gap-4">
+            <div className="mb-2">
+              <span className="text-xs text-neutral-600 uppercase tracking-wider">Solutions</span>
+            </div>
+            {solutionsItems.map((item) => (
+              <Link 
+                key={item.href} 
+                href={item.href} 
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-sm text-neutral-400 hover:text-white transition-colors pl-2 border-l border-neutral-800"
+              >
+                {item.label}
+              </Link>
+            ))}
+            <div className="border-t border-neutral-800 my-2" />
             {navLinks.map((link) => (
               <Link 
                 key={link.href} 
