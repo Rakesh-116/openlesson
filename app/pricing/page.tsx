@@ -7,6 +7,7 @@ import { PLANS, type PlanId } from "@/lib/plans";
 import { Footer } from "@/components/Footer";
 import { FAQ, PRICING_FAQ_ITEMS } from "@/components/FAQ";
 import { createClient } from "@/lib/supabase/client";
+import { DemoBanner } from "@/components/DemoBanner";
 
 interface UserState {
   authenticated: boolean;
@@ -151,6 +152,7 @@ export default function PricingPage() {
 
   return (
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
+      <DemoBanner />
       <Navbar />
 
       <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-12">

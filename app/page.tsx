@@ -7,6 +7,7 @@ import { PlanModeSelect } from "@/components/PlanModeSelect";
 import { AgenticModeSelect } from "@/components/AgenticModeSelect";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
+import { DemoBanner } from "@/components/DemoBanner";
 
 type Mode = "session" | "plan" | "agentic";
 
@@ -16,6 +17,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
+      <DemoBanner />
       <Navbar />
 
       {/* Hero Section */}

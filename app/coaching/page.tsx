@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { FAQ, COACHING_FAQ_ITEMS } from "@/components/FAQ";
+import { DemoBanner } from "@/components/DemoBanner";
 
 export const metadata = {
   title: "Coaching - openLesson",
@@ -110,6 +111,7 @@ const PLACEHOLDER_COACHING_TESTIMONIALS = [
 export default function CoachingPage() {
   return (
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
+      <DemoBanner />
       <Navbar />
 
       <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-12">

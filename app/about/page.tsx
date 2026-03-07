@@ -3,6 +3,7 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { HowItWorks } from "@/components/HowItWorks";
 import { Testimonials, PLACEHOLDER_TESTIMONIALS } from "@/components/Testimonials";
+import { DemoBanner } from "@/components/DemoBanner";
 
 export const metadata = {
   title: "About - openLesson",
@@ -101,6 +102,7 @@ const WHY_OPENLESSON = [
 export default function AboutPage() {
   return (
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
+      <DemoBanner />
       <Navbar />
 
       <div className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-12">

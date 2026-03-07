@@ -7,6 +7,7 @@ import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import { RoadmapBadge } from "@/components/FeatureStatus";
 import { LeadCapture } from "@/components/LeadCapture";
+import { DemoBanner } from "@/components/DemoBanner";
 
 type Mode = "session" | "plan";
 
@@ -23,11 +24,12 @@ export default function EnterprisePage() {
 
   return (
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
+      <DemoBanner />
       <Navbar />
 
       <div className="flex-1 flex flex-col lg:flex-row">
         {/* Left Column - Scrollable with lighter background (shows below on mobile) */}
-        <div className="order-2 lg:order-1 lg:w-1/2 bg-slate-900/40 lg:border-r border-t lg:border-t-0 border-slate-800 lg:h-[calc(100vh-73px)] lg:overflow-y-auto px-4 sm:px-6 py-6 lg:py-8">
+        <div className="order-2 lg:order-1 lg:w-1/2 bg-slate-900/40 lg:border-r border-t lg:border-t-0 border-slate-800 lg:h-[calc(100vh-113px)] lg:overflow-y-auto px-4 sm:px-6 py-6 lg:py-8">
           <div className="w-full max-w-xl mx-auto flex flex-col gap-8">
             {/* Mockup */}
             <div className="rounded-2xl border border-slate-700 bg-slate-800/30 overflow-hidden flex flex-col relative">
@@ -127,7 +129,7 @@ export default function EnterprisePage() {
         </div>
 
         {/* Right Column - Sticky at top (shows on top on mobile) */}
-        <div className="order-1 lg:order-2 w-full lg:w-1/2 lg:sticky lg:top-[73px] lg:h-[calc(100vh-73px)] flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4">
+        <div className="order-1 lg:order-2 w-full lg:w-1/2 lg:sticky lg:top-[113px] lg:h-[calc(100vh-113px)] flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4">
           <div className="w-full max-w-xl flex flex-col">
             {/* Label */}
             <div className="flex justify-center mb-3">
