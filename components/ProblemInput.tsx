@@ -57,7 +57,7 @@ interface ProblemInputProps {
   placeholder?: string;
 }
 
-export function ProblemInput({ initialTopic, theme = "neutral", placeholder = "What do you want to think through? (e.g., Explain recursion, How does GPS work?)" }: ProblemInputProps) {
+export function ProblemInput({ initialTopic, theme = "neutral", placeholder = "What do you want to learn today? (e.g., Explain recursion, How does GPS work?)" }: ProblemInputProps) {
   const [problem, setProblem] = useState(initialTopic || "");
   const [isLoading, setIsLoading] = useState(false);
   const [usageError, setUsageError] = useState<string | null>(null);

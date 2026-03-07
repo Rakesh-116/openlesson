@@ -63,11 +63,11 @@ export default function Home() {
             {/* Hero Text */}
             <div className="text-center mb-8">
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 tracking-tight">
-                The AI Tutor That Listens to You Think
+                What Do You Want to Learn Today?
               </h1>
               <p className="text-slate-400 max-w-xl mx-auto text-base sm:text-lg leading-relaxed">
-                Speak your reasoning out loud. Our AI detects gaps in your understanding 
-                and asks the right questions — never gives answers away.
+                Your personal AI tutor that guides you through any topic. 
+                Speak your thoughts — get the right questions to deepen your understanding.
               </p>
             </div>
 
