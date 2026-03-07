@@ -23,24 +23,24 @@ export default function SchoolsPage() {
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
       <Navbar />
 
-      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4">
-        <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 items-stretch">
-          
-          {/* Left Column - Visual/Mock */}
-          <div className="order-2 lg:order-1 flex flex-col">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/30 overflow-hidden flex-1 flex flex-col">
-              <div className="bg-slate-800/50 px-5 py-2.5 border-b border-slate-800 flex items-center justify-between">
+      <div className="flex-1 flex">
+        {/* Left Column - Scrollable with lighter background */}
+        <div className="hidden lg:flex lg:w-1/2 bg-slate-900/40 border-r border-slate-800 overflow-y-auto">
+          <div className="w-full max-w-xl ml-auto p-8 flex flex-col gap-8">
+            {/* Mockup */}
+            <div className="rounded-2xl border border-slate-700 bg-slate-800/30 overflow-hidden flex flex-col">
+              <div className="bg-slate-700/50 px-5 py-2.5 border-b border-slate-700 flex items-center justify-between">
                 <span className="text-sm font-medium text-slate-300">Classroom — Period 3 Algebra</span>
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">12 Active</span>
                   <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">5 In Progress</span>
                 </div>
               </div>
-              <div className="p-4 flex-1 flex flex-col">
-                <div className="overflow-x-auto flex-1">
+              <div className="p-4 flex flex-col">
+                <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-slate-800">
+                      <tr className="border-b border-slate-700">
                         <th className="text-left text-[10px] text-slate-400 font-medium pb-2 pr-2">Student</th>
                         <th className="text-left text-[10px] text-slate-400 font-medium pb-2 px-2">Status</th>
                         <th className="text-left text-[10px] text-slate-400 font-medium pb-2 px-2">Last</th>
@@ -55,7 +55,7 @@ export default function SchoolsPage() {
                         { name: "Morgan Wilson", status: "Not Started", last: "—", gaps: 0 },
                         { name: "Riley Johnson", status: "Completed", last: "1h ago", gaps: 3 },
                       ].map(({ name, status, last, gaps }) => (
-                        <tr key={name} className="border-b border-slate-800/50 last:border-0">
+                        <tr key={name} className="border-b border-slate-700/50 last:border-0">
                           <td className="py-2 pr-2">
                             <p className="text-sm text-white">{name}</p>
                           </td>
@@ -81,22 +81,39 @@ export default function SchoolsPage() {
                     </tbody>
                   </table>
                 </div>
-                <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between">
+                <div className="mt-4 pt-4 border-t border-slate-700 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">Google Classroom</span>
                     <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">Canvas</span>
                   </div>
-                  <button className="text-xs bg-slate-700/50 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg transition-colors">
+                  <button className="text-xs bg-slate-600/50 hover:bg-slate-600 text-slate-300 px-3 py-1.5 rounded-lg transition-colors">
                     Create Assignment
                   </button>
                 </div>
               </div>
             </div>
 
+            {/* Value Proposition */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-white">Why openLesson for Schools?</h3>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                Teachers can't give every student one-on-one attention, but openLesson can. Assign topics as homework and let our AI 
+                tutor each student through Socratic dialogue — asking questions that reveal misunderstandings in real-time. 
+                You get a classroom dashboard showing exactly which students are struggling and with what concepts, so you can 
+                differentiate instruction where it matters most.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-2">
+                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">LMS integration</span>
+                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Gap identification</span>
+                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Class-wide insights</span>
+              </div>
+            </div>
           </div>
+        </div>
 
-          {/* Right Column - Mode Toggle + Prompt + Topics */}
-          <div className="order-1 lg:order-2 flex flex-col">
+        {/* Right Column - Fixed, no scroll */}
+        <div className="w-full lg:w-1/2 flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4 overflow-hidden">
+          <div className="w-full max-w-xl flex flex-col">
             {/* Label */}
             <div className="flex justify-center mb-3">
               <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">For Schools</span>
@@ -113,7 +130,7 @@ export default function SchoolsPage() {
                       : "text-slate-500 hover:text-white"
                   }`}
                 >
-                  Assign Session
+                  Assign Topic
                 </button>
                 <button
                   onClick={() => setMode("plan")}
@@ -123,7 +140,7 @@ export default function SchoolsPage() {
                       : "text-slate-500 hover:text-white"
                   }`}
                 >
-                  Classroom View
+                  Build Syllabus
                 </button>
               </div>
             </div>

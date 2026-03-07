@@ -23,35 +23,35 @@ export default function EnterprisePage() {
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
       <Navbar />
 
-      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4">
-        <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 items-stretch">
-          
-          {/* Left Column - Visual/Mock */}
-          <div className="order-2 lg:order-1 flex flex-col">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/30 overflow-hidden flex-1 flex flex-col">
-              <div className="bg-slate-800/50 px-5 py-2.5 border-b border-slate-800 flex items-center justify-between">
+      <div className="flex-1 flex">
+        {/* Left Column - Scrollable with lighter background */}
+        <div className="hidden lg:flex lg:w-1/2 bg-slate-900/40 border-r border-slate-800 overflow-y-auto">
+          <div className="w-full max-w-xl ml-auto p-8 flex flex-col gap-8">
+            {/* Mockup */}
+            <div className="rounded-2xl border border-slate-700 bg-slate-800/30 overflow-hidden flex flex-col">
+              <div className="bg-slate-700/50 px-5 py-2.5 border-b border-slate-700 flex items-center justify-between">
                 <span className="text-sm font-medium text-slate-300">Team Training Dashboard</span>
                 <span className="text-xs text-slate-500">Enterprise View</span>
               </div>
-              <div className="p-5 flex-1 flex flex-col justify-between">
+              <div className="p-5 flex flex-col">
                 <div className="grid grid-cols-3 gap-3 mb-4">
-                  <div className="bg-slate-800/50 rounded-xl p-3">
+                  <div className="bg-slate-700/50 rounded-xl p-3">
                     <p className="text-[10px] text-slate-400 mb-0.5">Active Users</p>
                     <p className="text-xl font-bold text-white">247</p>
                     <p className="text-[10px] text-emerald-400">+12 this week</p>
                   </div>
-                  <div className="bg-slate-800/50 rounded-xl p-3">
+                  <div className="bg-slate-700/50 rounded-xl p-3">
                     <p className="text-[10px] text-slate-400 mb-0.5">Sessions</p>
                     <p className="text-xl font-bold text-white">1,842</p>
                     <p className="text-[10px] text-slate-500">Avg 7.4/user</p>
                   </div>
-                  <div className="bg-slate-800/50 rounded-xl p-3">
+                  <div className="bg-slate-700/50 rounded-xl p-3">
                     <p className="text-[10px] text-slate-400 mb-0.5">Proficiency</p>
                     <p className="text-xl font-bold text-white">78%</p>
                     <p className="text-[10px] text-emerald-400">+5% vs last mo</p>
                   </div>
                 </div>
-                <div className="bg-slate-800/30 rounded-xl p-4 flex-1 flex flex-col justify-center">
+                <div className="bg-slate-700/30 rounded-xl p-4">
                   <p className="text-xs text-slate-400 mb-3">Department Progress</p>
                   <div className="space-y-2.5">
                     {[
@@ -62,7 +62,7 @@ export default function EnterprisePage() {
                     ].map(({ dept, progress, color }) => (
                       <div key={dept} className="flex items-center gap-3">
                         <span className="text-xs text-slate-400 w-20">{dept}</span>
-                        <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+                        <div className="flex-1 h-2 bg-slate-600 rounded-full overflow-hidden">
                           <div className={`h-full ${color} rounded-full`} style={{ width: `${progress}%` }} />
                         </div>
                         <span className="text-xs text-white w-8">{progress}%</span>
@@ -70,7 +70,7 @@ export default function EnterprisePage() {
                     ))}
                   </div>
                 </div>
-                <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between">
+                <div className="mt-4 pt-4 border-t border-slate-700 flex items-center justify-between">
                   <span className="text-xs text-slate-500">SSO: Active | API: Enabled</span>
                   <button className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors">
                     Export Report
@@ -79,10 +79,27 @@ export default function EnterprisePage() {
               </div>
             </div>
 
+            {/* Value Proposition */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-white">Why openLesson for Sales Teams?</h3>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                Traditional sales training fails because reps memorize scripts without understanding the reasoning behind them. 
+                When prospects go off-script, they freeze. openLesson uses Socratic dialogue to build genuine product mastery — 
+                your team learns to think through objections, not just recite answers. Our AI detects knowledge gaps in real-time, 
+                ensuring every rep truly understands your value proposition before they're customer-facing.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-2">
+                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Reasoning-based learning</span>
+                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Real-time gap detection</span>
+                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Scales to any team size</span>
+              </div>
+            </div>
           </div>
+        </div>
 
-          {/* Right Column - Mode Toggle + Prompt + Topics */}
-          <div className="order-1 lg:order-2 flex flex-col">
+        {/* Right Column - Fixed, no scroll */}
+        <div className="w-full lg:w-1/2 flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4 overflow-hidden">
+          <div className="w-full max-w-xl flex flex-col">
             {/* Label */}
             <div className="flex justify-center mb-3">
               <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">For Sales</span>
@@ -99,7 +116,7 @@ export default function EnterprisePage() {
                       : "text-slate-500 hover:text-white"
                   }`}
                 >
-                  Assign Training
+                  Train Now
                 </button>
                 <button
                   onClick={() => setMode("plan")}
@@ -109,7 +126,7 @@ export default function EnterprisePage() {
                       : "text-slate-500 hover:text-white"
                   }`}
                 >
-                  View Analytics
+                  Build Program
                 </button>
               </div>
             </div>

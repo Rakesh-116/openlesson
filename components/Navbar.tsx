@@ -74,26 +74,26 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
   ];
 
   return (
-    <header className="border-b border-neutral-800/60 px-4 sm:px-6 py-4 backdrop-blur-sm bg-[#0a0a0a]/80 sticky top-0 z-20">
+    <header className="border-b border-slate-800/60 px-4 sm:px-6 py-4 backdrop-blur-sm bg-[#0a0a0a]/80 sticky top-0 z-20">
       <div className="max-w-5xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Link href="/" className="text-base sm:text-lg font-semibold text-white tracking-tight hover:text-neutral-300 transition-colors">
+          <Link href="/" className="text-base sm:text-lg font-semibold text-white tracking-tight hover:text-slate-300 transition-colors">
             openLesson
           </Link>
           
           {breadcrumbs.length > 0 && (
             <>
-              <span className="text-neutral-600 hidden sm:inline">/</span>
+              <span className="text-slate-600 hidden sm:inline">/</span>
               {breadcrumbs.map((item, index) => (
                 <div key={index} className="flex items-center gap-2">
                   {item.href ? (
-                    <Link href={item.href} className="text-neutral-400 hover:text-white text-sm transition-colors">
+                    <Link href={item.href} className="text-slate-400 hover:text-white text-sm transition-colors">
                       {item.label}
                     </Link>
                   ) : (
-                    <span className="text-neutral-400 text-sm">{item.label}</span>
+                    <span className="text-slate-400 text-sm">{item.label}</span>
                   )}
-                  {index < breadcrumbs.length - 1 && <span className="text-neutral-600 hidden sm:inline">/</span>}
+                  {index < breadcrumbs.length - 1 && <span className="text-slate-600 hidden sm:inline">/</span>}
                 </div>
               ))}
             </>
@@ -107,7 +107,7 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
             <div className="relative" ref={solutionsRef}>
               <button
                 onClick={() => setSolutionsOpen(!solutionsOpen)}
-                className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors inline-flex items-center gap-1"
+                className="text-xs sm:text-sm text-slate-500 hover:text-white transition-colors inline-flex items-center gap-1"
               >
                 Solutions
                 <svg className={`w-3 h-3 transition-transform ${solutionsOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -115,16 +115,16 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
                 </svg>
               </button>
               {solutionsOpen && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-neutral-900 border border-neutral-800 rounded-xl shadow-xl py-2 z-50">
+                <div className="absolute top-full left-0 mt-2 w-64 bg-slate-900 border border-slate-800 rounded-xl shadow-xl py-2 z-50">
                   {solutionsItems.map((item) => (
                     <Link
                       key={item.href}
                       href={item.href}
                       onClick={() => setSolutionsOpen(false)}
-                      className="block px-4 py-2 hover:bg-neutral-800 transition-colors"
+                      className="block px-4 py-2 hover:bg-slate-800 transition-colors"
                     >
                       <p className="text-sm text-white">{item.label}</p>
-                      <p className="text-[10px] text-neutral-500">{item.desc}</p>
+                      <p className="text-[10px] text-slate-500">{item.desc}</p>
                     </Link>
                   ))}
                 </div>
@@ -135,7 +135,7 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
               <Link 
                 key={link.href} 
                 href={link.href} 
-                className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors"
+                className="text-xs sm:text-sm text-slate-500 hover:text-white transition-colors"
               >
                 {link.label}
               </Link>
@@ -144,12 +144,12 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
             {isLoggedIn === true ? (
               <button
                 onClick={handleSignOut}
-                className="text-xs sm:text-sm text-neutral-500 hover:text-white transition-colors"
+                className="text-xs sm:text-sm text-slate-500 hover:text-white transition-colors"
               >
                 Sign out
               </button>
             ) : isLoggedIn === false && (
-              <Link href="/login" className="px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm bg-white/10 hover:bg-white/15 text-white rounded-lg transition-colors">
+              <Link href="/login" className="px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors">
                 Sign In
               </Link>
             )}
@@ -160,7 +160,7 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
         {showNav && (
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 text-neutral-400 hover:text-white transition-colors"
+            className="md:hidden p-2 text-slate-400 hover:text-white transition-colors"
             aria-label="Toggle menu"
           >
             {mobileMenuOpen ? (
@@ -178,28 +178,28 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
 
       {/* Mobile Menu Dropdown */}
       {showNav && mobileMenuOpen && (
-        <div className="md:hidden mt-4 pb-4 border-t border-neutral-800 pt-4">
+        <div className="md:hidden mt-4 pb-4 border-t border-slate-800 pt-4">
           <nav className="flex flex-col gap-4">
             <div className="mb-2">
-              <span className="text-xs text-neutral-600 uppercase tracking-wider">Solutions</span>
+              <span className="text-xs text-slate-600 uppercase tracking-wider">Solutions</span>
             </div>
             {solutionsItems.map((item) => (
               <Link 
                 key={item.href} 
                 href={item.href} 
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-sm text-neutral-400 hover:text-white transition-colors pl-2 border-l border-neutral-800"
+                className="text-sm text-slate-400 hover:text-white transition-colors pl-2 border-l border-slate-800"
               >
                 {item.label}
               </Link>
             ))}
-            <div className="border-t border-neutral-800 my-2" />
+            <div className="border-t border-slate-800 my-2" />
             {navLinks.map((link) => (
               <Link 
                 key={link.href} 
                 href={link.href} 
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-sm text-neutral-400 hover:text-white transition-colors"
+                className="text-sm text-slate-400 hover:text-white transition-colors"
               >
                 {link.label}
               </Link>
@@ -211,7 +211,7 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
                   handleSignOut();
                   setMobileMenuOpen(false);
                 }}
-                className="text-sm text-neutral-400 hover:text-white transition-colors text-left"
+                className="text-sm text-slate-400 hover:text-white transition-colors text-left"
               >
                 Sign out
               </button>
@@ -219,7 +219,7 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
               <Link 
                 href="/login" 
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-sm text-neutral-400 hover:text-white transition-colors"
+                className="text-sm text-slate-400 hover:text-white transition-colors"
               >
                 Sign In
               </Link>

@@ -23,17 +23,17 @@ export default function CertifyPage() {
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
       <Navbar />
 
-      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4">
-        <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 items-stretch">
-          
-          {/* Left Column - Visual/Mock */}
-          <div className="order-2 lg:order-1 flex flex-col">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/30 overflow-hidden flex-1 flex flex-col">
-              <div className="bg-slate-800/50 px-5 py-2.5 border-b border-slate-800 flex items-center justify-between">
+      <div className="flex-1 flex">
+        {/* Left Column - Scrollable with lighter background */}
+        <div className="hidden lg:flex lg:w-1/2 bg-slate-900/40 border-r border-slate-800 overflow-y-auto">
+          <div className="w-full max-w-xl ml-auto p-8 flex flex-col gap-8">
+            {/* Mockup */}
+            <div className="rounded-2xl border border-slate-700 bg-slate-800/30 overflow-hidden flex flex-col">
+              <div className="bg-slate-700/50 px-5 py-2.5 border-b border-slate-700 flex items-center justify-between">
                 <span className="text-sm font-medium text-slate-300">Certification Roadmap</span>
                 <span className="text-xs text-slate-500">AWS Solutions Architect</span>
               </div>
-              <div className="p-5 flex-1 flex flex-col justify-between">
+              <div className="p-5 flex flex-col">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-14 h-14 rounded-full border-4 border-slate-500 flex items-center justify-center">
@@ -45,7 +45,7 @@ export default function CertifyPage() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button className="text-xs bg-slate-700/50 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg transition-colors">
+                    <button className="text-xs bg-slate-600/50 hover:bg-slate-600 text-slate-300 px-3 py-1.5 rounded-lg transition-colors">
                       Blueprint
                     </button>
                     <button className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors">
@@ -55,7 +55,7 @@ export default function CertifyPage() {
                 </div>
                 
                 <div className="relative my-4">
-                  <div className="absolute top-4 left-0 right-0 h-0.5 bg-slate-800" />
+                  <div className="absolute top-4 left-0 right-0 h-0.5 bg-slate-700" />
                   <div className="absolute top-4 left-0 h-0.5 bg-slate-500" style={{ width: "45%" }} />
                   <div className="relative flex justify-between">
                     {[
@@ -84,7 +84,7 @@ export default function CertifyPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 mt-auto pt-4 border-t border-slate-800">
+                <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-700">
                   <div>
                     <p className="text-[10px] text-slate-500 uppercase mb-0.5">Practice Score</p>
                     <p className="text-lg font-bold text-white">72%</p>
@@ -104,10 +104,27 @@ export default function CertifyPage() {
               </div>
             </div>
 
+            {/* Value Proposition */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-white">Why openLesson for Certifications?</h3>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                Most certification prep relies on memorizing dumps and practice tests — you pass the exam but forget everything a week later. 
+                openLesson builds genuine understanding through Socratic dialogue. When you explain concepts back, our AI identifies exactly 
+                where your reasoning breaks down. You'll walk into your exam confident because you actually understand the material, not 
+                because you've seen similar questions before.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-2">
+                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Deep understanding</span>
+                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Gap identification</span>
+                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Progress tracking</span>
+              </div>
+            </div>
           </div>
+        </div>
 
-          {/* Right Column - Mode Toggle + Prompt + Topics */}
-          <div className="order-1 lg:order-2 flex flex-col">
+        {/* Right Column - Fixed, no scroll */}
+        <div className="w-full lg:w-1/2 flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4 overflow-hidden">
+          <div className="w-full max-w-xl flex flex-col">
             {/* Solution Label */}
             <div className="flex justify-center mb-4">
               <span className="text-xs text-slate-500 uppercase tracking-widest">For Careers</span>
@@ -124,7 +141,7 @@ export default function CertifyPage() {
                       : "text-slate-500 hover:text-white"
                   }`}
                 >
-                  Study Session
+                  Practice Now
                 </button>
                 <button
                   onClick={() => setMode("plan")}
@@ -134,7 +151,7 @@ export default function CertifyPage() {
                       : "text-slate-500 hover:text-white"
                   }`}
                 >
-                  My Progress
+                  Build Roadmap
                 </button>
               </div>
             </div>

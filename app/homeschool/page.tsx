@@ -23,20 +23,20 @@ export default function HomeschoolPage() {
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
       <Navbar />
 
-      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4">
-        <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 items-stretch">
-          
-          {/* Left Column - Visual/Mock */}
-          <div className="order-2 lg:order-1 flex flex-col">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/30 overflow-hidden flex-1 flex flex-col">
-              <div className="bg-slate-800/50 px-5 py-2.5 border-b border-slate-800 flex items-center justify-between">
+      <div className="flex-1 flex">
+        {/* Left Column - Scrollable with lighter background */}
+        <div className="hidden lg:flex lg:w-1/2 bg-slate-900/40 border-r border-slate-800 overflow-y-auto">
+          <div className="w-full max-w-xl ml-auto p-8 flex flex-col gap-8">
+            {/* Mockup */}
+            <div className="rounded-2xl border border-slate-700 bg-slate-800/30 overflow-hidden flex flex-col">
+              <div className="bg-slate-700/50 px-5 py-2.5 border-b border-slate-700 flex items-center justify-between">
                 <span className="text-sm font-medium text-slate-300">Family Dashboard</span>
                 <span className="text-xs text-slate-500">Parent View</span>
               </div>
-              <div className="p-5 flex-1 flex flex-col justify-between">
+              <div className="p-5 flex flex-col">
                 <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="bg-slate-800/50 rounded-xl p-3 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-lg">
+                  <div className="bg-slate-700/50 rounded-xl p-3 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-slate-600 flex items-center justify-center text-lg">
                       👧
                     </div>
                     <div className="flex-1 min-w-0">
@@ -48,8 +48,8 @@ export default function HomeschoolPage() {
                       <p className="text-[10px] text-slate-500">Math</p>
                     </div>
                   </div>
-                  <div className="bg-slate-800/50 rounded-xl p-3 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-lg">
+                  <div className="bg-slate-700/50 rounded-xl p-3 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-slate-600 flex items-center justify-center text-lg">
                       👦
                     </div>
                     <div className="flex-1 min-w-0">
@@ -62,15 +62,15 @@ export default function HomeschoolPage() {
                     </div>
                   </div>
                 </div>
-                <div className="bg-slate-800/30 rounded-xl p-4 flex-1 flex flex-col">
+                <div className="bg-slate-700/30 rounded-xl p-4">
                   <p className="text-xs text-slate-400 mb-2">Recent Sessions</p>
-                  <div className="space-y-2 flex-1">
+                  <div className="space-y-2">
                     {[
                       { child: "Emma", topic: "Photosynthesis", result: "Strong", time: "2h ago" },
                       { child: "Lucas", topic: "World War II", result: "Gaps", time: "Yesterday" },
                       { child: "Emma", topic: "Multiplication", result: "Review", time: "2 days ago" },
                     ].map(({ child, topic, result, time }) => (
-                      <div key={`${child}-${topic}`} className="flex items-center justify-between py-1.5 border-b border-slate-800 last:border-0">
+                      <div key={`${child}-${topic}`} className="flex items-center justify-between py-1.5 border-b border-slate-700 last:border-0">
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-white">{child}</span>
                           <span className="text-xs text-slate-600">•</span>
@@ -88,19 +88,36 @@ export default function HomeschoolPage() {
                     ))}
                   </div>
                 </div>
-                <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between">
+                <div className="mt-4 pt-4 border-t border-slate-700 flex items-center justify-between">
                   <span className="text-xs text-slate-500">Curriculum: State Standards ✓</span>
-                  <button className="text-xs bg-slate-700/50 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg transition-colors">
+                  <button className="text-xs bg-slate-600/50 hover:bg-slate-600 text-slate-300 px-3 py-1.5 rounded-lg transition-colors">
                     Add Child
                   </button>
                 </div>
               </div>
             </div>
 
+            {/* Value Proposition */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-white">Why openLesson for Homeschool Families?</h3>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                As a homeschool parent, you wear many hats — but you can't be an expert in every subject. openLesson gives your children 
+                a patient, Socratic tutor that adapts to their pace and identifies exactly where they're confused. Watch their progress 
+                across subjects, see which concepts need review, and have confidence that they're building genuine understanding — 
+                not just getting answers fed to them.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-2">
+                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Multi-child tracking</span>
+                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Curriculum aligned</span>
+                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">Parent dashboard</span>
+              </div>
+            </div>
           </div>
+        </div>
 
-          {/* Right Column - Mode Toggle + Prompt + Topics */}
-          <div className="order-1 lg:order-2 flex flex-col">
+        {/* Right Column - Fixed, no scroll */}
+        <div className="w-full lg:w-1/2 flex items-center justify-center px-4 sm:px-6 py-6 lg:py-4 overflow-hidden">
+          <div className="w-full max-w-xl flex flex-col">
             {/* Solution Label */}
             <div className="flex justify-center mb-4">
               <span className="text-xs text-slate-500 uppercase tracking-widest">For Families</span>
@@ -117,7 +134,7 @@ export default function HomeschoolPage() {
                       : "text-slate-500 hover:text-white"
                   }`}
                 >
-                  Start Session
+                  Start Lesson
                 </button>
                 <button
                   onClick={() => setMode("plan")}
@@ -127,7 +144,7 @@ export default function HomeschoolPage() {
                       : "text-slate-500 hover:text-white"
                   }`}
                 >
-                  View Progress
+                  Build Curriculum
                 </button>
               </div>
             </div>
