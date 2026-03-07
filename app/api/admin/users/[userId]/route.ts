@@ -47,6 +47,17 @@ export async function GET(
     }
 
     const { data: authData } = await adminClient.auth.admin.getUserById(userId);
+
+    // Get organization if user has one
+    let organization = null;
+    if (userProfile.organization_id) {
+      const { data: orgData } = await adminClient
+        .from("organizations")
+        .select("id, name, slug")
+        .eq("id", userProfile.organization_id)
+        .single();
+      organization = orgData;
+    }
     
     const [sessionsData, plansData, eegData] = await Promise.all([
       adminClient
@@ -79,6 +90,7 @@ export async function GET(
         ...userProfile,
         email: authData.user?.email || null,
         email_confirmed_at: authData.user?.email_confirmed_at || null,
+        organization,
       },
       lessons: sessionsWithMeta,
       plans: plansData.data || [],

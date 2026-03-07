@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Navbar } from "@/components/Navbar";
 import { createClient } from "@/lib/supabase/client";
 
 interface Stats {
@@ -97,9 +96,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
-      <Navbar />
-      <div className="max-w-5xl mx-auto p-6">
+    <div className="max-w-5xl mx-auto p-6">
         <h1 className="text-2xl font-bold text-white mb-2">Admin Dashboard</h1>
         <p className="text-neutral-400 mb-8">Overview and quick navigation</p>
 
@@ -166,8 +163,17 @@ export default function AdminPage() {
               Manage partners, view referrals, and issue payouts
             </p>
           </Link>
+
+          <Link 
+            href="/admin/organizations" 
+            className="block bg-neutral-900/50 border border-neutral-800 rounded-lg p-6 hover:border-neutral-700 transition-colors"
+          >
+            <h2 className="text-lg font-semibold text-white mb-2">Organizations</h2>
+            <p className="text-neutral-400 text-sm">
+              Manage organizations, members, and generate invite links
+            </p>
+          </Link>
         </div>
-      </div>
     </div>
   );
 }

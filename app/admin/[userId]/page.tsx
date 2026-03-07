@@ -38,6 +38,9 @@ interface UserDetail {
   token_tier: string | null;
   email_confirmed_at: string | null;
   stripe_customer_id: string | null;
+  organization_id: string | null;
+  is_org_admin: boolean;
+  organization: { id: string; name: string; slug: string } | null;
 }
 
 export default function UserDetailPage() {
@@ -241,6 +244,17 @@ export default function UserDetailPage() {
           <div>
             <div className="text-xs text-neutral-500">Plans</div>
             <div className="text-neutral-200">{plans.length}</div>
+          </div>
+          <div>
+            <div className="text-xs text-neutral-500">Organization</div>
+            {user?.organization ? (
+              <Link href={`/admin/organizations/${user.organization.id}`} className="text-blue-400 hover:text-blue-300">
+                {user.organization.name}
+                {user.is_org_admin && <span className="text-purple-400 ml-1">(admin)</span>}
+              </Link>
+            ) : (
+              <div className="text-neutral-500">-</div>
+            )}
           </div>
         </div>
       </div>

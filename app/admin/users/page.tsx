@@ -19,6 +19,9 @@ interface User {
   email_confirmed_at: string | null;
   lessons_count: number;
   plans_count: number;
+  organization_id: string | null;
+  is_org_admin: boolean;
+  organization: { id: string; name: string; slug: string } | null;
 }
 
 type TierOption = "all" | "free" | "regular" | "pro";
@@ -323,19 +326,20 @@ export default function UsersPage() {
                 >
                   Status{getSortIcon("subscription_status")}
                 </th>
+                <th className="text-left p-4 text-neutral-400 text-sm font-medium">Organization</th>
                 <th className="text-right p-4 text-neutral-400 text-sm font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-neutral-400">
+                  <td colSpan={8} className="p-8 text-center text-neutral-400">
                     Loading...
                   </td>
                 </tr>
               ) : paginatedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-neutral-400">
+                  <td colSpan={8} className="p-8 text-center text-neutral-400">
                     No users found
                   </td>
                 </tr>
@@ -382,6 +386,18 @@ export default function UsersPage() {
                       <span className={`px-2 py-0.5 rounded text-xs ${getStatusColor(user.subscription_status)}`}>
                         {user.subscription_status}
                       </span>
+                    </td>
+                    <td className="p-4">
+                      {user.organization ? (
+                        <Link href={`/admin/organizations/${user.organization.id}`} className="hover:text-blue-400">
+                          <div className="text-neutral-300 text-sm">{user.organization.name}</div>
+                          {user.is_org_admin && (
+                            <span className="text-[10px] text-purple-400">admin</span>
+                          )}
+                        </Link>
+                      ) : (
+                        <span className="text-neutral-600 text-sm">-</span>
+                      )}
                     </td>
                     <td className="p-4 text-right">
                       <span className="text-neutral-500 text-sm">{user.extra_lessons ?? 0} extra</span>
