@@ -11,6 +11,7 @@ interface Stats {
   totalAudioChunks: number;
   totalToolEvents: number;
   totalEEGRecords: number;
+  totalOrganizations: number;
 }
 
 export default function AdminPage() {
@@ -54,10 +55,11 @@ export default function AdminPage() {
 
   const loadStats = async () => {
     try {
-      const [usersRes, sessionsRes, dataRes] = await Promise.all([
+      const [usersRes, sessionsRes, dataRes, orgsRes] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }),
         supabase.from("sessions").select("id", { count: "exact", head: true }),
         supabase.from("session_data").select("data_type"),
+        supabase.from("organizations").select("id", { count: "exact", head: true }),
       ]);
 
       const audioChunks = dataRes.data?.filter((d: { data_type: string }) => d.data_type === "audio").length || 0;
@@ -70,6 +72,7 @@ export default function AdminPage() {
         totalAudioChunks: audioChunks,
         totalToolEvents: toolEvents,
         totalEEGRecords: eegRecords,
+        totalOrganizations: orgsRes.count || 0,
       });
     } catch (err) {
       console.error("Load stats error:", err);
@@ -120,6 +123,10 @@ export default function AdminPage() {
           <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-6">
             <div className="text-3xl font-bold text-white">{stats?.totalEEGRecords || 0}</div>
             <div className="text-neutral-400 text-sm mt-1">EEG Records</div>
+          </div>
+          <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-6">
+            <div className="text-3xl font-bold text-white">{stats?.totalOrganizations || 0}</div>
+            <div className="text-neutral-400 text-sm mt-1">Organizations</div>
           </div>
         </div>
 
