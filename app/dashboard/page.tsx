@@ -253,7 +253,6 @@ export default function DashboardPage() {
   // Plans tab
   const [learningPlans, setLearningPlans] = useState<LearningPlan[]>([]);
   const [planSearch, setPlanSearch] = useState("");
-  const [planStatusFilter, setPlanStatusFilter] = useState<string>("all");
   const [planPage, setPlanPage] = useState(1);
   const planPageSize = 10;
 
@@ -266,10 +265,10 @@ export default function DashboardPage() {
 
   // Config tab
   const [availableModels, setAvailableModels] = useState<OpenRouterModel[]>([]);
-  const [tutorModel, setTutorModel] = useState<string>("");
-  const [askModel, setAskModel] = useState<string>("");
-  const [plannerModel, setPlannerModel] = useState<string>("");
-  const [coderModel, setCoderModel] = useState<string>("minimax/minimax-m2.5");
+  const [tutorModel, setTutorModel] = useState<string>("x-ai/grok-4");
+  const [askModel, setAskModel] = useState<string>("x-ai/grok-4");
+  const [plannerModel, setPlannerModel] = useState<string>("x-ai/grok-4");
+  const [coderModel, setCoderModel] = useState<string>("x-ai/grok-4");
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelSaving, setModelSaving] = useState(false);
   const [modelSaved, setModelSaved] = useState(false);
@@ -291,7 +290,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setPlanPage(1);
-  }, [planSearch, planStatusFilter]);
+  }, [planSearch]);
 
   const loadData = async () => {
     try {
@@ -600,8 +599,7 @@ export default function DashboardPage() {
   const filteredPlans = learningPlans.filter((p) => {
     const matchesSearch = planSearch === "" || 
       p.root_topic.toLowerCase().includes(planSearch.toLowerCase());
-    const matchesStatus = planStatusFilter === "all" || p.status === planStatusFilter;
-    return matchesSearch && matchesStatus;
+    return matchesSearch;
   });
 
   const totalPlanPages = Math.ceil(filteredPlans.length / planPageSize);
@@ -709,8 +707,8 @@ export default function DashboardPage() {
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
+                <option value="paused">Paused</option>
                 <option value="completed">Completed</option>
-                <option value="ended_by_tutor">Ended by Tutor</option>
               </select>
             </div>
 
@@ -724,7 +722,7 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-2">
                 {paginatedSessions.map((session) => {
-                  const isCompleted = session.status === "completed" || session.status === "ended_by_tutor";
+                  const isCompleted = session.status === "completed";
                   const isPaused = session.status === "paused";
                   return (
                   <Link
@@ -741,14 +739,14 @@ export default function DashboardPage() {
                           {formatDate(session.startedAt)} · {formatDuration(session.durationMs)} ·{" "}
                           <span
                             className={`inline-flex px-1.5 py-0.5 rounded text-[10px] ${
-                              session.status === "completed" || session.status === "ended_by_tutor"
+                              session.status === "completed"
                                 ? "bg-green-900/30 text-green-400"
                                 : session.status === "paused"
                                 ? "bg-yellow-900/30 text-yellow-400"
                                 : "bg-neutral-700 text-neutral-400"
                             }`}
                           >
-                            {session.status === "ready" ? "Ready" : session.status === "paused" ? "Paused" : session.status}
+                            {session.status === "active" ? "Active" : session.status === "paused" ? "Paused" : "Completed"}
                           </span>
                           {session.planTitle && (
                             <span className="ml-2 inline-flex px-1.5 py-0.5 rounded text-[10px] bg-purple-900/30 text-purple-400">
@@ -952,16 +950,6 @@ export default function DashboardPage() {
                     className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:border-neutral-600"
                   />
                 </div>
-                <select
-                  value={planStatusFilter}
-                  onChange={(e) => setPlanStatusFilter(e.target.value)}
-                  className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-neutral-600"
-                >
-                  <option value="all">All Status</option>
-                  <option value="active">Active</option>
-                  <option value="completed">Completed</option>
-                  <option value="paused">Paused</option>
-                </select>
               </div>
 
               {filteredPlans.length === 0 ? (
@@ -1017,17 +1005,6 @@ export default function DashboardPage() {
                         >
                           {(plan as any).is_public ? "Public" : "Private"}
                         </button>
-                        <span
-                          className={`text-xs px-2 py-1 rounded ${
-                            plan.status === "active"
-                              ? "bg-blue-900/30 text-blue-400"
-                              : plan.status === "completed"
-                              ? "bg-green-900/30 text-green-400"
-                              : "bg-neutral-700 text-neutral-400"
-                          }`}
-                        >
-                          {plan.status}
-                        </span>
                       </div>
                     </div>
                   ))}
@@ -1186,9 +1163,17 @@ export default function DashboardPage() {
         {/* Configuration Tab */}
         {activeTab === "config" && (
           <div className="space-y-8">
-            {/* Model Selection */}
+            {/* Model Selection - LOCKED */}
             <div>
-              <h2 className="text-lg font-semibold mb-4">Model Selection</h2>
+              <div className="flex items-center gap-3 mb-4">
+                <h2 className="text-lg font-semibold">Model Selection</h2>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  Editable coming soon
+                </span>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
                   <label className="block text-sm font-medium text-neutral-300 mb-1">
@@ -1197,22 +1182,9 @@ export default function DashboardPage() {
                   <p className="text-xs text-neutral-500 mb-3">
                     The model that observes and guides your lesson
                   </p>
-                  <select
-                    value={tutorModel}
-                    onChange={(e) => setTutorModel(e.target.value)}
-                    disabled={modelsLoading}
-                    className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-neutral-500"
-                  >
-                    {modelsLoading ? (
-                      <option>Loading models...</option>
-                    ) : (
-                      availableModels.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.label}
-                        </option>
-                      ))
-                    )}
-                  </select>
+                  <div className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300">
+                    Grok 4 <span className="text-neutral-500">(x-ai/grok-4)</span>
+                  </div>
                 </div>
 
                 <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
@@ -1222,22 +1194,9 @@ export default function DashboardPage() {
                   <p className="text-xs text-neutral-500 mb-3">
                     The model that answers direct questions from you
                   </p>
-                  <select
-                    value={askModel}
-                    onChange={(e) => setAskModel(e.target.value)}
-                    disabled={modelsLoading}
-                    className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-neutral-500"
-                  >
-                    {modelsLoading ? (
-                      <option>Loading models...</option>
-                    ) : (
-                      availableModels.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.label}
-                        </option>
-                      ))
-                    )}
-                  </select>
+                  <div className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300">
+                    Grok 4 <span className="text-neutral-500">(x-ai/grok-4)</span>
+                  </div>
                 </div>
 
                 <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
@@ -1247,22 +1206,9 @@ export default function DashboardPage() {
                   <p className="text-xs text-neutral-500 mb-3">
                     The model that helps plan and organize your learning sessions
                   </p>
-                  <select
-                    value={plannerModel}
-                    onChange={(e) => setPlannerModel(e.target.value)}
-                    disabled={modelsLoading}
-                    className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-neutral-500"
-                  >
-                    {modelsLoading ? (
-                      <option>Loading models...</option>
-                    ) : (
-                      availableModels.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.label}
-                        </option>
-                      ))
-                    )}
-                  </select>
+                  <div className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300">
+                    Grok 4 <span className="text-neutral-500">(x-ai/grok-4)</span>
+                  </div>
                 </div>
 
                 <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
@@ -1272,98 +1218,59 @@ export default function DashboardPage() {
                   <p className="text-xs text-neutral-500 mb-3">
                     The model used in the Coding tool sandbox to help write JavaScript code
                   </p>
-                  <select
-                    value={coderModel}
-                    onChange={(e) => setCoderModel(e.target.value)}
-                    disabled={modelsLoading}
-                    className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-neutral-500"
-                  >
-                    {modelsLoading ? (
-                      <option>Loading models...</option>
-                    ) : (
-                      availableModels.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.label}
-                        </option>
-                      ))
-                    )}
-                  </select>
+                  <div className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300">
+                    Grok 4 <span className="text-neutral-500">(x-ai/grok-4)</span>
+                  </div>
                 </div>
-              </div>
 
-              <div className="mt-4 flex justify-end">
-                <button
-                  onClick={handleSaveModels}
-                  disabled={modelSaving}
-                  className="px-4 py-2 text-sm bg-white/10 hover:bg-white/15 disabled:opacity-50 rounded-lg transition-colors"
-                >
-                  {modelSaving ? "Saving..." : modelSaved ? "Saved!" : "Save Models"}
-                </button>
+                <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
+                  <label className="block text-sm font-medium text-neutral-300 mb-1">
+                    Audio/Vision Model
+                  </label>
+                  <p className="text-xs text-neutral-500 mb-3">
+                    The model used for audio transcription and image analysis (requires multimodal support)
+                  </p>
+                  <div className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300">
+                    Gemini 2.5 Flash <span className="text-neutral-500">(google/gemini-2.5-flash)</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Prompt Customization */}
+            {/* Prompt Customization - LOCKED */}
             <div>
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3 mb-4">
                 <h2 className="text-lg font-semibold">Prompt Modifications</h2>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleResetAllPrompts}
-                    className="px-3 py-1.5 text-xs text-neutral-500 hover:text-white border border-neutral-700 hover:border-neutral-600 rounded-lg transition-colors"
-                  >
-                    Reset all
-                  </button>
-                  <button
-                    onClick={handleSavePrompts}
-                    disabled={promptsSaving}
-                    className="px-3.5 py-1.5 text-xs bg-white/10 hover:bg-white/15 disabled:opacity-50 text-white rounded-lg transition-colors"
-                  >
-                    {promptsSaving ? "Saving..." : promptsSaved ? "Saved!" : "Save changes"}
-                  </button>
-                </div>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  Editable coming soon
+                </span>
               </div>
 
               <div className="space-y-4">
                 {(Object.keys(DEFAULT_PROMPTS) as PromptKey[]).map((key) => {
                   const meta = PROMPT_META[key];
-                  const isCustomized = key in userPrompts && userPrompts[key] !== undefined;
                   return (
                     <div
                       key={key}
-                      className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4"
+                      className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4 opacity-60"
                     >
                       <div className="flex items-start justify-between mb-2.5">
                         <div>
                           <div className="flex items-center gap-2">
                             <h4 className="text-sm text-neutral-200 font-medium">{meta.label}</h4>
-                            {isCustomized && (
-                              <span className="px-1.5 py-0.5 text-[10px] rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                customized
-                              </span>
-                            )}
                           </div>
                           <p className="text-[11px] text-neutral-600 mt-0.5">{meta.description}</p>
                         </div>
-                        {isCustomized && (
-                          <button
-                            onClick={() => handleResetPrompt(key)}
-                            className="text-[11px] text-neutral-600 hover:text-white transition-colors whitespace-nowrap"
-                          >
-                            Reset
-                          </button>
-                        )}
                       </div>
                       <textarea
-                        value={userPrompts[key] ?? DEFAULT_PROMPTS[key]}
-                        onChange={(e) =>
-                          setUserPrompts((prev) => ({
-                            ...prev,
-                            [key]: e.target.value === DEFAULT_PROMPTS[key] ? undefined : e.target.value,
-                          }))
-                        }
-                        rows={8}
+                        value={DEFAULT_PROMPTS[key]}
+                        readOnly={true}
+                        rows={6}
                         spellCheck={false}
-                        className="w-full bg-[#0a0a0a] border border-neutral-800 rounded-lg p-3 text-xs text-neutral-300 font-mono leading-relaxed resize-y focus:outline-none focus:border-neutral-600 placeholder:text-neutral-700"
+                        className="w-full bg-[#0a0a0a] border border-neutral-800 rounded-lg p-3 text-xs text-neutral-500 font-mono leading-relaxed resize-none cursor-not-allowed"
                       />
                     </div>
                   );

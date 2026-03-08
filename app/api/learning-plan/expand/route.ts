@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { callOpenRouterJSON, userMessage, DEFAULT_MODEL } from "@/lib/openrouter-client";
 
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
+interface NodeData {
+  id: string;
+  title: string;
+  description?: string;
+  next?: string[];
+}
+
+interface PlanData {
+  nodes: NodeData[];
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -57,46 +66,20 @@ Rules:
 - Keep titles concise (3-8 words)
 - Descriptions: 1 sentence`;
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    
-    if (!apiKey) {
-      return NextResponse.json({ error: "AI service not configured" }, { status: 500 });
-    }
+    const response = await callOpenRouterJSON<PlanData>(
+      [userMessage(prompt)],
+      {
+        model: DEFAULT_MODEL,
+        maxTokens: 1000,
+        temperature: 0.3,
+      }
+    );
 
-    const aiResponse = await fetch(OPENROUTER_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "openLesson",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 1000,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!aiResponse.ok) {
+    if (!response.success || !response.data) {
       return NextResponse.json({ error: "Failed to expand plan" }, { status: 500 });
     }
 
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content;
-
-    if (!content) {
-      return NextResponse.json({ error: "No response from AI" }, { status: 500 });
-    }
-
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return NextResponse.json({ error: "Invalid AI response" }, { status: 500 });
-    }
-
-    const planData = JSON.parse(jsonMatch[0]);
-    const newNodes = planData.nodes || [];
+    const newNodes = response.data.nodes || [];
 
     if (newNodes.length === 0) {
       return NextResponse.json({ error: "No nodes to expand" }, { status: 400 });
@@ -160,7 +143,7 @@ Rules:
       .select("*")
       .eq("plan_id", node.plan_id);
 
-    const edges = (allNodes || []).flatMap((n: any) =>
+    const edges = (allNodes || []).flatMap((n: { id: string; next_node_ids?: string[] }) =>
       (n.next_node_ids || []).map((nextId: string) => ({
         from: n.id,
         to: nextId
@@ -191,7 +174,7 @@ Rules:
 }
 
 function calculateForceDirectedLayout(
-  nodes: any[],
+  nodes: { id: string }[],
   edges: { from: string; to: string }[]
 ): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>();

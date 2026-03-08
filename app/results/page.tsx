@@ -38,7 +38,7 @@ function ResultsContent() {
 
       setLoading(false);
 
-      if (s && (s.status === "completed" || s.status === "ended_by_tutor")) {
+      if (s && s.status === "completed") {
         if (!s.report) generateAndSaveReport(s);
       }
     };
@@ -171,14 +171,7 @@ function ResultsContent() {
                 minute: "2-digit",
               })}
             </span>
-            {session.status === "ended_by_tutor" && (
-              <>
-                <span className="text-neutral-800">&middot;</span>
-                <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/20">
-                  Ended by tutor
-                </span>
-              </>
-            )}
+
           </div>
         </div>
 

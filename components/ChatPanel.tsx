@@ -38,13 +38,13 @@ export function ChatPanel({ planId, description, model, onModelChange, onRefresh
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const models = [
-    { id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash" },
+    { id: "x-ai/grok-4", name: "Grok 4" },
+    { id: "x-ai/grok-4-fast", name: "Grok 4 Fast" },
     { id: "anthropic/claude-3.5-sonnet", name: "Claude 3.5 Sonnet" },
     { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" },
-    { id: "meta-llama/llama-3.3-70b-instruct", name: "Llama 3.3" },
   ];
 
-  const currentModel = model || "google/gemini-2.5-flash";
+  const currentModel = model || "x-ai/grok-4";
 
   useEffect(() => {
     if (description && messages.length === 0) {

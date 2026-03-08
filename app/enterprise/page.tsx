@@ -110,7 +110,7 @@ export default function EnterprisePage() {
                 </li>
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-emerald-400 mt-0.5">✓</span>
-                  <span>Socratic questions build genuine understanding, not recitation</span>
+                  <span>Guiding questions build genuine understanding, not recitation</span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-emerald-400 mt-0.5">✓</span>

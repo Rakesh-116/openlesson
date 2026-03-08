@@ -27,19 +27,19 @@ export default function LegalPage() {
               <p><strong className="text-neutral-300">Owner:</strong> Daniel Colomer</p>
               <p><strong className="text-neutral-300">Location:</strong> Hamburg, Germany</p>
               <p><strong className="text-neutral-300">Contact Email:</strong> daniel@uncertain.systems</p>
-              <p><strong className="text-neutral-300">Website:</strong> socrates.uncertain.systems</p>
+              <p><strong className="text-neutral-300">Website:</strong> openlesson.academy</p>
             </div>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold text-neutral-200 mb-3">2. Platform Description</h2>
             <p className="mb-3">
-              openLesson is an AI-powered Socratic tutoring tool operated by Uncertain Systems.
+              openLesson is an AI-powered tutoring tool operated by Uncertain Systems.
               The platform is part of our broader mission of educational accelerationism (edu/acc).
               Our activities include:
             </p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>Real-time AI-guided Socratic questioning during learning sessions</li>
+              <li>Real-time AI-guided questioning during learning sessions</li>
               <li>Audio analysis and reasoning gap detection</li>
               <li>EEG brainwave recording and visualization via Muse integration</li>
               <li>Personalized tutoring through think-aloud transcript analysis</li>

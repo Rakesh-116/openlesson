@@ -14,13 +14,13 @@ function interpretGapScore(score: number): string {
   } else if (score < 0.6) {
     return 'Moderate understanding - some reasoning gaps identified';
   } else {
-    return 'Significant reasoning gaps - Socratic follow-up recommended';
+    return 'Significant reasoning gaps - follow-up recommended';
   }
 }
 
 const analyzeAudioAction: Action = {
   name: 'ANALYZE_AUDIO',
-  description: 'Submit an audio chunk for Socratic analysis. Returns reasoning gap score and follow-up questions. IMPORTANT: This endpoint only accepts audio input, NOT text.',
+  description: 'Submit an audio chunk for analysis. Returns reasoning gap score and follow-up questions. IMPORTANT: This endpoint only accepts audio input, NOT text.',
 
   validate: async (runtime: IAgentRuntime, message: Memory, _state?: State): Promise<boolean> => {
     const apiKey = runtime.getSetting('OPENLESSON_API_KEY');
@@ -118,7 +118,7 @@ const analyzeAudioAction: Action = {
       {
         name: 'assistant',
         content: {
-          text: 'I will analyze your audio response using the Socratic method.',
+          text: 'I will analyze your audio response using guided questioning.',
         },
       },
     ],

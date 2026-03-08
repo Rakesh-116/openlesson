@@ -87,7 +87,7 @@ function RegisterForm() {
       <div className="flex-1 flex items-center justify-center px-6">
         <div className="w-full max-w-sm">
           <h2 className="text-xl font-semibold text-white mb-1">Create an account</h2>
-          <p className="text-sm text-neutral-500 mb-8">Start your Socratic learning journey.</p>
+          <p className="text-sm text-neutral-500 mb-8">Start your learning journey.</p>
 
           {referralPartner ? (
             <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
@@ -113,7 +113,7 @@ function RegisterForm() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="socrates42"
+                placeholder="learner42"
                 className="w-full px-3.5 py-2.5 bg-neutral-900/80 border border-neutral-800 rounded-xl text-white text-sm placeholder-neutral-700 focus:outline-none focus:border-neutral-600 transition-colors"
                 required
               />
@@ -183,7 +183,7 @@ export default function RegisterPage() {
         <div className="flex-1 flex items-center justify-center px-6">
           <div className="w-full max-w-sm">
             <h2 className="text-xl font-semibold text-white mb-1">Create an account</h2>
-            <p className="text-sm text-neutral-500 mb-8">Start your Socratic learning journey.</p>
+            <p className="text-sm text-neutral-500 mb-8">Start your learning journey.</p>
             <div className="animate-pulse space-y-3.5">
               <div className="h-10 bg-neutral-800 rounded-xl" />
               <div className="h-10 bg-neutral-800 rounded-xl" />

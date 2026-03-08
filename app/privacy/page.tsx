@@ -35,7 +35,7 @@ export default function PrivacyPage() {
             <p className="mb-3">We may collect personal information that you voluntarily provide to us when you:</p>
             <ul className="list-disc pl-5 space-y-1 mb-4">
               <li>Register for an account</li>
-              <li>Start a Socratic tutoring session</li>
+              <li>Start a tutoring session</li>
               <li>Upload think-aloud transcripts</li>
               <li>Connect a Muse EEG headband</li>
               <li>Subscribe to a paid plan</li>
@@ -58,7 +58,7 @@ export default function PrivacyPage() {
             <h2 className="text-lg font-semibold text-neutral-200 mb-3">3. How We Use Your Information</h2>
             <p className="mb-3">We use the information we collect to:</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>Provide the Socratic tutoring experience (audio analysis, probe generation, reports)</li>
+              <li>Provide the tutoring experience (audio analysis, probe generation, reports)</li>
               <li>Store and replay your session history</li>
               <li>Personalize probes using your uploaded think-aloud transcripts</li>
               <li>Record and summarize EEG data during sessions</li>
@@ -113,8 +113,8 @@ export default function PrivacyPage() {
             <h2 className="text-lg font-semibold text-neutral-200 mb-3">7. Anonymized Data for AI Training</h2>
             <p className="mb-3">
               With your explicit consent, we collect <strong className="text-neutral-300">anonymized</strong> think-aloud
-              data from Socratic sessions to build AI training, fine-tuning, and context engineering datasets. This
-              data is used to improve the quality of Socratic tutoring and advance research in AI-assisted education.
+              data from tutoring sessions to build AI training, fine-tuning, and context engineering datasets. This
+              data is used to improve the quality of tutoring and advance research in AI-assisted education.
             </p>
             <h3 className="text-sm font-medium text-neutral-300 mb-2">What we collect</h3>
             <p className="mb-3">Depending on your preferences (configurable in your Dashboard), this may include:</p>

@@ -4,7 +4,7 @@ import {
 } from "@elizaos/core";
 var generateLearningPlanAction = {
   name: "GENERATE_LEARNING_PLAN",
-  description: "Generate a personalized learning plan as a directed graph of Socratic tutoring sessions for a given topic",
+  description: "Generate a personalized learning plan as a directed graph of guided tutoring sessions for a given topic",
   validate: async (runtime, message, _state) => {
     const apiKey = runtime.getSetting("OPENLESSON_API_KEY");
     return !!apiKey;
@@ -95,7 +95,7 @@ import {
 } from "@elizaos/core";
 var startSessionAction = {
   name: "START_SESSION",
-  description: "Start a new Socratic tutoring session. Returns session ID and audio submission instructions.",
+  description: "Start a new guided tutoring session. Returns session ID and audio submission instructions.",
   validate: async (runtime, message, _state) => {
     const apiKey = runtime.getSetting("OPENLESSON_API_KEY");
     return !!apiKey;
@@ -132,7 +132,7 @@ var startSessionAction = {
       const data = await response.json();
       return {
         success: true,
-        text: `Tutoring session started for "${data.problem}". Session ID: ${data.sessionId}. Please record your audio response to begin the Socratic dialogue.`,
+        text: `Tutoring session started for "${data.problem}". Session ID: ${data.sessionId}. Please record your audio response to begin the guided dialogue.`,
         values: {
           session_id: data.sessionId,
           problem: data.problem
@@ -163,7 +163,7 @@ var startSessionAction = {
       {
         name: "assistant",
         content: {
-          text: "I will start a Socratic tutoring session about gradient descent."
+          text: "I will start a guided tutoring session about gradient descent."
         }
       }
     ],
@@ -194,12 +194,12 @@ function interpretGapScore(score) {
   } else if (score < 0.6) {
     return "Moderate understanding - some reasoning gaps identified";
   } else {
-    return "Significant reasoning gaps - Socratic follow-up recommended";
+    return "Significant reasoning gaps - follow-up recommended";
   }
 }
 var analyzeAudioAction = {
   name: "ANALYZE_AUDIO",
-  description: "Submit an audio chunk for Socratic analysis. Returns reasoning gap score and follow-up questions. IMPORTANT: This endpoint only accepts audio input, NOT text.",
+  description: "Submit an audio chunk for analysis. Returns reasoning gap score and follow-up questions. IMPORTANT: This endpoint only accepts audio input, NOT text.",
   validate: async (runtime, message, _state) => {
     const apiKey = runtime.getSetting("OPENLESSON_API_KEY");
     return !!apiKey;
@@ -279,7 +279,7 @@ Follow-up question: ${data.followUpQuestion}`;
       {
         name: "assistant",
         content: {
-          text: "I will analyze your audio response using the Socratic method."
+          text: "I will analyze your audio response using guided questioning."
         }
       }
     ]
@@ -488,7 +488,7 @@ var getSessionSummaryAction = {
 // src/index.ts
 var openLessonPlugin = {
   name: "open-lesson",
-  description: "openLesson tutoring platform integration - generate learning plans, start Socratic sessions, and analyze audio for reasoning gaps",
+  description: "openLesson tutoring platform integration - generate learning plans, start guided tutoring sessions, and analyze audio for reasoning gaps",
   actions: [
     generateLearningPlanAction,
     startSessionAction,

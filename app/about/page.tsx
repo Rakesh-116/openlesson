@@ -7,10 +7,10 @@ import { DemoBanner } from "@/components/DemoBanner";
 
 export const metadata = {
   title: "About - openLesson",
-  description: "openLesson is an AI-powered Socratic tutor that listens to you reason and asks questions when it spots gaps. Built by Daniel Colomer of Uncertain Systems.",
+  description: "openLesson is an AI-powered tutor that listens to you reason and asks guiding questions when it spots gaps. Built by Daniel Colomer of Uncertain Systems.",
   openGraph: {
     title: "About openLesson",
-    description: "An AI tutor that listens to you reason and asks questions when it spots gaps. Open source, built on the Socratic method.",
+    description: "An AI tutor that listens to you reason and asks questions when it spots gaps. Open source, built on guided questioning.",
     url: "https://openlesson.academy/about",
     siteName: "openLesson",
     type: "website",
@@ -26,7 +26,7 @@ const TIMELINE = [
   {
     year: "2023",
     title: "The idea forms",
-    description: "After years of 1-on-1 coaching, realized the Socratic method could be scaled with AI that listens, not lectures.",
+    description: "After years of 1-on-1 coaching, realized guided questioning could be scaled with AI that listens, not lectures.",
   },
   {
     year: "2024",
@@ -36,7 +36,7 @@ const TIMELINE = [
   {
     year: "2025",
     title: "Growing community",
-    description: "Thousands of learners building genuine understanding through Socratic dialogue.",
+    description: "Thousands of learners building genuine understanding through guided dialogue.",
   },
 ];
 
@@ -58,8 +58,8 @@ const VALUES = [
   },
   {
     icon: "🏛️",
-    title: "The Socratic Method",
-    description: "2,400 years old and still the best way to learn. We ask questions that guide you to understanding rather than telling you what to think.",
+    title: "Guided Questioning",
+    description: "Questions that guide you to understanding rather than telling you what to think. The best way to learn is to discover answers yourself.",
   },
 ];
 
@@ -77,7 +77,7 @@ const HOW_IT_WORKS_STEPS = [
   {
     icon: "💡",
     title: "Get Questioned",
-    description: "Receive targeted Socratic questions that reveal what you don't quite understand yet.",
+    description: "Receive targeted guiding questions that reveal what you don't quite understand yet.",
   },
 ];
 
@@ -94,7 +94,7 @@ const WHY_OPENLESSON = [
   },
   {
     title: "Never Gives Answers",
-    description: "We use the Socratic method — guiding you to understanding through questions, not handing you solutions.",
+    description: "We use guided questioning — leading you to understanding through questions, not handing you solutions.",
     icon: "🤔",
   },
 ];
@@ -183,8 +183,8 @@ export default function AboutPage() {
                 weren't the ones I gave the best explanations to. They were the ones I asked the best <em>questions</em> of.
               </p>
               <p className="text-slate-300 leading-relaxed">
-                The Socratic method — asking questions that expose gaps in understanding — has been the gold standard for teaching 
-                for 2,400 years. But it doesn't scale. A great Socratic tutor has to listen carefully, detect where reasoning 
+                Guided questioning — asking questions that expose gaps in understanding — has been the gold standard for teaching 
+                for millennia. But it doesn't scale. A great tutor has to listen carefully, detect where reasoning 
                 breaks down, and ask precisely the right question at the right moment.
               </p>
               <p className="text-slate-300 leading-relaxed">
@@ -324,7 +324,7 @@ export default function AboutPage() {
             Ready to try it?
           </h2>
           <p className="text-slate-500 text-sm mb-6 max-w-md mx-auto">
-            Start your first session free. Experience the Socratic method with AI.
+            Start your first session free. Experience guided questioning with AI.
           </p>
           <Link
             href="/register"

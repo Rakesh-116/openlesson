@@ -119,7 +119,7 @@ export const PRICING_FAQ_ITEMS: FAQItem[] = [
   },
   {
     question: "What's the difference between Session and Plan mode?",
-    answer: "Session mode is for learning a single topic right now through Socratic dialogue. Plan mode creates a multi-week learning roadmap for bigger goals like certification prep or mastering a subject.",
+    answer: "Session mode is for learning a single topic right now through guided dialogue. Plan mode creates a multi-week learning roadmap for bigger goals like certification prep or mastering a subject.",
   },
   {
     question: "Can I use openLesson for my team or classroom?",
@@ -147,10 +147,10 @@ export const COACHING_FAQ_ITEMS: FAQItem[] = [
   },
   {
     question: "Is this for beginners or advanced learners?",
-    answer: "Both. The Socratic method works at any level — I meet you where you are and help you get unstuck, whether that's basic algebra or graduate-level quantum mechanics.",
+    answer: "Both. Guided questioning works at any level — I meet you where you are and help you get unstuck, whether that's basic algebra or graduate-level quantum mechanics.",
   },
   {
     question: "What's the connection to openLesson?",
-    answer: "I built openLesson to scale the coaching approach to everyone. The AI tutor uses the same Socratic methodology. Coaching is the premium, personalized version with a human.",
+    answer: "I built openLesson to scale the coaching approach to everyone. The AI tutor uses the same guided questioning methodology. Coaching is the premium, personalized version with a human.",
   },
 ];

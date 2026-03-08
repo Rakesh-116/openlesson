@@ -10,7 +10,7 @@ import type { GenerateLearningPlanParams, LearningPlanResponse } from '../types'
 
 const generateLearningPlanAction: Action = {
   name: 'GENERATE_LEARNING_PLAN',
-  description: 'Generate a personalized learning plan as a directed graph of Socratic tutoring sessions for a given topic',
+  description: 'Generate a personalized learning plan as a directed graph of guided tutoring sessions for a given topic',
 
   validate: async (runtime: IAgentRuntime, message: Memory, _state?: State): Promise<boolean> => {
     const apiKey = runtime.getSetting('OPENLESSON_API_KEY');

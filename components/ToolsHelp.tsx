@@ -23,7 +23,7 @@ export function ToolsHelp() {
             <div className="p-3 rounded-lg bg-neutral-900/50 border border-neutral-800">
               <div className="text-sm font-medium text-blue-400 mb-1">Right Panel</div>
               <p className="text-xs text-neutral-500">
-                Socratic questions and feedback from your tutor
+                Guiding questions and feedback from your tutor
               </p>
             </div>
           </div>
@@ -31,13 +31,13 @@ export function ToolsHelp() {
         <div>
           <h4 className="text-sm font-medium text-white mb-2">Tools</h4>
           <div className="space-y-2 text-xs text-neutral-400">
-            <p><span className="text-cyan-400 font-medium">LLM Chat</span> - Talk with AI tutor generating Socratic questions</p>
+            <p><span className="text-cyan-400 font-medium">Teaching Assistant</span> - Talk with AI tutor generating guiding questions</p>
             <p><span className="text-cyan-400 font-medium">Topic & Goals</span> - Problem statement and learning objectives</p>
             <p><span className="text-cyan-400 font-medium">Canvas</span> - Whiteboard for diagrams and visual thinking</p>
             <p><span className="text-cyan-400 font-medium">Notebook</span> - Scratchpad for thoughts and insights</p>
             <p><span className="text-cyan-400 font-medium">Grokipedia</span> - External knowledge search</p>
-            <p><span className="text-cyan-400 font-medium">Exercise Prep</span> - Pre-session practice task (auto-loads on click)</p>
-            <p><span className="text-cyan-400 font-medium">Prep Reading</span> - Key concepts to review (auto-loads on click)</p>
+            <p><span className="text-cyan-400 font-medium">Practice</span> - Pre-session practice task (auto-loads on click)</p>
+            <p><span className="text-cyan-400 font-medium">Theory</span> - Key concepts to review (auto-loads on click)</p>
           </div>
         </div>
         <div>
@@ -69,7 +69,7 @@ export function ToolsHelp() {
             <li>Start with a topic you want to learn</li>
             <li>Tutor generates a starting question</li>
             <li>Record your thinking out loud</li>
-            <li>Tutor analyzes and asks Socratic questions</li>
+            <li>Tutor analyzes and asks guiding questions</li>
             <li>Use tools as needed (canvas, notebook, prep materials)</li>
             <li>End when you feel confident</li>
           </ol>

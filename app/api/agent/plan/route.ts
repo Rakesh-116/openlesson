@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient as createAdminClient, SupabaseClient } from "@supabase/supabase-js";
 import {
-  X402_PRICES,
   hashApiKey,
-  verifyApiKey,
   getX402Price,
   getX402Description,
 } from "@/lib/x402";
+import { callOpenRouterJSON, userMessage, DEFAULT_MODEL } from "@/lib/openrouter-client";
 
 async function getServiceRoleClient() {
   return createAdminClient(
@@ -17,9 +13,6 @@ async function getServiceRoleClient() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 }
-
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
 
 const DAYS_TO_NODES: Record<number, { min: number; max: number }> = {
   7: { min: 3, max: 5 },
@@ -106,15 +99,6 @@ export async function POST(req: NextRequest) {
     const daysNum = typeof days === "number" ? days : DEFAULT_DAYS;
     const nodeConstraints = DAYS_TO_NODES[daysNum] || DAYS_TO_NODES[DEFAULT_DAYS];
 
-    // x402 payment check disabled for now
-    // const payment = checkX402Payment(req.headers);
-    // if (!payment.valid) {
-    //   const response = create402Response("plan_generation");
-    //   if (response) {
-    //     return response;
-    //   }
-    // }
-
     const prompt = `Generate a learning plan for "${topic}" as a directed graph where each node is a session.
 
 Return ONLY valid JSON (no markdown) with this structure:
@@ -138,59 +122,24 @@ Rules:
 - Keep titles concise (3-8 words)
 - Descriptions: 1 sentence explaining the concept`;
 
-    const apiKey2 = process.env.OPENROUTER_API_KEY;
+    const response = await callOpenRouterJSON<PlanData>(
+      [userMessage(prompt)],
+      {
+        model: DEFAULT_MODEL,
+        maxTokens: 2000,
+        temperature: 0.3,
+      }
+    );
 
-    if (!apiKey2) {
-      return NextResponse.json(
-        { error: "AI service not configured" },
-        { status: 500 }
-      );
-    }
-
-    const aiResponse = await fetch(OPENROUTER_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey2}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "openLesson",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 2000,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error("OpenRouter error:", aiResponse.status, errorText);
+    if (!response.success || !response.data) {
+      console.error("OpenRouter error:", response.error);
       return NextResponse.json(
         { error: "Failed to generate plan" },
         { status: 500 }
       );
     }
 
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content;
-
-    if (!content) {
-      return NextResponse.json(
-        { error: "No response from AI" },
-        { status: 500 }
-      );
-    }
-
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return NextResponse.json(
-        { error: "Invalid AI response" },
-        { status: 500 }
-      );
-    }
-
-    const planData: PlanData = JSON.parse(jsonMatch[0]);
+    const planData = response.data;
 
     if (!planData.nodes || !Array.isArray(planData.nodes)) {
       return NextResponse.json(

@@ -36,7 +36,7 @@ export async function GET() {
       endpoint: "/api/agent/session/start",
       price: 100,
       currency: "usd",
-      description: "Start a Socratic session",
+      description: "Start a tutoring session",
       paymentRequirements: {
         scheme: "exact",
         network,

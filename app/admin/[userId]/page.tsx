@@ -298,8 +298,8 @@ export default function UserDetailPage() {
             >
               <option value="all">Status: All</option>
               <option value="active">Status: Active</option>
+              <option value="paused">Status: Paused</option>
               <option value="completed">Status: Completed</option>
-              <option value="ended_by_tutor">Status: Ended</option>
             </select>
           </div>
 

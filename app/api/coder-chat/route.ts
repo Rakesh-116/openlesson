@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { callOpenRouterText, systemMessage, userMessage, RECOMMENDED_TEMPS } from "@/lib/openrouter-client";
 
 export const runtime = "nodejs";
 
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const DEFAULT_CODER_MODEL = "minimax/minimax-m2.5";
+const DEFAULT_CODER_MODEL = "x-ai/grok-4";
 
 const SYSTEM_PROMPT = `You are a JavaScript coding assistant in openLesson, an Integrated Learning Environment.
 
@@ -50,11 +50,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing messages array" }, { status: 400 });
     }
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "API not configured" }, { status: 500 });
-    }
-
     // Get user's preferred coder model from profile
     const { data: profile } = await supabase
       .from("profiles")
@@ -74,41 +69,29 @@ export async function POST(request: NextRequest) {
     }
 
     const conversationMessages = [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...(contextMessage ? [{ role: "user", content: contextMessage }] : []),
-      ...messages,
+      systemMessage(SYSTEM_PROMPT),
+      ...(contextMessage ? [userMessage(contextMessage)] : []),
+      ...messages.map((m: { role: string; content: string }) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
     ];
 
-    const response = await fetch(OPENROUTER_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "openLesson Coder",
-      },
-      body: JSON.stringify({
+    const response = await callOpenRouterText(
+      conversationMessages,
+      {
         model: coderModel,
-        messages: conversationMessages,
-        max_tokens: 2000,
-        temperature: 0.7,
-      }),
-    });
+        maxTokens: 2000,
+        temperature: RECOMMENDED_TEMPS.chat,
+      }
+    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Coder chat API error:", response.status, errorText);
-      return NextResponse.json({ error: `API error: ${response.status}` }, { status: 500 });
+    if (!response.success || !response.data) {
+      console.error("Coder chat API error:", response.error);
+      return NextResponse.json({ error: `API error: ${response.error}` }, { status: 500 });
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
-
-    if (!content) {
-      return NextResponse.json({ error: "No response generated" }, { status: 500 });
-    }
-
-    return NextResponse.json({ message: content, model: coderModel });
+    return NextResponse.json({ message: response.data, model: coderModel });
   } catch (error) {
     console.error("Coder chat error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

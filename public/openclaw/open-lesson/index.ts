@@ -121,7 +121,7 @@ export default function (api: {
       id: "generate_learning_plan",
       name: "Generate Learning Plan",
       description:
-        "Generate a personalized learning plan as a directed graph of Socratic tutoring sessions for a given topic",
+        "Generate a personalized learning plan as a directed graph of guided tutoring sessions for a given topic",
       inputSchema: {
         type: "object",
         properties: {
@@ -179,7 +179,7 @@ export default function (api: {
       id: "start_session",
       name: "Start Session",
       description:
-        "Start a new Socratic tutoring session. Returns session ID and audio submission instructions.",
+        "Start a new guided tutoring session. Returns session ID and audio submission instructions.",
       inputSchema: {
         type: "object",
         properties: {
@@ -231,7 +231,7 @@ export default function (api: {
       id: "analyze_audio",
       name: "Analyze Audio",
       description:
-        "Submit an audio chunk for Socratic analysis. Returns reasoning gap score and follow-up questions. **IMPORTANT**: This endpoint only accepts audio input, NOT text.",
+        "Submit an audio chunk for analysis. Returns reasoning gap score and follow-up questions. **IMPORTANT**: This endpoint only accepts audio input, NOT text.",
       inputSchema: {
         type: "object",
         properties: {
@@ -386,6 +386,6 @@ function interpretGapScore(score: number): string {
   } else if (score < 0.6) {
     return "Moderate understanding - some reasoning gaps identified";
   } else {
-    return "Significant reasoning gaps - Socratic follow-up recommended";
+    return "Significant reasoning gaps - follow-up recommended";
   }
 }

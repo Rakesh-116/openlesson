@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Navbar } from "@/components/Navbar";
 import { createClient } from "@/lib/supabase/client";
 import { PARTNER_TIERS, PartnerTier } from "@/lib/partners";
 import { DollarSign, Users, ArrowRight, RefreshCw, Crown } from "lucide-react";
@@ -122,9 +121,7 @@ export default function AdminPartnersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
-      <Navbar />
-      <div className="max-w-7xl mx-auto px-6 py-8">
+    <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white">Partner Management</h1>
@@ -266,7 +263,6 @@ export default function AdminPartnersPage() {
             </tbody>
           </table>
         </div>
-      </div>
     </div>
   );
 }

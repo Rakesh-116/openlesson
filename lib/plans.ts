@@ -22,7 +22,7 @@ export const PLANS: Record<PlanId, PlanDef> = {
     priceAmount: 0,
     sessionsPerPeriod: 1,
     features: [
-      "1 Socratic session",
+      "1 tutoring session",
       "Real-time audio analysis",
       "Session report",
     ],

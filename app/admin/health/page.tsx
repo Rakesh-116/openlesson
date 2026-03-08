@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Navbar } from "@/components/Navbar";
 import { createClient } from "@/lib/supabase/client";
 
 interface SyncStatus {
@@ -147,9 +146,7 @@ export default function HealthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
-      <Navbar />
-      <div className="max-w-6xl mx-auto p-6">
+    <div className="max-w-6xl mx-auto p-6">
         <div className="flex items-center justify-between mb-8">
           <div>
             <Link href="/admin" className="text-neutral-400 hover:text-white text-sm">
@@ -262,7 +259,6 @@ export default function HealthPage() {
             </table>
           </div>
         </div>
-      </div>
     </div>
   );
 }

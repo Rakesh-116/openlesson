@@ -118,7 +118,7 @@ Returns:
 - `sessionId`: The session ID
 - `gapScore`: Number 0-1 indicating reasoning gap severity
 - `signals`: Array of detected reasoning signals
-- `followUpQuestion`: Suggested Socratic question
+- `followUpQuestion`: Suggested guiding question
 - `requiresFollowUp`: Boolean
 
 ## Error Codes

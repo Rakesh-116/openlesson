@@ -153,6 +153,6 @@ export async function GET(req: NextRequest) {
     required_params: ["problem"],
     optional_params: ["plan_node_id", "x402_payment_id"],
     audio_required: false,
-    usage: "Start a new Socratic session. Returns sessionId for audio submission.",
+    usage: "Start a new tutoring session. Returns sessionId for audio submission.",
   });
 }

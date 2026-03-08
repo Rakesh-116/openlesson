@@ -189,7 +189,7 @@ export default function HomeschoolPage() {
                     Be Your Child's Learning Partner, Not Their Expert
                   </h2>
                   <p className="text-slate-500 max-w-md mx-auto text-sm leading-relaxed">
-                    When they get stuck on topics you don't know, openLesson steps in with patient, Socratic tutoring.
+                    When they get stuck on topics you don't know, openLesson steps in with patient, guided tutoring.
                   </p>
                 </div>
 

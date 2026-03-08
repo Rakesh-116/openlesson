@@ -32,13 +32,13 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-semibold text-neutral-200 mb-3">2. Platform Description</h2>
             <p className="mb-3">
-              openLesson is an AI-powered Socratic tutoring tool that helps users learn through
+              openLesson is an AI-powered tutoring tool that helps users learn through
               guided questioning. The platform is part of our broader mission of educational
               accelerationism (edu/acc). Our services include:
             </p>
             <ul className="list-disc pl-5 space-y-1">
               <li>Real-time audio analysis during learning sessions</li>
-              <li>AI-generated Socratic questions (probes) to deepen understanding</li>
+              <li>AI-generated guiding questions (probes) to deepen understanding</li>
               <li>Post-session reports and analytics</li>
               <li>EEG brain activity recording via Muse headband integration</li>
               <li>Personalized tutoring via think-aloud transcript analysis</li>

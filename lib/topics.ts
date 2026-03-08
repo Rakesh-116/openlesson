@@ -1,6 +1,6 @@
 // ============================================
 // STEM TOPIC CATALOGUE
-// Curated topics for Socratic sessions
+// Curated topics for tutoring sessions
 // ============================================
 
 export interface TopicCategory {

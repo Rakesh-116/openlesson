@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
+import { callOpenRouterJSON, userMessage, DEFAULT_MODEL } from "@/lib/openrouter-client";
 
 interface NodeData {
   id: string;
@@ -15,6 +13,15 @@ interface NodeData {
 interface PlanData {
   nodes: NodeData[];
 }
+
+const DAYS_TO_NODES: Record<number, { min: number; max: number }> = {
+  7: { min: 3, max: 5 },
+  14: { min: 4, max: 7 },
+  30: { min: 5, max: 10 },
+  60: { min: 8, max: 14 },
+  90: { min: 10, max: 18 },
+  180: { min: 15, max: 25 },
+};
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,16 +40,6 @@ export async function POST(req: NextRequest) {
     }
 
     const daysNum = typeof days === "number" ? days : 30;
-    
-    const DAYS_TO_NODES: Record<number, { min: number; max: number }> = {
-      7: { min: 3, max: 5 },
-      14: { min: 4, max: 7 },
-      30: { min: 5, max: 10 },
-      60: { min: 8, max: 14 },
-      90: { min: 10, max: 18 },
-      180: { min: 15, max: 25 },
-    };
-    
     const nodeConstraints = DAYS_TO_NODES[daysNum] || DAYS_TO_NODES[30];
 
     const prompt = `Generate a learning plan for "${topic}" as a directed graph where each node is a session.
@@ -68,47 +65,21 @@ Rules:
 - Keep titles concise (3-8 words)
 - Descriptions: 1 sentence explaining the concept`;
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    
-    if (!apiKey) {
-      return NextResponse.json({ error: "AI service not configured" }, { status: 500 });
-    }
+    const response = await callOpenRouterJSON<PlanData>(
+      [userMessage(prompt)],
+      {
+        model: DEFAULT_MODEL,
+        maxTokens: 2000,
+        temperature: 0.3,
+      }
+    );
 
-    const aiResponse = await fetch(OPENROUTER_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "openLesson",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 2000,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error("OpenRouter error:", aiResponse.status, errorText);
+    if (!response.success || !response.data) {
+      console.error("OpenRouter error:", response.error);
       return NextResponse.json({ error: "Failed to generate plan" }, { status: 500 });
     }
 
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content;
-
-    if (!content) {
-      return NextResponse.json({ error: "No response from AI" }, { status: 500 });
-    }
-
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return NextResponse.json({ error: "Invalid AI response" }, { status: 500 });
-    }
-
-    const planData: PlanData = JSON.parse(jsonMatch[0]);
+    const planData = response.data;
 
     if (!planData.nodes || !Array.isArray(planData.nodes)) {
       return NextResponse.json({ error: "Invalid plan data format" }, { status: 500 });

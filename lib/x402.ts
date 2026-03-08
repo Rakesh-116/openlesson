@@ -26,7 +26,7 @@ export function getX402Price(endpoint: X402Endpoint): number {
 export function getX402Description(endpoint: X402Endpoint): string {
   const descriptions: Record<X402Endpoint, string> = {
     plan_generation: "Learning plan generation",
-    session_start: "Socratic session start",
+    session_start: "Tutoring session start",
     session_analyze: "Audio chunk analysis",
   };
   return descriptions[endpoint];

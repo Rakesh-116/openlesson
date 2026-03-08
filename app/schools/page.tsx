@@ -120,7 +120,7 @@ export default function SchoolsPage() {
               <ul className="space-y-2">
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-emerald-400 mt-0.5">✓</span>
-                  <span>Every student gets patient, 1-on-1 Socratic tutoring</span>
+                  <span>Every student gets patient, 1-on-1 guided tutoring</span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-emerald-400 mt-0.5">✓</span>

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Navbar } from "@/components/Navbar";
 import { createClient } from "@/lib/supabase/client";
 
 interface SessionData {
@@ -225,9 +224,7 @@ export default function SessionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
-      <Navbar />
-      <div className="max-w-7xl mx-auto p-6">
+    <div className="max-w-7xl mx-auto p-6">
         <div className="mb-6">
           <Link href="/admin" className="text-neutral-400 hover:text-white text-sm">
             ← Back to Admin
@@ -256,8 +253,8 @@ export default function SessionsPage() {
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
+            <option value="paused">Paused</option>
             <option value="completed">Completed</option>
-            <option value="ended_by_tutor">Ended by Tutor</option>
           </select>
         </div>
 
@@ -378,7 +375,6 @@ export default function SessionsPage() {
             </button>
           </div>
         )}
-      </div>
     </div>
   );
 }

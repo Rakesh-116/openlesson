@@ -1,6 +1,6 @@
 # openLesson Plugin for ElizaOS
 
-openLesson tutoring platform integration for ElizaOS - generate learning plans, start Socratic sessions, and analyze audio for reasoning gaps.
+openLesson tutoring platform integration for ElizaOS - generate learning plans, start guided tutoring sessions, and analyze audio for reasoning gaps.
 
 ## Installation
 
@@ -66,7 +66,7 @@ export OPENLESSON_API_KEY=sk_your_api_key
 ## Available Actions
 
 1. **GENERATE_LEARNING_PLAN** - Generate a personalized learning plan as a directed graph
-2. **START_SESSION** - Start a new Socratic tutoring session
+2. **START_SESSION** - Start a new guided tutoring session
 3. **ANALYZE_AUDIO** - Submit audio for reasoning gap analysis
 4. **END_SESSION** - End a session and generate a summary
 5. **GET_SESSION_SUMMARY** - Retrieve the session report

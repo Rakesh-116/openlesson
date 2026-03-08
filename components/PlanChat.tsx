@@ -74,9 +74,9 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, supabase, planI
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [model, setModel] = useState<string>(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem(MODEL_STORAGE_KEY) || "google/gemini-2.5-flash";
+      return localStorage.getItem(MODEL_STORAGE_KEY) || "x-ai/grok-4";
     }
-    return "google/gemini-2.5-flash";
+    return "x-ai/grok-4";
   });
   const [description, setDescription] = useState(plan.description || "");
   const [isLoadingDesc, setIsLoadingDesc] = useState(false);

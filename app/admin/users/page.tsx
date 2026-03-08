@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Navbar } from "@/components/Navbar";
 import { createClient } from "@/lib/supabase/client";
 
 interface User {
@@ -247,9 +246,7 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
-      <Navbar />
-      <div className="max-w-7xl mx-auto p-6">
+    <div className="max-w-7xl mx-auto p-6">
         <div className="mb-6">
           <Link href="/admin" className="text-neutral-400 hover:text-white text-sm">
             ← Back to Admin
@@ -430,7 +427,6 @@ export default function UsersPage() {
             </button>
           </div>
         )}
-      </div>
     </div>
   );
 }

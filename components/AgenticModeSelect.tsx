@@ -29,7 +29,7 @@ const ENDPOINTS = [
     name: "Start Session",
     method: "POST",
     path: "/api/agent/session/start",
-    description: "Start a new Socratic session",
+    description: "Start a new tutoring session",
     params: [
       { name: "problem", type: "string", required: true, example: "Explain how backpropagation works" },
       { name: "plan_node_id", type: "string", required: false, example: "uuid" },

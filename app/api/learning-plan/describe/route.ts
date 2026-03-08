@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+import { callOpenRouterJSON, systemMessage, userMessage, DEFAULT_MODEL } from "@/lib/openrouter-client";
 
 const SYSTEM_PROMPT = `You are an AI Learning Plan Descriptor. Your job is to explain a learning plan to users in a clear, helpful way.
 
@@ -19,6 +18,13 @@ const SYSTEM_PROMPT = `You are an AI Learning Plan Descriptor. Your job is to ex
    "highlights": ["Key point 1", "Key point 2", "Key point 3"],
    "suggestions": "Optional: suggestions for how to approach this plan"
  }`;
+
+interface DescriptionResponse {
+  title?: string;
+  overview?: string;
+  highlights?: string[];
+  suggestions?: string;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -61,79 +67,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch nodes" }, { status: 500 });
     }
 
-    const completedNodes = nodes.filter((n: any) => n.status === "completed");
-    const activeNodes = nodes.filter((n: any) => n.status !== "completed");
+    const completedNodes = nodes.filter((n: { status: string }) => n.status === "completed");
+    const activeNodes = nodes.filter((n: { status: string }) => n.status !== "completed");
     
     const orderedActive = getOrderedSessions(activeNodes);
     const orderedCompleted = getOrderedSessions(completedNodes);
 
-    const model = userModel || "google/gemini-2.5-flash";
+    const model = userModel || DEFAULT_MODEL;
 
     const prompt = `Generate a description for this learning plan.
 
 Plan Topic: "${plan.root_topic}"
 
 ACTIVE SESSIONS:
-${orderedActive.map((n: any, i: number) => `${i + 1}. ${n.title}: ${n.description || "No description"}`).join("\n")}
+${orderedActive.map((n: { title: string; description?: string }, i: number) => `${i + 1}. ${n.title}: ${n.description || "No description"}`).join("\n")}
 
 COMPLETED SESSIONS:
-${orderedCompleted.map((n: any) => `✓ ${n.title}`).join("\n")}
+${orderedCompleted.map((n: { title: string }) => `✓ ${n.title}`).join("\n")}
 
 Total sessions: ${nodes.length} (${completedNodes.length} completed)
 
 Respond with JSON only.`;
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    
-    if (!apiKey) {
-      return NextResponse.json({ error: "AI service not configured" }, { status: 500 });
-    }
-
-    const aiResponse = await fetch(OPENROUTER_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "openLesson",
-      },
-      body: JSON.stringify({
+    const response = await callOpenRouterJSON<DescriptionResponse>(
+      [systemMessage(SYSTEM_PROMPT), userMessage(prompt)],
+      {
         model,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: prompt }
-        ],
-        max_tokens: 1000,
-        temperature: 0.7,
-      }),
-    });
+        maxTokens: 1000,
+        temperature: 0.3,
+      }
+    );
 
-    if (!aiResponse.ok) {
+    if (!response.success || !response.data) {
       return NextResponse.json({ error: "Failed to generate description" }, { status: 500 });
     }
 
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content;
-
-    if (!content) {
-      return NextResponse.json({ error: "No response from AI" }, { status: 500 });
-    }
-
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    let description = "";
-    
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[0]);
-        description = `${parsed.overview || ""}\n\n${(parsed.highlights || []).map((h: string) => `• ${h}`).join("\n")}`;
-        if (parsed.suggestions) {
-          description += `\n\n💡 ${parsed.suggestions}`;
-        }
-      } catch {
-        description = content;
-      }
-    } else {
-      description = content;
+    const parsed = response.data;
+    let description = `${parsed.overview || ""}\n\n${(parsed.highlights || []).map((h: string) => `• ${h}`).join("\n")}`;
+    if (parsed.suggestions) {
+      description += `\n\n💡 ${parsed.suggestions}`;
     }
 
     await supabase
@@ -144,7 +116,7 @@ Respond with JSON only.`;
     return NextResponse.json({ 
       description,
       overview: description.split("\n\n")[0],
-      highlights: description.match(/• .+/g)?.map(s => s.replace("• ", "")) || []
+      highlights: parsed.highlights || []
     });
 
   } catch (error) {
@@ -156,11 +128,20 @@ Respond with JSON only.`;
   }
 }
 
-function getOrderedSessions(nodes: any[]): any[] {
+interface PlanNode {
+  id: string;
+  title: string;
+  description?: string;
+  status?: string;
+  is_start?: boolean;
+  next_node_ids?: string[];
+}
+
+function getOrderedSessions(nodes: PlanNode[]): PlanNode[] {
   if (nodes.length === 0) return [];
   
   const visited = new Set<string>();
-  const ordered: any[] = [];
+  const ordered: PlanNode[] = [];
   
   const startNodes = nodes.filter(n => n.is_start);
   const queue = [...startNodes];

@@ -10,7 +10,7 @@ import type { StartSessionParams, SessionStartResponse } from '../types';
 
 const startSessionAction: Action = {
   name: 'START_SESSION',
-  description: 'Start a new Socratic tutoring session. Returns session ID and audio submission instructions.',
+  description: 'Start a new guided tutoring session. Returns session ID and audio submission instructions.',
 
   validate: async (runtime: IAgentRuntime, message: Memory, _state?: State): Promise<boolean> => {
     const apiKey = runtime.getSetting('OPENLESSON_API_KEY');
@@ -64,7 +64,7 @@ const startSessionAction: Action = {
 
       return {
         success: true,
-        text: `Tutoring session started for "${data.problem}". Session ID: ${data.sessionId}. Please record your audio response to begin the Socratic dialogue.`,
+        text: `Tutoring session started for "${data.problem}". Session ID: ${data.sessionId}. Please record your audio response to begin the guided dialogue.`,
         values: {
           session_id: data.sessionId,
           problem: data.problem,
@@ -96,7 +96,7 @@ const startSessionAction: Action = {
       {
         name: 'assistant',
         content: {
-          text: 'I will start a Socratic tutoring session about gradient descent.',
+          text: 'I will start a guided tutoring session about gradient descent.',
         },
       },
     ],

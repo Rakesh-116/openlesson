@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
+import { callOpenRouterText, systemMessage, userMessage, DEFAULT_MODEL, RECOMMENDED_TEMPS } from "@/lib/openrouter-client";
 
 const SYSTEM_PROMPT = `You are a helpful AI learning assistant in openLesson, an Integrated Learning Environment (ILE).
 
@@ -36,47 +34,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing problem" }, { status: 400 });
     }
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "API not configured" }, { status: 500 });
-    }
-
     const conversationMessages = [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: `The user is working on: ${problem}` },
-      ...(messages || []),
+      systemMessage(SYSTEM_PROMPT),
+      userMessage(`The user is working on: ${problem}`),
+      ...(messages || []).map((m: { role: string; content: string }) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
     ];
 
-    const response = await fetch(OPENROUTER_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "openLesson",
-      },
-      body: JSON.stringify({
-        model: model || MODEL,
-        messages: conversationMessages,
-        max_tokens: 800,
-        temperature: 0.7,
-      }),
-    });
+    const response = await callOpenRouterText(
+      conversationMessages,
+      {
+        model: model || DEFAULT_MODEL,
+        maxTokens: 800,
+        temperature: RECOMMENDED_TEMPS.chat,
+      }
+    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Session chat API error:", response.status, errorText);
-      return NextResponse.json({ error: `API error: ${response.status}` }, { status: 500 });
+    if (!response.success || !response.data) {
+      console.error("Session chat API error:", response.error);
+      return NextResponse.json({ error: `API error: ${response.error}` }, { status: 500 });
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
-
-    if (!content) {
-      return NextResponse.json({ error: "No response generated" }, { status: 500 });
-    }
-
-    return NextResponse.json({ message: content });
+    return NextResponse.json({ message: response.data });
   } catch (error) {
     console.error("Session chat error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

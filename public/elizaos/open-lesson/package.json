@@ -1,7 +1,7 @@
 {
   "name": "@openlesson/plugin-elizaos",
   "version": "1.0.0",
-  "description": "openLesson tutoring platform integration for ElizaOS - generate learning plans, start Socratic sessions, and analyze audio for reasoning gaps",
+  "description": "openLesson tutoring platform integration for ElizaOS - generate learning plans, start guided tutoring sessions, and analyze audio for reasoning gaps",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -14,7 +14,7 @@
     "elizaos",
     "plugin",
     "tutoring",
-    "socratic",
+    "guided-questioning",
     "learning",
     "audio",
     "ai"

@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { callOpenRouterText, systemMessage, userMessage, DEFAULT_MODEL } from "@/lib/openrouter-client";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -99,45 +100,30 @@ export async function POST(request: Request) {
     const combinedTranscript = transcripts.reverse().join("\n\n");
     console.log("[generate-feedback] Combined length:", combinedTranscript.length);
 
-    // Call LLM
-    const apiUrl = process.env.OPENROUTER_API_URL || "https://openrouter.ai/api/v1/chat/completions";
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "HTTP-Referer": process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000",
-        "X-Title": "openLesson Feedback",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI learning assistant. Based on the student's speech, give brief feedback (1-2 sentences).`
-          },
-          {
-            role: "user",
-            content: `Problem: ${problem}\n\nTranscripts:\n${combinedTranscript}`
-          }
-        ],
-        max_tokens: 200,
-      }),
-    });
+    // Call LLM using shared client
+    const response = await callOpenRouterText(
+      [
+        systemMessage("You are an AI learning assistant. Based on the student's speech, give brief feedback (1-2 sentences)."),
+        userMessage(`Problem: ${problem}\n\nTranscripts:\n${combinedTranscript}`)
+      ],
+      {
+        model: DEFAULT_MODEL,
+        maxTokens: 200,
+        temperature: 0.6,
+      }
+    );
 
-    console.log("[generate-feedback] LLM status:", response.status);
+    console.log("[generate-feedback] LLM success:", response.success);
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[generate-feedback] LLM error:", errorText);
+    if (!response.success || !response.data) {
+      console.error("[generate-feedback] LLM error:", response.error);
       return NextResponse.json({ 
         feedback: null,
-        debug: { reason: "LLM call failed", error: errorText }
+        debug: { reason: "LLM call failed", error: response.error }
       });
     }
 
-    const data = await response.json();
-    const feedback = data.choices?.[0]?.message?.content?.trim();
+    const feedback = response.data;
     console.log("[generate-feedback] Feedback:", feedback);
 
     if (!feedback || feedback.length < 10) {

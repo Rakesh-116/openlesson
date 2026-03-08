@@ -1,5 +1,5 @@
 -- ============================================
--- SOCRATES - Database Schema
+-- OPENLESSON - Database Schema
 -- ============================================
 
 -- Enable UUID extension

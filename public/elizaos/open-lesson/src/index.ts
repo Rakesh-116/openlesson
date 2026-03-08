@@ -7,7 +7,7 @@ import { getSessionSummaryAction } from './actions/getSessionSummary';
 
 export const openLessonPlugin: Plugin = {
   name: 'open-lesson',
-  description: 'openLesson tutoring platform integration - generate learning plans, start Socratic sessions, and analyze audio for reasoning gaps',
+  description: 'openLesson tutoring platform integration - generate learning plans, start guided tutoring sessions, and analyze audio for reasoning gaps',
   actions: [
     generateLearningPlanAction,
     startSessionAction,
