@@ -17,18 +17,29 @@ interface Message {
   planModified?: boolean;
 }
 
+interface PlanNode {
+  id: string;
+  title: string;
+  description: string;
+  is_start: boolean;
+  next_node_ids: string[];
+  status: string;
+  planning_prompt?: string;
+}
+
 interface ChatPanelProps {
   planId: string;
   description?: string;
   model?: string;
   onModelChange?: (model: string) => void;
   onRefresh?: () => void;
+  onNodesUpdate?: (nodes: PlanNode[]) => void;
   supabase?: ReturnType<typeof createBrowserClient>;
   isOwner?: boolean;
   currentUserId?: string | null;
 }
 
-export function ChatPanel({ planId, description, model, onModelChange, onRefresh, supabase, isOwner = true, currentUserId }: ChatPanelProps) {
+export function ChatPanel({ planId, description, model, onModelChange, onRefresh, onNodesUpdate, supabase, isOwner = true, currentUserId }: ChatPanelProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -134,23 +145,18 @@ export function ChatPanel({ planId, description, model, onModelChange, onRefresh
         setMessages((prev) => [...prev, questionMessage]);
       }
 
-      router.refresh();
+      // If we have updated nodes from the API, use them directly for immediate UI update
+      if (data.updatedNodes && data.updatedNodes.length > 0 && onNodesUpdate) {
+        onNodesUpdate(data.updatedNodes);
+      }
       
-      // Trigger refresh
+      // Also trigger refresh callbacks for other state updates
       if (onRefresh) {
-        setTimeout(() => onRefresh(), 300);
+        onRefresh();
       }
       
-      // Also directly refresh if supabase client provided
-      if (supabase) {
-        setTimeout(async () => {
-          const { data: nodesData } = await supabase
-            .from("plan_nodes")
-            .select("*")
-            .eq("plan_id", planId);
-          console.log("[ChatPanel] Refreshed nodes:", nodesData?.length);
-        }, 500);
-      }
+      // Trigger Next.js router refresh for server component updates
+      router.refresh();
     } catch (err) {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),

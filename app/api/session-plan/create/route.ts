@@ -10,7 +10,7 @@ export const maxDuration = 30;
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { sessionId, problem, objectives, force } = body;
+    const { sessionId, problem, objectives, force, planningPrompt } = body;
 
     if (!sessionId || !problem) {
       return NextResponse.json(
@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
       objectives,
       calibration: calibrationText,
       promptOverrides,
+      planningPrompt, // Pass custom planning prompt if provided
     });
 
     if (!result.success || !result.plan) {
@@ -70,10 +71,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Save the plan to the database
+    // Save the plan to the database (including description from LLM)
     const savedPlan = await createSessionPlan(sessionId, {
       goal: result.plan.goal,
       strategy: result.plan.strategy,
+      description: result.plan.description,
       steps: result.plan.steps.map((step, idx) => ({
         id: step.id || `step_${idx + 1}_${Date.now()}`,
         description: step.description,

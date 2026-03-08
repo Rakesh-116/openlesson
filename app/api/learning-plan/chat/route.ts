@@ -87,10 +87,14 @@ export async function POST(req: NextRequest) {
       ).join("\n")}\n`;
     }
 
+    const sessionsSection = nodes.length > 0 
+      ? `CURRENT SESSIONS (include the id for any session you want to keep/modify):
+${nodes.map((n: { id: string; status: string; title: string; description?: string }, i: number) => `${n.id} | order:${i+1} | ${n.status === "completed" ? "✓ DONE" : "active"} | ${n.title}: ${n.description || "No description"}`).join("\n")}`
+      : `CURRENT SESSIONS: None yet - this is a new/empty plan. Create sessions based on the user's request.`;
+
     const prompt = `Current Learning Plan: "${plan.root_topic}"
 
-CURRENT SESSIONS (include the id for any session you want to keep/modify):
-${nodes.map((n: { id: string; status: string; title: string; description?: string }, i: number) => `${n.id} | order:${i+1} | ${n.status === "completed" ? "✓ DONE" : "active"} | ${n.title}: ${n.description || "No description"}`).join("\n")}
+${sessionsSection}
 
 CONVERSATION HISTORY:${historyContext}
 
@@ -98,7 +102,11 @@ Current User request: "${userPrompt}"
 
 ${plan.description ? `Plan context: ${plan.description}` : ""}
 
+IMPORTANT: You MUST include a "sessions" array in your response with the complete plan. For new sessions, omit the "id" field.
+
 Respond with JSON containing your explanation and the complete updated sessions array.`;
+
+
 
     const aiResponse = await callOpenRouterJSON<ChatResponse>(
       [systemMessage(SYSTEM_PROMPT), userMessage(prompt)],
@@ -110,8 +118,12 @@ Respond with JSON containing your explanation and the complete updated sessions 
     );
 
     if (!aiResponse.success || !aiResponse.data) {
+      console.error("[Chat] AI response failed:", aiResponse.error);
+      console.error("[Chat] Raw content:", aiResponse.rawContent?.substring(0, 1000));
       return NextResponse.json({ error: "Failed to get AI response" }, { status: 500 });
     }
+
+
 
     const response = {
       explanation: aiResponse.data.explanation || "I've updated your plan.",
@@ -121,19 +133,23 @@ Respond with JSON containing your explanation and the complete updated sessions 
     };
 
     const llmSessions = response.sessions || [];
-    const existingIds = new Set(nodes.map((n: { id: string }) => n.id));
+    const existingIds = new Set<string>(nodes.map((n: { id: string }) => n.id));
     const completedNodes = nodes.filter((n: { status: string }) => n.status === "completed");
-    const completedIds = new Set(completedNodes.map((n: { id: string }) => n.id));
+    const completedIds = new Set<string>(completedNodes.map((n: { id: string }) => n.id));
     
-    console.log("[Chat] LLM sessions:", llmSessions.length);
-    console.log("[Chat] Existing nodes:", nodes.length);
+    console.log("[Chat] Processing", llmSessions.length, "sessions from LLM");
 
+    // Map from LLM session identifier (id or index) to actual DB node id
     const idMap = new Map<string, string>();
+    // Track all node IDs that exist after processing (including newly created)
+    const allNodeIds = new Set<string>(existingIds);
 
-    for (const session of llmSessions) {
+    for (let idx = 0; idx < llmSessions.length; idx++) {
+      const session = llmSessions[idx];
       const cleanId = session.id?.replace(/[^a-zA-Z0-9-]/g, "");
       
       if (cleanId && existingIds.has(cleanId) && !completedIds.has(cleanId)) {
+        // Update existing node
         await supabase
           .from("plan_nodes")
           .update({
@@ -142,7 +158,12 @@ Respond with JSON containing your explanation and the complete updated sessions 
           })
           .eq("id", cleanId);
         if (session.id) idMap.set(session.id, cleanId);
-      } else if (cleanId && !completedIds.has(cleanId)) {
+      } else if (!cleanId || !existingIds.has(cleanId)) {
+        // Create new node - handles both: no ID provided OR new ID that doesn't exist
+        // Skip if it's a completed session ID (shouldn't happen but safety check)
+        if (cleanId && completedIds.has(cleanId)) {
+          continue;
+        }
         const { data: newNode, error: insertError } = await supabase
           .from("plan_nodes")
           .insert({
@@ -156,8 +177,14 @@ Respond with JSON containing your explanation and the complete updated sessions 
           .select()
           .single();
         
-        if (!insertError && newNode && session.id) {
-          idMap.set(session.id, newNode.id);
+        if (!insertError && newNode) {
+          // Map both the original session.id (if any) and use index as fallback
+          if (session.id) {
+            idMap.set(session.id, newNode.id);
+          }
+          // Also map by index for linking purposes
+          idMap.set(`__idx_${idx}`, newNode.id);
+          allNodeIds.add(newNode.id);
         }
       }
     }
@@ -175,14 +202,49 @@ Respond with JSON containing your explanation and the complete updated sessions 
 
     const sortedSessions = [...llmSessions].sort((a, b) => (a.order || 999) - (b.order || 999));
     
+    // Build a map from original LLM index to sorted index for fallback lookups
+    const originalIndexMap = new Map<number, number>();
+    llmSessions.forEach((session, origIdx) => {
+      const sortedIdx = sortedSessions.findIndex(s => s === session);
+      if (sortedIdx !== -1) {
+        originalIndexMap.set(origIdx, sortedIdx);
+      }
+    });
+    
+
+    
     for (let i = 0; i < sortedSessions.length; i++) {
       const session = sortedSessions[i];
-      const sessionId = session.id || "";
-      const mappedId = idMap.get(sessionId) || (session.id ? idMap.get(session.id.replace(/[^a-zA-Z0-9-]/g, "")) : undefined);
+      // Find the original index of this session in llmSessions
+      const originalIdx = llmSessions.findIndex(s => s === session);
       
-      if (mappedId && existingIds.has(mappedId)) {
+      // Try multiple ways to get the mapped ID
+      let mappedId: string | undefined;
+      if (session.id) {
+        mappedId = idMap.get(session.id) || idMap.get(session.id.replace(/[^a-zA-Z0-9-]/g, ""));
+      }
+      if (!mappedId && originalIdx !== -1) {
+        mappedId = idMap.get(`__idx_${originalIdx}`);
+      }
+      
+      // Use allNodeIds (which includes newly created nodes) instead of existingIds
+      if (mappedId && allNodeIds.has(mappedId)) {
         const nextSession = sortedSessions[i + 1];
-        const nextNodeId = nextSession?.id ? idMap.get(nextSession.id) : null;
+        let nextNodeId: string | null = null;
+        
+        if (nextSession) {
+          // Try to get next node ID using same lookup strategy
+          if (nextSession.id) {
+            nextNodeId = idMap.get(nextSession.id) || idMap.get(nextSession.id.replace(/[^a-zA-Z0-9-]/g, "")) || null;
+          }
+          if (!nextNodeId) {
+            const nextOriginalIdx = llmSessions.findIndex(s => s === nextSession);
+            if (nextOriginalIdx !== -1) {
+              nextNodeId = idMap.get(`__idx_${nextOriginalIdx}`) || null;
+            }
+          }
+        }
+        
         await supabase
           .from("plan_nodes")
           .update({
@@ -193,16 +255,20 @@ Respond with JSON containing your explanation and the complete updated sessions 
       }
     }
 
-    const { data: updatedNodes } = await supabase
+    const { data: updatedNodes, error: fetchError } = await supabase
       .from("plan_nodes")
       .select("*")
       .eq("plan_id", planId);
+
+    console.log("[Chat] Plan updated:", updatedNodes?.length, "nodes");
 
     // Build a summary of the current plan structure
     const orderedAll = getOrderedSessions(updatedNodes || []);
     const currentPlanSummary = orderedAll.map((n: { title: string; status?: string }, i: number) => 
       `${i + 1}. ${n.title}${n.status === "completed" ? " ✓" : ""}`
     ).join("\n");
+
+
 
     return NextResponse.json({ 
       explanation: response.explanation || "Done!",

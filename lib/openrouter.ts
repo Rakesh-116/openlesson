@@ -238,7 +238,8 @@ Student Background (if available): {calibration}
 Create a session plan with:
 1. A clear learning GOAL (1-2 sentences describing what the student should understand by the end)
 2. A STRATEGY for achieving it (your approach to guiding them - be specific about techniques you'll use)
-3. An ordered list of 5-8 STEPS that mix different types of interactions
+3. A brief DESCRIPTION (1-2 sentences summarizing what this session covers, for display purposes)
+4. An ordered list of 5-8 STEPS that mix different types of interactions
 
 Each step should have:
 - type: one of "question" | "task" | "suggestion" | "checkpoint"
@@ -255,6 +256,7 @@ Return ONLY valid JSON (no markdown, no explanation):
 {
   "goal": "...",
   "strategy": "...",
+  "description": "...",
   "steps": [
     {"type": "question", "description": "...", "order": 1},
     {"type": "task", "description": "...", "order": 2},
@@ -1030,6 +1032,7 @@ export interface SessionPlanStep {
 export interface CreateSessionPlanResult {
   goal: string;
   strategy: string;
+  description?: string; // Brief summary for display purposes
   steps: SessionPlanStep[];
 }
 
@@ -1038,13 +1041,22 @@ export async function createSessionPlanLLM(options: {
   objectives?: string[];
   calibration?: string;
   promptOverrides?: UserPrompts;
+  planningPrompt?: string; // Custom instructions for plan generation
 }): Promise<{ success: boolean; plan?: CreateSessionPlanResult; error?: string }> {
-  const prompt = getPrompt("session_plan_create", options.promptOverrides)
+  let prompt = getPrompt("session_plan_create", options.promptOverrides)
     .replace("{problem}", options.problem)
     .replace("{objectives}", options.objectives?.length 
       ? options.objectives.map((o, i) => `${i + 1}. ${o}`).join("\n")
       : "No specific objectives defined")
     .replace("{calibration}", options.calibration || "No prior learning data available");
+
+  // Append custom planning prompt if provided
+  if (options.planningPrompt) {
+    prompt = prompt.replace(
+      'Return ONLY valid JSON',
+      `Additional Planning Instructions from User:\n${options.planningPrompt}\n\nReturn ONLY valid JSON`
+    );
+  }
 
   const response = await callOpenRouterJSON<CreateSessionPlanResult>(
     [userMessage(prompt)],
@@ -1063,6 +1075,7 @@ export async function createSessionPlanLLM(options: {
   const plan: CreateSessionPlanResult = {
     goal: response.data.goal || "Understand the topic deeply",
     strategy: response.data.strategy || "Guide through Socratic questioning",
+    description: response.data.description,
     steps: (response.data.steps || []).map((step: SessionPlanStep, idx: number) => ({
       id: `step_${idx + 1}_${Date.now()}`,
       type: step.type || "question",

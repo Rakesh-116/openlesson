@@ -12,6 +12,7 @@ interface PlanNode {
   status: string;
   position_x?: number;
   position_y?: number;
+  planning_prompt?: string;
 }
 
 interface SessionListProps {

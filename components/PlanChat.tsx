@@ -15,6 +15,7 @@ interface PlanNode {
   status: string;
   position_x?: number;
   position_y?: number;
+  planning_prompt?: string;
 }
 
 interface LearningPlan {
@@ -31,6 +32,7 @@ interface PlanChatProps {
   plan: LearningPlan;
   nodes: PlanNode[];
   onRefresh?: () => void;
+  onNodesUpdate?: (nodes: PlanNode[]) => void;
   supabase?: ReturnType<typeof createBrowserClient>;
   planId?: string;
   isOwner?: boolean;
@@ -66,12 +68,15 @@ function nodesHaveChanged(oldNodes: PlanNode[], newNodes: PlanNode[]): Set<strin
   return changedIds;
 }
 
-export function PlanChat({ plan, nodes: initialNodes, onRefresh, supabase, planId, isOwner = true, currentUserId }: PlanChatProps) {
+export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, supabase, planId, isOwner = true, currentUserId }: PlanChatProps) {
   const router = useRouter();
   const [nodes, setNodes] = useState(initialNodes);
   const [activeTab, setActiveTab] = useState<"chat" | "sessions">("chat");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [editedPlanningPrompt, setEditedPlanningPrompt] = useState<string>("");
+  const [savingPlanningPrompt, setSavingPlanningPrompt] = useState(false);
+  const [planningPromptSaved, setPlanningPromptSaved] = useState(false);
   const [model, setModel] = useState<string>(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem(MODEL_STORAGE_KEY) || "x-ai/grok-4";
@@ -126,6 +131,44 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, supabase, planI
         .finally(() => setIsLoadingDesc(false));
     }
   }, [plan.id, description, model, isLoadingDesc]);
+
+  // Sync editedPlanningPrompt when selectedNode changes
+  useEffect(() => {
+    if (selectedNodeId) {
+      const node = nodes.find(n => n.id === selectedNodeId);
+      setEditedPlanningPrompt(node?.planning_prompt || "");
+      setPlanningPromptSaved(false); // Reset saved state when switching nodes
+    }
+  }, [selectedNodeId, nodes]);
+
+  // Save planning prompt to database with debounce
+  const savePlanningPrompt = useCallback(async (nodeId: string, prompt: string) => {
+    setSavingPlanningPrompt(true);
+    setPlanningPromptSaved(false);
+    try {
+      const client = supabase || createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      await client
+        .from("plan_nodes")
+        .update({ planning_prompt: prompt || null })
+        .eq("id", nodeId);
+      
+      // Update local state
+      setNodes(prev => prev.map(n => 
+        n.id === nodeId ? { ...n, planning_prompt: prompt || undefined } : n
+      ));
+      
+      // Show saved indicator
+      setPlanningPromptSaved(true);
+      setTimeout(() => setPlanningPromptSaved(false), 2000); // Hide after 2 seconds
+    } catch (err) {
+      console.error("Failed to save planning prompt:", err);
+    } finally {
+      setSavingPlanningPrompt(false);
+    }
+  }, [supabase]);
 
   const handleModelChange = useCallback((newModel: string) => {
     setModel(newModel);
@@ -232,6 +275,7 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, supabase, planI
             model={model}
             onModelChange={handleModelChange}
             onRefresh={onRefresh}
+            onNodesUpdate={onNodesUpdate}
             supabase={supabase}
             isOwner={isOwner}
             currentUserId={currentUserId}
@@ -364,9 +408,61 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, supabase, planI
                 </svg>
               </button>
             </div>
+            
+            {/* Planning Prompt Section */}
+            {isOwner && selectedNode.status !== "completed" && (
+              <div className="mt-5 pt-5 border-t border-neutral-700">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-neutral-300">
+                    Planning Prompt
+                  </label>
+                  <span className="text-xs flex items-center gap-1.5">
+                    {savingPlanningPrompt ? (
+                      <span className="text-neutral-500 flex items-center gap-1">
+                        <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Saving...
+                      </span>
+                    ) : planningPromptSaved ? (
+                      <span className="text-green-400 flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Saved
+                      </span>
+                    ) : (
+                      <span className="text-neutral-600">Auto-saves on blur</span>
+                    )}
+                  </span>
+                </div>
+                <textarea
+                  value={editedPlanningPrompt}
+                  onChange={(e) => setEditedPlanningPrompt(e.target.value)}
+                  onBlur={() => {
+                    if (editedPlanningPrompt !== (selectedNode.planning_prompt || "")) {
+                      savePlanningPrompt(selectedNode.id, editedPlanningPrompt);
+                    }
+                  }}
+                  placeholder="Optional: Add custom instructions to guide how the AI generates the learning plan for this session..."
+                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 resize-none"
+                  rows={3}
+                />
+                <p className="mt-1.5 text-xs text-neutral-500">
+                  This prompt will be used when generating the session plan.
+                </p>
+              </div>
+            )}
+
             {isOwner && selectedNode.status !== "completed" && selectedNode.status !== "locked" && (
               <button
                 onClick={async () => {
+                  // Save planning prompt if changed before starting
+                  if (editedPlanningPrompt !== (selectedNode.planning_prompt || "")) {
+                    await savePlanningPrompt(selectedNode.id, editedPlanningPrompt);
+                  }
+                  
                   const client = supabase || createBrowserClient(
                     process.env.NEXT_PUBLIC_SUPABASE_URL!,
                     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -378,7 +474,8 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, supabase, planI
                       .eq("id", selectedNode.id);
 
                     const { createSession } = await import("@/lib/storage");
-                    const session = await createSession(selectedNode.title);
+                    // Pass the planning prompt to createSession
+                    const session = await createSession(selectedNode.title, undefined, editedPlanningPrompt || undefined);
                     
                     await client
                       .from("plan_nodes")

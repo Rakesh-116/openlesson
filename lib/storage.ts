@@ -39,6 +39,7 @@ export interface SessionPlan {
   userId: string;
   goal: string;
   strategy: string;
+  description?: string; // Brief summary for display purposes
   steps: SessionPlanStep[];
   currentStepIndex: number;
   createdAt: string;
@@ -66,6 +67,7 @@ export interface Session {
   reportGeneratedAt?: string;
   transcript?: string;
   planTitle?: string;
+  planningPrompt?: string; // Custom instructions for plan generation
   metadata: {
     observerMode?: ObserverMode;
     frequency?: Frequency;
@@ -101,6 +103,7 @@ function mapDbSession(s: any, probes: Probe[] = []): Session {
     reportGeneratedAt: s.report_generated_at ?? undefined,
     transcript: s.transcript ?? undefined,
     planTitle: metadata.title ?? undefined,
+    planningPrompt: s.planning_prompt ?? undefined,
     metadata: metadata,
   };
 }
@@ -123,7 +126,7 @@ function mapDbProbe(p: any): Probe {
 
 // ---- Session CRUD ----
 
-export async function createSession(problem: string, title?: string): Promise<Session> {
+export async function createSession(problem: string, title?: string, planningPrompt?: string): Promise<Session> {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
@@ -134,6 +137,7 @@ export async function createSession(problem: string, title?: string): Promise<Se
       user_id: user.id, 
       problem, 
       status: "active",
+      planning_prompt: planningPrompt || null,
       metadata: title ? { ...(title ? { title } : {}) } : undefined
     })
     .select()
@@ -1250,6 +1254,7 @@ function mapDbSessionPlan(p: any): SessionPlan {
     userId: p.user_id,
     goal: p.goal,
     strategy: p.strategy || "",
+    description: p.description ?? undefined,
     steps: (p.steps || []) as SessionPlanStep[],
     currentStepIndex: p.current_step_index || 0,
     createdAt: p.created_at,
@@ -1259,7 +1264,7 @@ function mapDbSessionPlan(p: any): SessionPlan {
 
 export async function createSessionPlan(
   sessionId: string,
-  plan: { goal: string; strategy: string; steps: SessionPlanStep[] },
+  plan: { goal: string; strategy: string; description?: string; steps: SessionPlanStep[] },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabaseClient?: any
 ): Promise<SessionPlan> {
@@ -1274,6 +1279,7 @@ export async function createSessionPlan(
       user_id: user.id,
       goal: plan.goal,
       strategy: plan.strategy,
+      description: plan.description || null,
       steps: plan.steps,
       current_step_index: 0,
     })

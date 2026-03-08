@@ -185,6 +185,13 @@ export function SessionPlanViewer({ plan, loading, error, onRecalculate }: Sessi
         <p className="text-sm text-white leading-relaxed">{plan.goal}</p>
       </div>
 
+      {/* Description (if available) */}
+      {plan.description && (
+        <div className="mb-4 p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/50">
+          <p className="text-sm text-neutral-300 leading-relaxed">{plan.description}</p>
+        </div>
+      )}
+
       {/* Strategy (collapsible) */}
       {plan.strategy && (
         <div className="mb-6">

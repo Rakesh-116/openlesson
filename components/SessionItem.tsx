@@ -11,6 +11,7 @@ interface PlanNode {
   is_start: boolean;
   next_node_ids: string[];
   status: string;
+  planning_prompt?: string;
 }
 
 interface SessionItemProps {

@@ -15,6 +15,7 @@ export interface PlanNode {
   is_start: boolean;
   next_node_ids: string[];
   status: string;
+  planning_prompt?: string;
 }
 
 export interface LearningPlan {
@@ -57,8 +58,11 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
   );
 
   const refreshNodes = () => {
-    console.log("[PlanView] Refreshing nodes, current key:", refreshKey);
     setRefreshKey(k => k + 1);
+  };
+
+  const handleNodesUpdate = (newNodes: PlanNode[]) => {
+    setNodes(newNodes);
   };
 
   const handleShare = () => {
@@ -112,7 +116,6 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
       if (nodesError) {
         setError("Failed to load nodes");
       } else {
-        console.log("[PlanView] Loaded nodes:", nodesData?.length, "current nodes:", nodes.length);
         setNodes(nodesData || []);
       }
 
@@ -332,6 +335,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
           supabase={supabase}
           planId={planId}
           onRefresh={refreshNodes}
+          onNodesUpdate={handleNodesUpdate}
           isOwner={currentUserId ? plan.user_id === currentUserId : false}
           currentUserId={currentUserId}
         />

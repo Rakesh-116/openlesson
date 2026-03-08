@@ -461,7 +461,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               body: JSON.stringify({ 
                 sessionId: s.id, 
                 problem: s.problem, 
-                objectives: loadedObjectives 
+                objectives: loadedObjectives,
+                planningPrompt: s.planningPrompt, // Pass custom planning prompt if available
               }),
             });
             if (!cancelled) {
