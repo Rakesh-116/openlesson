@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
-import { type Probe, toggleProbeStarred, updateProbeRevealed } from "@/lib/storage";
+import { type Probe, type SessionPlan, type RequestType, toggleProbeStarred } from "@/lib/storage";
 
 interface ProbeNotificationsProps {
   sessionId: string;
   probes: Probe[];
+  sessionPlan?: SessionPlan | null;
   objectives?: string[];
   objectiveStatuses?: ("red" | "yellow" | "green" | "blue")[];
   isRecording?: boolean;
@@ -26,6 +27,24 @@ interface ProbeNotificationsProps {
   feedbackItems?: Array<{ id: string; text: string; timestamp: number }>;
 }
 
+// Type badge styling based on request type
+function getTypeBadgeStyles(type: RequestType): { bg: string; text: string; border: string } {
+  switch (type) {
+    case "question":
+      return { bg: "bg-blue-500/15", text: "text-blue-400", border: "border-blue-500/20" };
+    case "task":
+      return { bg: "bg-purple-500/15", text: "text-purple-400", border: "border-purple-500/20" };
+    case "suggestion":
+      return { bg: "bg-green-500/15", text: "text-green-400", border: "border-green-500/20" };
+    case "checkpoint":
+      return { bg: "bg-amber-500/15", text: "text-amber-400", border: "border-amber-500/20" };
+    case "feedback":
+      return { bg: "bg-cyan-500/15", text: "text-cyan-400", border: "border-cyan-500/20" };
+    default:
+      return { bg: "bg-neutral-500/15", text: "text-neutral-400", border: "border-neutral-500/20" };
+  }
+}
+
 const objectiveStatusColors: Record<string, { bg: string; border: string; text: string; dot: string }> = {
   blue: { bg: "bg-blue-500/10", border: "border-blue-500/30", text: "text-blue-400", dot: "bg-blue-500" },
   green: { bg: "bg-green-500/10", border: "border-green-500/30", text: "text-green-400", dot: "bg-green-500" },
@@ -36,6 +55,7 @@ const objectiveStatusColors: Record<string, { bg: string; border: string; text: 
 export function ProbeNotifications({ 
   sessionId, 
   probes,
+  sessionPlan,
   objectives = [],
   objectiveStatuses = [],
   isRecording,
@@ -65,19 +85,18 @@ export function ProbeNotifications({
     }
   }, [probes.length]);
 
-  const latestUnrevealedIndex = probes.findLastIndex((p) => !p.isRevealed);
-
   const filteredProbes = useMemo(() => {
     let result = probes;
-    if (hidePastProbes && latestUnrevealedIndex !== -1) {
-      result = probes.slice(latestUnrevealedIndex);
+    if (hidePastProbes && probes.length > 0) {
+      // Show only the latest probe when hiding past
+      result = probes.slice(-1);
     }
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(p => p.text.toLowerCase().includes(query));
     }
     return result;
-  }, [probes, hidePastProbes, latestUnrevealedIndex, searchQuery]);
+  }, [probes, hidePastProbes, searchQuery]);
 
   const filteredFeedback = useMemo(() => {
     let result = feedbackItems.filter(f => f.text && f.text !== "null");
@@ -88,13 +107,7 @@ export function ProbeNotifications({
     return result;
   }, [feedbackItems, searchQuery]);
 
-  const handleReveal = async (probe: Probe) => {
-    if (probe.isRevealed) return;
-    
-    await updateProbeRevealed(probe.id, true);
-    
-    window.dispatchEvent(new CustomEvent("probe-revealed", { detail: probe.id }));
-  };
+
 
   const handleToggleStar = async (probeId: string, starred: boolean) => {
     await toggleProbeStarred(probeId, starred);
@@ -184,41 +197,38 @@ export function ProbeNotifications({
           </p>
         ) : (
           filteredProbes.map((probe) => {
-            const isLatestUnrevealed = probe.id === probes[latestUnrevealedIndex]?.id;
-            const shouldBlur = isLatestUnrevealed && !probe.isRevealed;
+            // Get the plan step for this probe
+            const planStep = probe.planStepId 
+              ? sessionPlan?.steps?.find(s => s.id === probe.planStepId)
+              : null;
+            const stepContext = planStep 
+              ? `Step ${planStep.order}: ${planStep.description}`
+              : "General";
+            
+            // Get type badge styling
+            const requestType = probe.requestType || "question";
+            const typeBadge = getTypeBadgeStyles(requestType);
 
             return (
               <div
                 key={probe.id}
                 className="group relative p-3 rounded-lg bg-neutral-900/50 border border-neutral-800/50 hover:border-neutral-700 transition-colors"
               >
-                <div className="flex items-start gap-2 mb-1.5">
+                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                   <span className="text-[10px] font-mono text-neutral-500">
                     {formatTimestamp(probe.timestamp)}
                   </span>
+                  <span className={`px-1.5 py-0.5 text-[9px] font-medium rounded ${typeBadge.bg} ${typeBadge.text} border ${typeBadge.border}`}>
+                    {requestType}
+                  </span>
+                  <span className="text-[9px] text-neutral-600 truncate max-w-[150px]" title={stepContext}>
+                    {stepContext}
+                  </span>
                 </div>
                 
-                {shouldBlur ? (
-                  <button
-                    onClick={() => handleReveal(probe)}
-                    className="w-full"
-                  >
-                    <div className="relative">
-                      <p className="text-sm text-neutral-400 blur-sm select-none">
-                        {probe.text}
-                      </p>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="px-2 py-1 bg-neutral-800 rounded text-[10px] text-neutral-400">
-                          Tap to reveal
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-                ) : (
-                  <p className="text-sm text-neutral-300 leading-snug">
-                    {probe.text}
-                  </p>
-                )}
+                <p className="text-sm text-neutral-300 leading-snug">
+                  {probe.text}
+                </p>
               </div>
             );
           })

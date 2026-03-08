@@ -1,0 +1,95 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createSessionPlanLLM } from "@/lib/openrouter";
+import { createSessionPlan, getUserCalibration, getSessionPlan } from "@/lib/storage";
+import { getUserPrompts } from "@/lib/prompts";
+import { createClient } from "@/lib/supabase/server";
+
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { sessionId, problem, objectives, force } = body;
+
+    if (!sessionId || !problem) {
+      return NextResponse.json(
+        { error: "Missing sessionId or problem" },
+        { status: 400 }
+      );
+    }
+
+    // Get user for calibration data
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    // If force=true, delete existing plan first
+    if (force) {
+      const existingPlan = await getSessionPlan(sessionId, supabase);
+      if (existingPlan) {
+        await supabase
+          .from("session_plans")
+          .delete()
+          .eq("id", existingPlan.id);
+      }
+    }
+
+    // Get user calibration data (learning history) for personalization
+    let calibrationText = "";
+    try {
+      const calibration = await getUserCalibration(user.id, supabase);
+      if (calibration.sessionCount > 0) {
+        calibrationText = `Student has completed ${calibration.sessionCount} sessions. ` +
+          `Average gap score: ${calibration.avgGapScore}. ` +
+          `Trend: ${calibration.trend}. ` +
+          `Common gaps: ${calibration.commonGaps.join(", ") || "none identified"}.`;
+      }
+    } catch (err) {
+      console.warn("Could not fetch calibration:", err);
+    }
+
+    // Get user prompt overrides
+    const promptOverrides = await getUserPrompts();
+
+    // Generate the session plan using LLM
+    const result = await createSessionPlanLLM({
+      problem,
+      objectives,
+      calibration: calibrationText,
+      promptOverrides,
+    });
+
+    if (!result.success || !result.plan) {
+      return NextResponse.json(
+        { error: result.error || "Plan generation failed" },
+        { status: 500 }
+      );
+    }
+
+    // Save the plan to the database
+    const savedPlan = await createSessionPlan(sessionId, {
+      goal: result.plan.goal,
+      strategy: result.plan.strategy,
+      steps: result.plan.steps.map((step, idx) => ({
+        id: step.id || `step_${idx + 1}_${Date.now()}`,
+        description: step.description,
+        status: idx === 0 ? "in_progress" : "pending",
+        type: step.type,
+        order: step.order,
+      })),
+    }, supabase);
+
+    return NextResponse.json({ plan: savedPlan });
+  } catch (error) {
+    console.error("Create session plan error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json(
+      { error: `Internal server error: ${errorMessage}` },
+      { status: 500 }
+    );
+  }
+}

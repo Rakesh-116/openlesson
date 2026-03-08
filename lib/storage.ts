@@ -4,8 +4,12 @@
 // ============================================
 
 import { createClient } from "@/lib/supabase/client";
+import { generateEmbedding } from "@/lib/openrouter-client";
 
 // ---- Types ----
+
+// Request types for the session planner
+export type RequestType = "question" | "task" | "suggestion" | "checkpoint" | "feedback";
 
 export interface Probe {
   id: string;
@@ -16,11 +20,34 @@ export interface Probe {
   expandedText?: string;
   starred?: boolean;
   isRevealed?: boolean; // user has clicked to reveal this question
+  requestType?: RequestType; // type of request (question, task, suggestion, checkpoint, feedback)
+  planStepId?: string; // links to SessionPlanStep.id for step context
+}
+
+// Session Plan types for the Session Planner feature
+export interface SessionPlanStep {
+  id: string;
+  description: string;
+  status: "pending" | "in_progress" | "completed" | "skipped";
+  type: RequestType;
+  order: number;
+}
+
+export interface SessionPlan {
+  id: string;
+  sessionId: string;
+  userId: string;
+  goal: string;
+  strategy: string;
+  steps: SessionPlanStep[];
+  currentStepIndex: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type TrafficLight = "red" | "yellow" | "green";
 
-export type SessionStatus = "ready" | "paused" | "completed" | "ended_by_tutor";
+export type SessionStatus = "active" | "paused" | "completed";
 export type ObserverMode = "off" | "passive" | "active";
 export type Frequency = "rare" | "balanced" | "frequent";
 
@@ -89,6 +116,8 @@ function mapDbProbe(p: any): Probe {
     expandedText: p.expanded_text ?? undefined,
     starred: p.starred ?? false,
     isRevealed: p.is_revealed ?? false,
+    requestType: p.request_type ?? "question",
+    planStepId: p.plan_step_id ?? undefined,
   };
 }
 
@@ -236,6 +265,8 @@ export async function addProbe(
       signals: probe.signals,
       text: probe.text,
       expanded_text: probe.expandedText || null,
+      request_type: probe.requestType || "question",
+      plan_step_id: probe.planStepId || null,
     })
     .select()
     .single();
@@ -289,7 +320,7 @@ export async function pauseSession(sessionId: string): Promise<void> {
 }
 
 export async function resumeSession(sessionId: string): Promise<void> {
-  await updateSessionStatus(sessionId, "ready");
+  await updateSessionStatus(sessionId, "active");
 }
 
 // ---- In-memory session helpers (for active recording) ----
@@ -836,44 +867,6 @@ export async function retrieveRelevantChunks(
   }));
 }
 
-// ---- RAG: Generate Embedding ----
-
-const EMBEDDING_URL = "https://openrouter.ai/api/v1/embeddings";
-const EMBEDDING_MODEL = "google/gemini-embedding-001";
-
-async function generateEmbedding(text: string): Promise<number[] | null> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    console.warn("[generateEmbedding] No API key configured");
-    return null;
-  }
-
-  try {
-    const response = await fetch(EMBEDDING_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: EMBEDDING_MODEL,
-        input: text,
-      }),
-    });
-
-    if (!response.ok) {
-      console.error("[generateEmbedding] API error:", response.status);
-      return null;
-    }
-
-    const data = await response.json();
-    return data.data?.[0]?.embedding || null;
-  } catch (err) {
-    console.error("[generateEmbedding] Exception:", err);
-    return null;
-  }
-}
-
 // ---- RAG: Get User Calibration ----
 
 export interface UserCalibration {
@@ -1245,4 +1238,98 @@ export async function updatePlanVisibility(
   if (error) {
     throw new Error("Could not update plan visibility");
   }
+}
+
+// ---- Session Plans (Session Planner feature) ----
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapDbSessionPlan(p: any): SessionPlan {
+  return {
+    id: p.id,
+    sessionId: p.session_id,
+    userId: p.user_id,
+    goal: p.goal,
+    strategy: p.strategy || "",
+    steps: (p.steps || []) as SessionPlanStep[],
+    currentStepIndex: p.current_step_index || 0,
+    createdAt: p.created_at,
+    updatedAt: p.updated_at,
+  };
+}
+
+export async function createSessionPlan(
+  sessionId: string,
+  plan: { goal: string; strategy: string; steps: SessionPlanStep[] },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseClient?: any
+): Promise<SessionPlan> {
+  const supabase = supabaseClient || createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { data, error } = await supabase
+    .from("session_plans")
+    .insert({
+      session_id: sessionId,
+      user_id: user.id,
+      goal: plan.goal,
+      strategy: plan.strategy,
+      steps: plan.steps,
+      current_step_index: 0,
+    })
+    .select()
+    .single();
+
+  if (error || !data) throw new Error(error?.message || "Failed to create session plan");
+  return mapDbSessionPlan(data);
+}
+
+export async function getSessionPlan(
+  sessionId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseClient?: any
+): Promise<SessionPlan | null> {
+  const supabase = supabaseClient || createClient();
+
+  const { data, error } = await supabase
+    .from("session_plans")
+    .select("*")
+    .eq("session_id", sessionId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return mapDbSessionPlan(data);
+}
+
+export async function updateSessionPlan(
+  planId: string,
+  updates: {
+    goal?: string;
+    strategy?: string;
+    steps?: SessionPlanStep[];
+    currentStepIndex?: number;
+  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseClient?: any
+): Promise<SessionPlan> {
+  const supabase = supabaseClient || createClient();
+
+  const updateData: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (updates.goal !== undefined) updateData.goal = updates.goal;
+  if (updates.strategy !== undefined) updateData.strategy = updates.strategy;
+  if (updates.steps !== undefined) updateData.steps = updates.steps;
+  if (updates.currentStepIndex !== undefined) updateData.current_step_index = updates.currentStepIndex;
+
+  const { data, error } = await supabase
+    .from("session_plans")
+    .update(updateData)
+    .eq("id", planId)
+    .select()
+    .single();
+
+  if (error || !data) throw new Error(error?.message || "Failed to update session plan");
+  return mapDbSessionPlan(data);
 }

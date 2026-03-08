@@ -25,12 +25,15 @@ import {
   resumeSession,
   updateSessionStatus,
   logToolUsage,
+  getSessionPlan,
   type Session,
+  type SessionPlan,
   type Probe,
   type ObserverMode,
   type Frequency,
   type ToolName,
   type ToolAction,
+  type RequestType,
 } from "@/lib/storage";
 import { formatTime } from "@/lib/utils";
 import { AudioVisualizer, RecordingIndicator } from "./AudioVisualizer";
@@ -44,6 +47,8 @@ import { LLMChat } from "./LLMChat";
 import { DataInputTool } from "./DataInputTool";
 import { LogsTool, type LogEntry } from "./LogsTool";
 import { CodingTool } from "./CodingTool";
+import { MobileBlockScreen } from "./MobileBlockScreen";
+import { SessionPlanViewer } from "./SessionPlanViewer";
 
 // Configuration
 const ANALYSIS_INTERVALS: Record<Frequency, number> = {
@@ -129,7 +134,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [objectives, setObjectives] = useState<string[]>([]);
   const [objectiveStatuses, setObjectiveStatuses] = useState<("red" | "yellow" | "green" | "blue")[]>([]);
   const [trafficLight, setTrafficLight] = useState<"red" | "yellow" | "green">("green");
-  const [currentProbeRevealed, setCurrentProbeRevealed] = useState(true);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [stuckLoading, setStuckLoading] = useState(false);
 
@@ -148,6 +152,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   // Block ILE tools when not actively monitoring
   const shouldBlockTools = session && !showWelcomeModal && (!isRecording || isPaused);
+
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Session Plan state
+  const [sessionPlan, setSessionPlan] = useState<SessionPlan | null>(null);
+  const [planLoading, setPlanLoading] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const sessionPlanRef = useRef<SessionPlan | null>(null);
 
   // Prep material for tools
   const [prepToolContent, setPrepToolContent] = useState<{ title: string; content: string } | null>(null);
@@ -326,6 +339,18 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
   useEffect(() => { museStatusRef.current = museStatus; }, [museStatus]);
   useEffect(() => { isWebcamEnabledRef.current = isWebcamEnabled; }, [isWebcamEnabled]);
+  useEffect(() => { sessionPlanRef.current = sessionPlan; }, [sessionPlan]);
+
+  // Mobile detection
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobileDevice = window.innerWidth < 768 || /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      setIsMobile(isMobileDevice);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   // Listen for probe events from ProbeNotifications
   useEffect(() => {
@@ -419,30 +444,92 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           setObjectiveStatuses(loadedObjectives.map(() => "blue"));
         }
 
-        // Fire opening probe immediately so it shows before Start
+        // Load or create session plan
+        setPlanLoading(true);
+        setPlanError(null);
+        try {
+          // First try to load existing plan
+          const existingPlan = await getSessionPlan(s.id);
+          if (existingPlan) {
+            setSessionPlan(existingPlan);
+            sessionPlanRef.current = existingPlan;
+          } else {
+            // Create new plan
+            const planRes = await fetch("/api/session-plan/create", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                sessionId: s.id, 
+                problem: s.problem, 
+                objectives: loadedObjectives 
+              }),
+            });
+            if (!cancelled) {
+              if (planRes.ok) {
+                const { plan } = await planRes.json();
+                setSessionPlan(plan);
+                sessionPlanRef.current = plan;
+              } else {
+                const errorData = await planRes.json().catch(() => ({}));
+                setPlanError(errorData.error || "Failed to create session plan");
+                console.warn("Session plan creation failed:", errorData);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("Session plan loading/creation failed:", err);
+          if (!cancelled) {
+            setPlanError("Failed to load session plan");
+          }
+        } finally {
+          if (!cancelled) setPlanLoading(false);
+        }
+
+        // Fire opening probe (now uses session plan context if available)
         if (s.probes.length === 0) {
           setOpeningProbeLoading(true);
           try {
-            const res = await fetch("/api/opening-probe", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ problem: s.problem }),
-            });
-            if (!cancelled && res.ok) {
-              const { probe: probeText } = await res.json();
+            // Get the first step from the plan if available
+            const plan = sessionPlanRef.current;
+            const firstStep = plan?.steps?.[0];
+            
+            // If plan has a first step, use that as the opening request
+            if (firstStep) {
               const savedProbe = await addProbe(s.id, {
                 timestamp: 0,
                 gapScore: 0,
-                signals: ["opening"],
-                text: probeText,
-                isRevealed: false,
+                signals: ["opening", "plan_step"],
+                text: firstStep.description,
+                requestType: firstStep.type,
+                planStepId: firstStep.id,
               });
               const updated = addProbeToSession(s, savedProbe);
               setSession(updated);
               sessionRef.current = updated;
               setActiveProbe(savedProbe);
               setViewingProbeIndex(updated.probes.length - 1);
-              setCurrentProbeRevealed(false);
+            } else {
+              // Fallback to regular opening probe
+              const res = await fetch("/api/opening-probe", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ problem: s.problem }),
+              });
+              if (!cancelled && res.ok) {
+                const { probe: probeText } = await res.json();
+                const savedProbe = await addProbe(s.id, {
+                  timestamp: 0,
+                  gapScore: 0,
+                  signals: ["opening"],
+                  text: probeText,
+                  requestType: "question",
+                });
+                const updated = addProbeToSession(s, savedProbe);
+                setSession(updated);
+                sessionRef.current = updated;
+                setActiveProbe(savedProbe);
+                setViewingProbeIndex(updated.probes.length - 1);
+              }
             }
           } catch { /* opening probe is optional */ }
           finally { if (!cancelled) setOpeningProbeLoading(false); }
@@ -451,7 +538,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           const lastProbe = s.probes[s.probes.length - 1];
           setActiveProbe(lastProbe);
           setViewingProbeIndex(s.probes.length - 1);
-          setCurrentProbeRevealed(lastProbe.isRevealed ?? true);
         }
       } else {
         router.push("/");
@@ -667,35 +753,130 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       }
 
       const threshold = observerModeRef.current === "passive" ? 0.7 : 0.5;
-      if (gapData.gapScore >= threshold) {
-        const probeRes = await fetch("/api/generate-probe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            problem: currentSession.problem,
-            transcript: gapData.transcript || "",
-            gapScore: gapData.gapScore,
-            signals: gapData.signals || [],
-            previousProbes: currentSession.probes.map((p) => p.text),
-          }),
-        });
-
-        if (probeRes.ok) {
-          const { probe: probeText } = await probeRes.json();
-
-          // Gate: don't add new probe if last one hasn't been revealed
-          const lastProbe = currentSession.probes[currentSession.probes.length - 1];
-          if (lastProbe && !lastProbe.isRevealed) {
-            return;
+      
+      // Update session plan with current observations
+      const currentPlan = sessionPlanRef.current;
+      let nextRequestText: string | null = null;
+      let nextRequestType: RequestType = "question";
+      
+      if (currentPlan) {
+        try {
+          const planUpdateRes = await fetch("/api/session-plan/update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sessionId: currentSession.id,
+              gapScore: gapData.gapScore,
+              signals: gapData.signals || [],
+              transcript: gapData.transcript || "",
+              trafficLight: trafficLightRef.current,
+              previousProbes: currentSession.probes.map((p) => p.text),
+            }),
+          });
+          
+          if (planUpdateRes.ok) {
+            const planData = await planUpdateRes.json();
+            
+            // Update local plan state
+            if (planData.plan) {
+              setSessionPlan(planData.plan);
+              sessionPlanRef.current = planData.plan;
+            }
+            
+            // Check if LLM wants to pause the session
+            if (planData.shouldPause) {
+              // Get current step for the feedback probe
+              const currentStep = planData.plan?.steps?.[planData.plan?.currentStepIndex || 0];
+              
+              // Create a feedback probe with the pause reason
+              const pauseProbe = await addProbe(currentSession.id, {
+                timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
+                gapScore: 0,
+                signals: ["pause_suggested"],
+                text: planData.pauseReason || "Time for a short break to let things sink in.",
+                requestType: "feedback",
+                planStepId: currentStep?.id,
+              });
+              
+              const updatedSession = addProbeToSession(currentSession, pauseProbe);
+              setSession(updatedSession);
+              sessionRef.current = updatedSession;
+              setActiveProbe(pauseProbe);
+              setViewingProbeIndex(updatedSession.probes.length - 1);
+              
+              // Trigger pause - clear all intervals and stop recording
+              if (timerRef.current) clearInterval(timerRef.current);
+              if (analysisRef.current) clearInterval(analysisRef.current);
+              if (eegSaveIntervalRef.current) clearInterval(eegSaveIntervalRef.current);
+              
+              const recorder = recorderRef.current;
+              if (recorder) {
+                await recorder.stop();
+                recorderRef.current = null;
+              }
+              
+              if (stream) {
+                stream.getTracks().forEach((t) => t.stop());
+                setStream(null);
+              }
+              
+              await pauseSession(currentSession.id);
+              setIsRecording(false);
+              setIsPaused(true);
+              return;
+            }
+            
+            // Use the next request from the plan update
+            if (planData.nextRequest) {
+              nextRequestText = planData.nextRequest.text;
+              nextRequestType = planData.nextRequest.type || "question";
+            }
           }
+        } catch (err) {
+          console.warn("Plan update failed:", err);
+        }
+      }
+      
+      if (gapData.gapScore >= threshold) {
+        // Use plan-provided request or fall back to generating one
+        let probeText = nextRequestText;
+        let requestType: RequestType = nextRequestType;
+        
+        if (!probeText) {
+          // Fallback: generate probe the old way
+          const probeRes = await fetch("/api/generate-probe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              problem: currentSession.problem,
+              transcript: gapData.transcript || "",
+              gapScore: gapData.gapScore,
+              signals: gapData.signals || [],
+              previousProbes: currentSession.probes.map((p) => p.text),
+              sessionPlan: currentPlan,
+            }),
+          });
 
+          if (probeRes.ok) {
+            const probeData = await probeRes.json();
+            probeText = probeData.probe;
+            requestType = probeData.requestType || "question";
+          }
+        }
+
+        if (probeText) {
+          // Get current step ID from the updated plan
+          const updatedPlan = sessionPlanRef.current;
+          const currentStep = updatedPlan?.steps?.[updatedPlan?.currentStepIndex || 0];
+          
           // Persist probe to Supabase
           const savedProbe = await addProbe(currentSession.id, {
             timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
             gapScore: gapData.gapScore,
             signals: gapData.signals || [],
             text: probeText,
-            isRevealed: false,
+            requestType,
+            planStepId: currentStep?.id,
           });
 
           const updatedSession = addProbeToSession(currentSession, savedProbe);
@@ -704,7 +885,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
           setActiveProbe(savedProbe);
           setViewingProbeIndex(updatedSession.probes.length - 1);
-          setCurrentProbeRevealed(false);
           lastProbeTimeRef.current = Date.now();
         }
       }
@@ -781,18 +961,17 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
         if (probeRes.ok) {
           const { probe: probeText } = await probeRes.json();
-          
-          // Gate: don't add new probe if last one hasn't been revealed
-          const lastProbe = currentSession.probes[currentSession.probes.length - 1];
-          if (lastProbe && !lastProbe.isRevealed) {
-            return;
-          }
 
+          // Get current step ID
+          const currentPlan = sessionPlanRef.current;
+          const currentStep = currentPlan?.steps?.[currentPlan?.currentStepIndex || 0];
+          
           const savedProbe = await addProbe(currentSession.id, {
             timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
             gapScore: data.gapScore,
             signals: data.signals || ["whiteboard_confusion"],
             text: probeText,
+            planStepId: currentStep?.id,
           });
           const updatedSession = addProbeToSession(currentSession, savedProbe);
           setSession(updatedSession);
@@ -852,18 +1031,17 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
         if (probeRes.ok) {
           const { probe: probeText } = await probeRes.json();
-          
-          // Gate: don't add new probe if last one hasn't been revealed
-          const lastProbe = currentSession.probes[currentSession.probes.length - 1];
-          if (lastProbe && !lastProbe.isRevealed) {
-            return;
-          }
 
+          // Get current step ID
+          const currentPlan = sessionPlanRef.current;
+          const currentStep = currentPlan?.steps?.[currentPlan?.currentStepIndex || 0];
+          
           const savedProbe = await addProbe(currentSession.id, {
             timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
             gapScore: data.gapScore,
             signals: data.signals || ["notebook_confusion"],
             text: probeText,
+            planStepId: currentStep?.id,
           });
           const updatedSession = addProbeToSession(currentSession, savedProbe);
           setSession(updatedSession);
@@ -1347,17 +1525,16 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       if (probeRes.ok) {
         const { probe: probeText } = await probeRes.json();
 
-        // Gate: don't add new probe if last one hasn't been revealed
-        const lastProbe = currentSession.probes[currentSession.probes.length - 1];
-        if (lastProbe && !lastProbe.isRevealed) {
-          return;
-        }
-
+        // Get current step ID
+        const currentPlan = sessionPlanRef.current;
+        const currentStep = currentPlan?.steps?.[currentPlan?.currentStepIndex || 0];
+        
         const savedProbe = await addProbe(currentSession.id, {
           timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
           gapScore: 1.0,
           signals: ["user_requested"],
           text: probeText,
+          planStepId: currentStep?.id,
         });
         const updatedSession = addProbeToSession(currentSession, savedProbe);
         setSession(updatedSession);
@@ -1433,23 +1610,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const handleConfirmEnd = async () => {
     setShowEndDialog(false);
     if (session) {
-      const finalSession = endSession(session, elapsedSeconds * 1000, "ended_by_tutor");
+      const finalSession = endSession(session, elapsedSeconds * 1000, "completed");
       setSession(finalSession);
       sessionRef.current = finalSession;
     }
     await stopRecording();
   };
 
-  const handleReveal = () => {
-    setCurrentProbeRevealed(true);
-  };
-
   const handleGetFeedback = async () => {
     if (!session || !activeProbe || !isRecording) return;
-
-    // Gate: don't add new probe if last one hasn't been revealed
-    const lastProbe = session.probes[session.probes.length - 1];
-    if (lastProbe && !lastProbe.isRevealed) return;
 
     setFeedbackLoading(true);
     try {
@@ -1468,19 +1637,22 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         const data = await res.json();
         
         if (data.question) {
+          // Get current step ID
+          const currentPlan = sessionPlanRef.current;
+          const currentStep = currentPlan?.steps?.[currentPlan?.currentStepIndex || 0];
+          
           const savedProbe = await addProbe(session.id, {
             timestamp: Date.now() - new Date(session.startedAt).getTime(),
             gapScore: activeProbe.gapScore,
             signals: ["feedback_request"],
             text: data.question,
-            isRevealed: false,
+            planStepId: currentStep?.id,
           });
           const updated = addProbeToSession(session, savedProbe);
           setSession(updated);
           sessionRef.current = updated;
           setActiveProbe(savedProbe);
           setViewingProbeIndex(updated.probes.length - 1);
-          setCurrentProbeRevealed(false);
         }
       }
     } catch (error) {
@@ -1492,10 +1664,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   const handleImStuck = async () => {
     if (!session || !isRecording) return;
-
-    // Gate: don't add new probe if last one hasn't been revealed
-    const lastProbe = session.probes[session.probes.length - 1];
-    if (lastProbe && !lastProbe.isRevealed) return;
 
     setStuckLoading(true);
     try {
@@ -1513,25 +1681,64 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         const data = await res.json();
         
         if (data.question) {
+          // Get current step ID
+          const currentPlan = sessionPlanRef.current;
+          const currentStep = currentPlan?.steps?.[currentPlan?.currentStepIndex || 0];
+          
           const savedProbe = await addProbe(session.id, {
             timestamp: Date.now() - new Date(session.startedAt).getTime(),
             gapScore: 0.7,
-            signals: ["stuck"],
+            signals: ["stuck", "user_requested"],
             text: data.question,
-            isRevealed: false,
+            requestType: "feedback",
+            planStepId: currentStep?.id,
           });
           const updated = addProbeToSession(session, savedProbe);
           setSession(updated);
           sessionRef.current = updated;
           setActiveProbe(savedProbe);
           setViewingProbeIndex(updated.probes.length - 1);
-          setCurrentProbeRevealed(false);
         }
       }
     } catch (error) {
       console.error("I'm stuck error:", error);
     } finally {
       setStuckLoading(false);
+    }
+  };
+
+  const handleRecalculatePlan = async () => {
+    if (!session) return;
+    
+    setPlanLoading(true);
+    setPlanError(null);
+    
+    try {
+      // Call the create endpoint with force=true to regenerate
+      const planRes = await fetch("/api/session-plan/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          sessionId: session.id, 
+          problem: session.problem, 
+          objectives: objectives,
+          force: true, // Force regeneration
+        }),
+      });
+      
+      if (planRes.ok) {
+        const { plan } = await planRes.json();
+        setSessionPlan(plan);
+        sessionPlanRef.current = plan;
+      } else {
+        const errorData = await planRes.json().catch(() => ({}));
+        setPlanError(errorData.error || "Failed to regenerate session plan");
+      }
+    } catch (err) {
+      console.error("Recalculate plan error:", err);
+      setPlanError("Failed to regenerate session plan");
+    } finally {
+      setPlanLoading(false);
     }
   };
 
@@ -1565,6 +1772,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Mobile block - show message instead of session view
+  if (isMobile) {
+    return <MobileBlockScreen />;
+  }
+
   if (!session || isSaving) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0a] gap-4">
@@ -1582,39 +1794,63 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => {
             setShowWelcomeModal(false);
-            
           }} />
-          <div className="relative z-10 w-[95vw] max-w-5xl p-6 bg-neutral-900 border border-neutral-700 rounded-2xl shadow-2xl">
-            <div className="flex gap-8">
-              <div className="flex-shrink-0 text-6xl">👋</div>
+          <div className="relative z-10 w-[95vw] max-w-5xl p-6 bg-neutral-900 border border-neutral-700 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex gap-6">
+              <div className="flex-shrink-0 text-5xl">👋</div>
               <div className="flex-1">
-                <h2 className="text-3xl font-bold text-white mb-4">Welcome to openLesson!</h2>
-                <p className="text-neutral-300 mb-6">You've just stepped into our Integrated Learning Environment (ILE) — a space designed to help you truly think and grow.</p>
+                <h2 className="text-2xl font-bold text-white mb-3">Welcome to your Learning Session!</h2>
+                <p className="text-neutral-300 mb-5">Your AI tutor has created a personalized <strong className="text-cyan-400">Session Plan</strong> to guide you through this topic. Here's how it works:</p>
                 
-                <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-3 gap-4 mb-5">
                   <div className="flex gap-3">
-                    <span className="flex-shrink-0 w-8 h-8 bg-cyan-500/20 border border-cyan-500/30 rounded-full flex items-center justify-center text-cyan-400 font-semibold">1</span>
-                    <p className="text-neutral-300">Tap <strong className="text-white">Start Session</strong></p>
+                    <span className="flex-shrink-0 w-8 h-8 bg-cyan-500/20 border border-cyan-500/30 rounded-full flex items-center justify-center text-cyan-400 font-semibold text-sm">1</span>
+                    <p className="text-neutral-300 text-sm">Tap <strong className="text-white">Start Session</strong> to begin</p>
                   </div>
                   <div className="flex gap-3">
-                    <span className="flex-shrink-0 w-8 h-8 bg-cyan-500/20 border border-cyan-500/30 rounded-full flex items-center justify-center text-cyan-400 font-semibold">2</span>
-                    <p className="text-neutral-300">Tap to <strong className="text-white">reveal</strong> the first question</p>
+                    <span className="flex-shrink-0 w-8 h-8 bg-cyan-500/20 border border-cyan-500/30 rounded-full flex items-center justify-center text-cyan-400 font-semibold text-sm">2</span>
+                    <p className="text-neutral-300 text-sm">Tap to <strong className="text-white">reveal</strong> each request</p>
                   </div>
                   <div className="flex gap-3">
-                    <span className="flex-shrink-0 w-8 h-8 bg-cyan-500/20 border border-cyan-500/30 rounded-full flex items-center justify-center text-cyan-400 font-semibold">3</span>
-                    <p className="text-neutral-300"><strong className="text-white">Speak out loud</strong> as you explore it!</p>
+                    <span className="flex-shrink-0 w-8 h-8 bg-cyan-500/20 border border-cyan-500/30 rounded-full flex items-center justify-center text-cyan-400 font-semibold text-sm">3</span>
+                    <p className="text-neutral-300 text-sm"><strong className="text-white">Think out loud</strong> as you work!</p>
                   </div>
                 </div>
 
-                <p className="text-neutral-400 mb-4">Don't worry about sounding perfect — just let go of any fears and think out loud. This is how our tutor understands exactly how you're thinking and can guide you best.</p>
-
-                <div className="bg-neutral-800/50 rounded-lg p-3 mb-4">
-                  <p className="text-neutral-400">Your learning goals are always visible at the bottom of the question panel. You also have a full set of tools right there to support your thinking whenever you need them. The tutor will keep guiding you through the session with new questions, hints, and feedback as you progress.</p>
+                <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-lg p-4 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                    <span className="text-sm font-medium text-cyan-400">Session Plan</span>
+                  </div>
+                  <p className="text-sm text-neutral-300">Your tutor will guide you through a mix of <strong className="text-white">questions</strong>, <strong className="text-white">tasks</strong>, <strong className="text-white">suggestions</strong>, and <strong className="text-white">checkpoints</strong> — adapting the plan in real-time based on your progress. View your plan anytime using the <strong className="text-white">Session Plan</strong> tool in the sidebar.</p>
                 </div>
 
-                <p className="text-neutral-300 mb-4">And remember — I'm always here! Feel free to message me anytime about anything: the topic you're learning, a question that's confusing you, or even just to say hi. This chat is your safe space.</p>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="bg-neutral-800/50 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
+                      <span className="text-xs font-medium text-purple-400">Teaching Assistant</span>
+                    </div>
+                    <p className="text-xs text-neutral-400">Chat anytime for help, hints, or to discuss what you're learning.</p>
+                  </div>
+                  <div className="bg-neutral-800/50 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                      <span className="text-xs font-medium text-green-400">Canvas & Notebook</span>
+                    </div>
+                    <p className="text-xs text-neutral-400">Draw diagrams or jot notes — the tutor watches these too!</p>
+                  </div>
+                </div>
 
-                <p className="text-lg font-semibold text-white mb-6">Ready to begin?</p>
+                <p className="text-sm text-neutral-400 mb-4">Don't worry about sounding perfect — thinking out loud is how your tutor understands your reasoning and adapts to help you best.</p>
+
+                <p className="text-base font-semibold text-white mb-4">Ready to start your learning journey?</p>
               </div>
             </div>
 
@@ -1622,9 +1858,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               onClick={() => {
                 setShowWelcomeModal(false);
               }}
-              className="w-full py-3 px-6 border border-cyan-500/50 hover:bg-cyan-500/10 text-cyan-400 font-medium rounded-xl flex items-center justify-center gap-2 transition-colors"
+              className="w-full py-3 px-6 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-medium rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-cyan-500/20"
             >
-              Let's go! 🚀
+              Let's go!
             </button>
           </div>
         </div>
@@ -1681,47 +1917,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   )}
                   <div className="flex-1 min-h-0 overflow-hidden relative">
                     {activeTool === "chat" && <LLMChat problem={session.problem} />}
-                    {activeTool === "goals" && (
-                      <div className="h-full p-4 overflow-auto">
-                        <div className="mb-6">
-                          <h2 className="text-lg font-semibold text-white mb-2">Problem</h2>
-                          <p className="text-sm text-neutral-300">{session.problem}</p>
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-wider mb-3">Learning Objectives</h3>
-                          {objectives.length === 0 ? (
-                            <p className="text-sm text-neutral-500">No objectives set for this session.</p>
-                          ) : (
-                            <div className="space-y-3">
-                              {objectives.map((objective, idx) => {
-                                const status = objectiveStatuses[idx] || "blue";
-                                const statusColors = {
-                                  red: "bg-red-500",
-                                  yellow: "bg-yellow-500",
-                                  green: "bg-green-500",
-                                  blue: "bg-blue-500",
-                                };
-                                const statusLabels = {
-                                  red: "Needs attention",
-                                  yellow: "In progress",
-                                  green: "On track",
-                                  blue: "Not started",
-                                };
-                                return (
-                                  <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/50">
-                                    <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${statusColors[status]}`} />
-                                    <div>
-                                      <p className="text-sm text-white">{objective}</p>
-                                      <span className="text-xs text-neutral-500">{statusLabels[status]}</span>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                    {activeTool === "plan" && (
+                      <SessionPlanViewer 
+                        plan={sessionPlan} 
+                        loading={planLoading} 
+                        error={planError} 
+                        onRecalculate={handleRecalculatePlan}
+                      />
                     )}
+
                     {activeTool === "canvas" && (
                       <WhiteboardCanvas
                         initialData={whiteboardData || undefined}
@@ -2005,6 +2209,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                 <ProbeNotifications
                   sessionId={session.id}
                   probes={session.probes}
+                  sessionPlan={sessionPlan}
                   objectives={objectives}
                   objectiveStatuses={objectiveStatuses}
                   isRecording={isRecording}
@@ -2077,6 +2282,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                 <ProbeNotifications
                   sessionId={session.id}
                   probes={session.probes}
+                  sessionPlan={sessionPlan}
                   objectives={objectives}
                   objectiveStatuses={objectiveStatuses}
                   isRecording={isRecording}

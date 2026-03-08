@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "OPENROUTER_API_KEY not configured for transcription" }, { status: 500 });
     }
 
-    const prompt = "Transcribe this audio. Output ONLY the transcript text. Include filler words like um, uh.";
+    const prompt = "Transcribe this audio. Output ONLY the transcript text, nothing else. Include filler words like um, uh. If the audio is silent, empty, or contains no speech, respond with exactly: [NO_SPEECH]";
 
     console.log("[transcribe-chunk] Calling OpenRouter transcription API");
 
@@ -153,10 +153,10 @@ export async function POST(request: NextRequest) {
         "Authorization": `Bearer ${openrouterKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Socrates",
+        "X-Title": "openLesson",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-flash", // Must use audio-capable model
         messages: [
           {
             role: "user",
@@ -186,6 +186,32 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
     let transcription = data.choices?.[0]?.message?.content?.trim() || "";
+
+    // Check for empty/silent audio markers or hallucinated content
+    const lowerTranscript = transcription.toLowerCase();
+    const isNoSpeech = 
+      transcription === "[NO_SPEECH]" ||
+      lowerTranscript.includes("[no_speech]") ||
+      lowerTranscript.includes("no speech") ||
+      lowerTranscript.includes("no audio") ||
+      lowerTranscript.includes("silent") ||
+      lowerTranscript.includes("inaudible") ||
+      lowerTranscript.includes("cannot transcribe") ||
+      lowerTranscript.includes("no discernible") ||
+      lowerTranscript.includes("audio is empty") ||
+      lowerTranscript.includes("nothing to transcribe") ||
+      // Common hallucination patterns for empty audio
+      (transcription.length < 30 && /^(thanks?|thank you|bye|goodbye|hello|hi|okay|ok|yes|no|\.+|\s*)$/i.test(transcription));
+    
+    if (isNoSpeech) {
+      console.log("[transcribe-chunk] No speech detected or empty audio, returning empty transcript");
+      return NextResponse.json({
+        success: true,
+        chunkIndex: parsedChunkIndex,
+        transcript: "",
+        wordCount: 0,
+      });
+    }
 
     // Use the storage path if provided, otherwise generate new one
     const audioStoragePath = storagePath || `${user.id}/${sessionId}/chunk_${parsedChunkIndex}_${Date.now()}.webm`;
