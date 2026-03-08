@@ -73,7 +73,7 @@ function nodesHaveChanged(oldNodes: PlanNode[], newNodes: PlanNode[]): Set<strin
 export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, supabase, planId, isOwner = true, currentUserId }: PlanChatProps) {
   const router = useRouter();
   const [nodes, setNodes] = useState(initialNodes);
-  const [activeTab, setActiveTab] = useState<"chat" | "sessions">("chat");
+  const [activeTab, setActiveTab] = useState<"chat" | "sessions">("sessions");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [model, setModel] = useState<string>(() => {
     if (typeof window !== "undefined") {
