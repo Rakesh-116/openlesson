@@ -377,34 +377,31 @@ export function ProbeNotifications({
                 Start Session
               </button>
             ) : isPaused ? (
-              <div className="flex flex-col gap-2">
-                <button onClick={onResume} className="w-full py-2.5 border border-green-500/50 hover:bg-green-500/10 text-green-400 font-medium rounded-xl flex items-center justify-center gap-2 text-sm">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="flex gap-1.5">
+                <button onClick={onResume} className="flex-1 py-2 border border-green-500/50 hover:bg-green-500/10 text-green-400 font-medium rounded-lg flex items-center justify-center gap-1 text-xs">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   Resume
                 </button>
-                <div className="flex gap-2">
-                  <button onClick={onReset} className="flex-1 py-2 border border-amber-500/50 hover:bg-amber-500/10 text-amber-400 font-medium rounded-xl flex items-center justify-center gap-1.5 text-xs">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Reset
-                  </button>
-                  <button onClick={onClose} className="flex-1 py-2 border border-neutral-600 hover:border-neutral-400 text-neutral-400 font-medium rounded-xl flex items-center justify-center gap-1.5 text-xs">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
-                    Close
-                  </button>
-                </div>
-                <button onClick={onStopRecording} className="w-full py-2 border border-red-500/30 hover:bg-red-500/10 text-red-400/80 font-medium rounded-xl flex items-center justify-center gap-2 text-xs">
+                <button onClick={onReset} className="flex-1 py-2 border border-amber-500/50 hover:bg-amber-500/10 text-amber-400 font-medium rounded-lg flex items-center justify-center gap-1 text-xs">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Reset
+                </button>
+                <button onClick={onClose} className="flex-1 py-2 border border-neutral-600 hover:border-neutral-400 text-neutral-400 font-medium rounded-lg flex items-center justify-center gap-1 text-xs">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Close
+                </button>
+                <button onClick={onStopRecording} className="flex-1 py-2 border border-red-500/30 hover:bg-red-500/10 text-red-400/80 font-medium rounded-lg flex items-center justify-center gap-1 text-xs">
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
                   </svg>
-                  End Session
+                  End
                 </button>
               </div>
             ) : (
