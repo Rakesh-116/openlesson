@@ -342,7 +342,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
               ) : (
                 <div className="mt-2 group/desc">
                   {plan.description ? (
-                    <p className="text-sm text-neutral-400 leading-relaxed">
+                    <p className="text-sm text-neutral-400 leading-relaxed line-clamp-2">
                       {plan.description}
                       {currentUserId && plan.user_id === currentUserId && (
                         <button
