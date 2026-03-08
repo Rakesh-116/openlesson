@@ -16,7 +16,7 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { is_public, title } = await req.json();
+    const { is_public, title, description } = await req.json();
 
     const updates: Record<string, any> = {};
 
@@ -27,6 +27,10 @@ export async function PUT(
     if (typeof title === "string" && title.trim()) {
       updates.title = title.trim();
       updates.root_topic = title.trim();
+    }
+
+    if (typeof description === "string") {
+      updates.description = description.trim() || null;
     }
 
     if (Object.keys(updates).length === 0) {
@@ -66,7 +70,7 @@ export async function PUT(
     // Verify the update
     const { data: verifyPlan } = await supabase
       .from("learning_plans")
-      .select("is_public, title")
+      .select("is_public, title, description")
       .eq("id", planId)
       .single();
 
@@ -88,6 +92,10 @@ export async function PUT(
       response.message = response.message 
         ? response.message + " Title updated." 
         : "Title updated.";
+    }
+
+    if (typeof description === "string") {
+      response.description = verifyPlan?.description;
     }
 
     return NextResponse.json(response);

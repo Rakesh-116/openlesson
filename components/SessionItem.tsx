@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 
@@ -22,39 +22,75 @@ interface SessionItemProps {
   onFork: (id: string) => void;
   highlighted?: boolean;
   highlightOpacity?: number;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
+  allNodes?: PlanNode[];
+  isOwner?: boolean;
+  supabase?: ReturnType<typeof createBrowserClient>;
+  onNavigateToNode?: (nodeId: string) => void;
 }
 
-const statusColors = {
-  completed: { bg: "#166534", border: "#22c55e", text: "#d1fae5" },
-  in_progress: { bg: "#1d4ed8", border: "#3b82f6", text: "#dbeafe" },
-  available: { bg: "#404040", border: "#525252", text: "#e5e7eb" },
-  locked: { bg: "#27272a", border: "#3f3f46", text: "#71717a" },
+const statusConfig = {
+  completed: { label: "Done", bg: "bg-green-900/50", text: "text-green-400", icon: "✓" },
+  in_progress: { label: "In Progress", bg: "bg-blue-900/50", text: "text-blue-400", icon: null },
+  available: { label: "Available", bg: "bg-neutral-700/50", text: "text-neutral-300", icon: null },
+  locked: { label: "Locked", bg: "bg-neutral-800/50", text: "text-neutral-500", icon: null },
 };
 
-export function SessionItem({ node, index, onSelect, onDelete, onFork, highlighted, highlightOpacity = 1 }: SessionItemProps) {
+export function SessionItem({ 
+  node, 
+  index, 
+  onSelect, 
+  onDelete, 
+  onFork, 
+  highlighted, 
+  highlightOpacity = 1,
+  isExpanded = false,
+  onToggleExpand,
+  allNodes = [],
+  isOwner = true,
+  supabase: propSupabase,
+  onNavigateToNode
+}: SessionItemProps) {
   const router = useRouter();
-  const supabase = createBrowserClient(
+  const supabase = propSupabase || createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
   
   const [isStarting, setIsStarting] = useState(false);
+  const [editedPlanningPrompt, setEditedPlanningPrompt] = useState(node.planning_prompt || "");
+  const [savingPrompt, setSavingPrompt] = useState(false);
+  const [promptSaved, setPromptSaved] = useState(false);
+  
   const isCompleted = node.status === "completed";
-  const colors = statusColors[node.status as keyof typeof statusColors] || statusColors.available;
+  const isLocked = node.status === "locked";
+  const config = statusConfig[node.status as keyof typeof statusConfig] || statusConfig.available;
 
-  const handleStart = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (isCompleted || isStarting) return;
+  // Get previous and next nodes for sequence info
+  const prevNodes = allNodes.filter(n => (n.next_node_ids || []).includes(node.id));
+  const nextNodes = (node.next_node_ids || []).map(id => allNodes.find(n => n.id === id)).filter(Boolean) as PlanNode[];
+
+  const handleStart = async () => {
+    if (isCompleted || isStarting || isLocked) return;
 
     setIsStarting(true);
     try {
+      // Save planning prompt if changed before starting
+      if (editedPlanningPrompt !== (node.planning_prompt || "")) {
+        await supabase
+          .from("plan_nodes")
+          .update({ planning_prompt: editedPlanningPrompt || null })
+          .eq("id", node.id);
+      }
+
       await supabase
         .from("plan_nodes")
         .update({ status: "in_progress" })
         .eq("id", node.id);
 
       const { createSession } = await import("@/lib/storage");
-      const session = await createSession(node.title);
+      const session = await createSession(node.title, undefined, editedPlanningPrompt || undefined);
       
       await supabase
         .from("plan_nodes")
@@ -68,95 +104,195 @@ export function SessionItem({ node, index, onSelect, onDelete, onFork, highlight
     }
   };
 
-  const handleFork = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onFork(node.id);
-  };
+  const savePlanningPrompt = useCallback(async () => {
+    if (editedPlanningPrompt === (node.planning_prompt || "")) return;
+    
+    setSavingPrompt(true);
+    setPromptSaved(false);
+    try {
+      await supabase
+        .from("plan_nodes")
+        .update({ planning_prompt: editedPlanningPrompt || null })
+        .eq("id", node.id);
+      
+      setPromptSaved(true);
+      setTimeout(() => setPromptSaved(false), 2000);
+    } catch (err) {
+      console.error("Failed to save planning prompt:", err);
+    } finally {
+      setSavingPrompt(false);
+    }
+  }, [editedPlanningPrompt, node.planning_prompt, node.id, supabase]);
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onDelete(node.id);
+  const handleClick = () => {
+    if (onToggleExpand) {
+      onToggleExpand();
+    } else {
+      onSelect();
+    }
   };
 
   return (
     <div 
-      onClick={onSelect}
+      id={`session-item-${node.id}`}
       className={`
-        group relative p-3 sm:p-5 rounded-xl cursor-pointer transition-all duration-200
-        ${highlighted ? "ring-2" : ""}
-        ${isCompleted 
-          ? "bg-neutral-800/50 border border-neutral-700/50 hover:border-neutral-600" 
-          : "bg-neutral-800 border border-neutral-700 hover:border-neutral-500 hover:bg-neutral-750"
-        }
+        rounded-lg transition-all duration-200
+        ${highlighted ? "ring-1" : ""}
+        ${isExpanded ? "bg-neutral-800/70" : "hover:bg-neutral-800/50"}
       `}
       style={highlighted ? { 
         borderColor: `rgba(6, 182, 212, ${highlightOpacity})`,
-        boxShadow: `0 0 12px rgba(6, 182, 212, ${highlightOpacity * 0.5})`,
-        animation: highlightOpacity > 0.5 ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none'
+        boxShadow: `0 0 8px rgba(6, 182, 212, ${highlightOpacity * 0.4})`
       } : undefined}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1.5">
-            {node.is_start && !isCompleted && (
-              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-900/50 px-1.5 py-0.5 rounded">START</span>
+      {/* Collapsed View */}
+      <div 
+        onClick={handleClick}
+        className="px-3 py-2 cursor-pointer"
+      >
+        <div className="flex items-center gap-2">
+          {/* Status Badge */}
+          <span className={`text-xs px-2 py-0.5 rounded font-medium whitespace-nowrap ${config.bg} ${config.text}`}>
+            {config.icon && <span className="mr-0.5">{config.icon}</span>}
+            {node.is_start && !isCompleted ? "START" : config.label}
+          </span>
+          
+          {/* Title */}
+          <span className={`text-sm flex-1 truncate font-medium ${isCompleted ? "text-neutral-400" : "text-white"}`}>
+            {node.title}
+          </span>
+          
+          {/* Index & Expand Icon */}
+          <span className="text-xs text-neutral-500">#{index + 1}</span>
+          <svg 
+            className={`w-4 h-4 text-neutral-500 transition-transform flex-shrink-0 ${isExpanded ? "rotate-180" : ""}`} 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+        
+        {/* Description preview & sequence info - only when collapsed */}
+        {!isExpanded && (
+          <div className="mt-1.5 pl-[calc(0.5rem+4ch)]">
+            {node.description && (
+              <p className="text-xs text-neutral-500 line-clamp-1">
+                {node.description}
+              </p>
             )}
-            {isCompleted && (
-              <span className="text-[10px] font-bold text-green-400 bg-green-900/50 px-1.5 py-0.5 rounded">✓ DONE</span>
-            )}
-            {!isCompleted && (
-              <span 
-                className="text-[10px] px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: `${colors.bg}50`, color: colors.text }}
-              >
-                {node.status === "in_progress" ? "In Progress" : "Available"}
-              </span>
+            {(nextNodes.length > 0) && (
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                <span className="text-[10px] text-neutral-600 uppercase tracking-wide">Next:</span>
+                {nextNodes.map((n) => (
+                  <button
+                    key={n.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onNavigateToNode?.(n.id);
+                    }}
+                    className="text-xs px-2 py-0.5 rounded bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-blue-400 transition-colors"
+                  >
+                    {n.title}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
-          
-          <h3 className={`font-medium text-sm truncate ${isCompleted ? "text-neutral-400" : "text-white"}`}>
-            {node.title}
-          </h3>
-          
-          {!isCompleted && node.description && (
-            <p className="text-xs text-neutral-500 mt-1 line-clamp-2">
+        )}
+      </div>
+
+      {/* Expanded View */}
+      {isExpanded && (
+        <div className="px-3 pb-3 space-y-3 border-t border-neutral-700/50 mt-1 pt-3">
+          {/* Description */}
+          {node.description && (
+            <p className="text-sm text-neutral-400 leading-relaxed">
               {node.description}
             </p>
           )}
-        </div>
-
-        {!isCompleted && (
-          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={handleStart}
-              disabled={isStarting || node.status === "locked"}
-              className="p-1.5 rounded-lg bg-blue-900/50 hover:bg-blue-800/70 text-blue-400 transition-colors disabled:opacity-50"
-              title="Start session"
-            >
-              {isStarting ? (
-                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+          
+          {/* Sequence Info */}
+          {(prevNodes.length > 0 || nextNodes.length > 0) && (
+            <div className="flex flex-col gap-2 p-2.5 bg-neutral-900/50 rounded-lg border border-neutral-800">
+              {prevNodes.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] text-neutral-500 uppercase tracking-wide w-12 flex-shrink-0">From</span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {prevNodes.map((n) => (
+                      <button
+                        key={n.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onNavigateToNode?.(n.id);
+                        }}
+                        className="text-xs px-2.5 py-1 rounded-md bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-blue-400 transition-colors border border-neutral-700"
+                      >
+                        ← {n.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
-            </button>
-          </div>
-        )}
-      </div>
+              {nextNodes.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] text-neutral-500 uppercase tracking-wide w-12 flex-shrink-0">Next</span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {nextNodes.map((n) => (
+                      <button
+                        key={n.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onNavigateToNode?.(n.id);
+                        }}
+                        className="text-xs px-2.5 py-1 rounded-md bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-blue-400 transition-colors border border-neutral-700"
+                      >
+                        {n.title} →
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
-      <div className="mt-2 flex items-center text-xs text-neutral-600">
-        <span className={isCompleted ? "text-neutral-500" : ""}>
-          #{index + 1}
-        </span>
-        {(node.next_node_ids || []).length > 0 && !isCompleted && (
-          <span className="ml-2">→ {(node.next_node_ids || []).length} next</span>
-        )}
-      </div>
+          {/* Planning Prompt (for owners, non-completed) */}
+          {isOwner && !isCompleted && (
+            <div className="pt-1">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium text-neutral-400">
+                  Planning Prompt
+                </label>
+                <span className="text-xs text-neutral-600">
+                  {savingPrompt ? "Saving..." : promptSaved ? "Saved" : ""}
+                </span>
+              </div>
+              <textarea
+                value={editedPlanningPrompt}
+                onChange={(e) => setEditedPlanningPrompt(e.target.value)}
+                onBlur={savePlanningPrompt}
+                placeholder="Custom instructions for this session..."
+                className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-neutral-600 resize-none"
+                rows={2}
+              />
+            </div>
+          )}
+
+          {/* Actions */}
+          {!isCompleted && !isLocked && isOwner && (
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={handleStart}
+                disabled={isStarting}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                {isStarting ? "Starting..." : "Start Lesson"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

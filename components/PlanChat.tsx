@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ChatPanel } from "./ChatPanel";
 import { SessionList } from "./SessionList";
 import { RemixModal } from "./RemixModal";
+
+const DIVIDER_STORAGE_KEY = "plan-divider-width";
 
 interface PlanNode {
   id: string;
@@ -72,22 +74,31 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
   const router = useRouter();
   const [nodes, setNodes] = useState(initialNodes);
   const [activeTab, setActiveTab] = useState<"chat" | "sessions">("chat");
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  const [editedPlanningPrompt, setEditedPlanningPrompt] = useState<string>("");
-  const [savingPlanningPrompt, setSavingPlanningPrompt] = useState(false);
-  const [planningPromptSaved, setPlanningPromptSaved] = useState(false);
   const [model, setModel] = useState<string>(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem(MODEL_STORAGE_KEY) || "x-ai/grok-4";
     }
     return "x-ai/grok-4";
   });
-  const [description, setDescription] = useState(plan.description || "");
-  const [isLoadingDesc, setIsLoadingDesc] = useState(false);
   const [highlightedNodes, setHighlightedNodes] = useState<Set<string>>(new Set());
   const [highlightOpacity, setHighlightOpacity] = useState(1);
   const [showRemixModal, setShowRemixModal] = useState(false);
+  
+  // Draggable divider state
+  const [leftWidth, setLeftWidth] = useState<number>(55);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Load saved width from localStorage on mount
+  useEffect(() => {
+    setIsMounted(true);
+    const saved = localStorage.getItem(DIVIDER_STORAGE_KEY);
+    if (saved) {
+      setLeftWidth(parseFloat(saved));
+    }
+  }, []);
 
   useEffect(() => {
     const changedIds = nodesHaveChanged(nodes, initialNodes);
@@ -113,62 +124,38 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
     return () => window.removeEventListener("openRemixModal", handleOpenRemix);
   }, []);
 
+  // Draggable divider handlers
   useEffect(() => {
-    if (!description && !isLoadingDesc) {
-      setIsLoadingDesc(true);
-      fetch("/api/learning-plan/describe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId: plan.id, model }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.description) {
-            setDescription(data.description);
-          }
-        })
-        .catch(console.error)
-        .finally(() => setIsLoadingDesc(false));
-    }
-  }, [plan.id, description, model, isLoadingDesc]);
+    if (!isDragging) return;
 
-  // Sync editedPlanningPrompt when selectedNode changes
-  useEffect(() => {
-    if (selectedNodeId) {
-      const node = nodes.find(n => n.id === selectedNodeId);
-      setEditedPlanningPrompt(node?.planning_prompt || "");
-      setPlanningPromptSaved(false); // Reset saved state when switching nodes
-    }
-  }, [selectedNodeId, nodes]);
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const newWidth = ((e.clientX - rect.left) / rect.width) * 100;
+      // Clamp between 25% and 75%
+      const clampedWidth = Math.max(25, Math.min(75, newWidth));
+      setLeftWidth(clampedWidth);
+    };
 
-  // Save planning prompt to database with debounce
-  const savePlanningPrompt = useCallback(async (nodeId: string, prompt: string) => {
-    setSavingPlanningPrompt(true);
-    setPlanningPromptSaved(false);
-    try {
-      const client = supabase || createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-      await client
-        .from("plan_nodes")
-        .update({ planning_prompt: prompt || null })
-        .eq("id", nodeId);
-      
-      // Update local state
-      setNodes(prev => prev.map(n => 
-        n.id === nodeId ? { ...n, planning_prompt: prompt || undefined } : n
-      ));
-      
-      // Show saved indicator
-      setPlanningPromptSaved(true);
-      setTimeout(() => setPlanningPromptSaved(false), 2000); // Hide after 2 seconds
-    } catch (err) {
-      console.error("Failed to save planning prompt:", err);
-    } finally {
-      setSavingPlanningPrompt(false);
-    }
-  }, [supabase]);
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      // Save to localStorage
+      localStorage.setItem(DIVIDER_STORAGE_KEY, leftWidth.toString());
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging, leftWidth]);
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
 
   const handleModelChange = useCallback((newModel: string) => {
     setModel(newModel);
@@ -233,15 +220,16 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
     }
   }, [plan.id, router]);
 
-  const selectedNode = selectedNodeId ? nodes.find(n => n.id === selectedNodeId) : null;
-
   return (
-    <div className="h-[calc(100dvh-120px)] md:h-[calc(100vh-140px)] flex flex-col md:flex-row gap-2 sm:gap-3">
+    <div 
+      ref={containerRef}
+      className={`h-full flex flex-col md:flex-row gap-2 ${isDragging ? "select-none" : ""}`}
+    >
       {/* Mobile Tab Switcher */}
-      <div className="md:hidden flex border-b border-neutral-700 mb-2 shrink-0 -mt-1">
+      <div className="md:hidden flex border-b border-neutral-700 mb-1 shrink-0 -mt-1">
         <button
           onClick={() => setActiveTab("chat")}
-          className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors min-h-[44px] ${
+          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors min-h-[40px] ${
             activeTab === "chat"
               ? "text-white border-b-2 border-blue-500"
               : "text-neutral-400 hover:text-white"
@@ -251,7 +239,7 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
         </button>
         <button
           onClick={() => setActiveTab("sessions")}
-          className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors min-h-[44px] ${
+          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors min-h-[40px] ${
             activeTab === "sessions"
               ? "text-white border-b-2 border-blue-500"
               : "text-neutral-400 hover:text-white"
@@ -261,17 +249,18 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
         </button>
       </div>
 
-      {/* Chat Panel - Desktop: 60%, Mobile: full when selected */}
-      <div className={`
-        flex flex-col
-        ${activeTab === "chat" ? "flex-1" : "hidden md:flex"}
-        md:w-[60%] lg:w-[65%]
-        h-full min-h-0
-      `}>
-        <div className="flex-1 bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden flex flex-col p-4">
+      {/* Chat Panel - Desktop: resizable, Mobile: full when selected */}
+      <div 
+        className={`
+          flex flex-col
+          ${activeTab === "chat" ? "flex-1" : "hidden md:flex"}
+          h-full min-h-0
+        `}
+        style={isMounted ? { width: `${leftWidth}%` } : undefined}
+      >
+        <div className="flex-1 bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden flex flex-col p-4">
           <ChatPanel
             planId={plan.id}
-            description={description}
             model={model}
             onModelChange={handleModelChange}
             onRefresh={onRefresh}
@@ -283,21 +272,33 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
         </div>
       </div>
 
-      {/* Sessions Panel - Desktop: 40%, Mobile: full when selected */}
-      <div className={`
-        flex flex-col
-        ${activeTab === "sessions" ? "flex-1" : "hidden md:flex"}
-        md:w-[40%] lg:w-[35%]
-        h-full min-h-0
-      `}>
-        <div className="flex-1 bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden p-4">
+      {/* Draggable Divider - Desktop only */}
+      <div 
+        className="hidden md:flex items-center justify-center w-1.5 cursor-col-resize group"
+        onMouseDown={handleDragStart}
+      >
+        <div className={`w-0.5 h-full rounded-full transition-colors ${isDragging ? "bg-blue-500" : "bg-neutral-700 group-hover:bg-neutral-500"}`} />
+      </div>
+
+      {/* Sessions Panel - Desktop: resizable, Mobile: full when selected */}
+      <div 
+        className={`
+          flex flex-col
+          ${activeTab === "sessions" ? "flex-1" : "hidden md:flex"}
+          h-full min-h-0
+        `}
+        style={isMounted ? { width: `${100 - leftWidth - 0.5}%` } : undefined}
+      >
+        <div className="flex-1 bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden">
           <SessionList
             nodes={nodes}
-            onSelect={setSelectedNodeId}
+            onSelect={() => {}}
             onDelete={handleDeleteClick}
             onFork={handleForkClick}
             highlightedNodes={highlightedNodes}
             highlightOpacity={highlightOpacity}
+            isOwner={isOwner}
+            supabase={supabase}
           />
         </div>
       </div>
@@ -332,169 +333,7 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
         </>
       )}
 
-      {/* Node Detail Modal */}
-      {selectedNode && !showDeleteConfirm && (
-        <>
-          <div 
-            className="fixed inset-0 z-40 bg-black/60"
-            onClick={() => setSelectedNodeId(null)}
-          />
-          <div 
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md bg-neutral-900 border border-neutral-700 rounded-2xl p-6 shadow-2xl max-h-[80vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-3">
-                  {selectedNode.is_start && (
-                    <span className="text-xs font-bold text-emerald-400 bg-emerald-900/50 px-2 py-0.5 rounded">START</span>
-                  )}
-                  {selectedNode.status === "completed" && (
-                    <span className="text-xs font-bold text-green-400 bg-green-900/50 px-2 py-0.5 rounded">✓ DONE</span>
-                  )}
-                  <h3 className="text-xl font-semibold text-white">{selectedNode.title}</h3>
-                </div>
-                <p className="text-sm text-neutral-400 leading-relaxed">{selectedNode.description || "No description"}</p>
-                {(() => {
-                  const prevNodes = nodes.filter(n => (n.next_node_ids || []).includes(selectedNode.id));
-                  const nextNodes = (selectedNode.next_node_ids || []).map(id => nodes.find(n => n.id === id)).filter(Boolean);
-                  
-                  if (prevNodes.length === 0 && nextNodes.length === 0) return null;
-                  
-                  return (
-                    <div className="mt-4 flex gap-6">
-                      {prevNodes.length > 0 && (
-                        <div>
-                          <span className="text-xs text-neutral-500 block mb-2">← From:</span>
-                          <div className="flex flex-wrap gap-2">
-                            {prevNodes.map(prevNode => (
-                              <button
-                                key={prevNode.id}
-                                onClick={() => setSelectedNodeId(prevNode.id)}
-                                className="text-xs px-3 py-1.5 rounded-md bg-neutral-700 hover:bg-neutral-600 text-neutral-300 transition-colors text-left"
-                              >
-                                {prevNode.title}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {nextNodes.length > 0 && (
-                        <div>
-                          <span className="text-xs text-neutral-500 block mb-2">→ To:</span>
-                          <div className="flex flex-wrap gap-2">
-                            {nextNodes.map(nextNode => (
-                              <button
-                                key={nextNode!.id}
-                                onClick={() => setSelectedNodeId(nextNode!.id)}
-                                className="text-xs px-3 py-1.5 rounded-md bg-blue-900/50 hover:bg-blue-800/70 text-blue-300 transition-colors text-left"
-                              >
-                                {nextNode!.title}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-              <button
-                onClick={() => setSelectedNodeId(null)}
-                className="p-2 text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            {/* Planning Prompt Section */}
-            {isOwner && selectedNode.status !== "completed" && (
-              <div className="mt-5 pt-5 border-t border-neutral-700">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-neutral-300">
-                    Planning Prompt
-                  </label>
-                  <span className="text-xs flex items-center gap-1.5">
-                    {savingPlanningPrompt ? (
-                      <span className="text-neutral-500 flex items-center gap-1">
-                        <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        Saving...
-                      </span>
-                    ) : planningPromptSaved ? (
-                      <span className="text-green-400 flex items-center gap-1">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Saved
-                      </span>
-                    ) : (
-                      <span className="text-neutral-600">Auto-saves on blur</span>
-                    )}
-                  </span>
-                </div>
-                <textarea
-                  value={editedPlanningPrompt}
-                  onChange={(e) => setEditedPlanningPrompt(e.target.value)}
-                  onBlur={() => {
-                    if (editedPlanningPrompt !== (selectedNode.planning_prompt || "")) {
-                      savePlanningPrompt(selectedNode.id, editedPlanningPrompt);
-                    }
-                  }}
-                  placeholder="Optional: Add custom instructions to guide how the AI generates the learning plan for this session..."
-                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 resize-none"
-                  rows={3}
-                />
-                <p className="mt-1.5 text-xs text-neutral-500">
-                  This prompt will be used when generating the session plan.
-                </p>
-              </div>
-            )}
 
-            {isOwner && selectedNode.status !== "completed" && selectedNode.status !== "locked" && (
-              <button
-                onClick={async () => {
-                  // Save planning prompt if changed before starting
-                  if (editedPlanningPrompt !== (selectedNode.planning_prompt || "")) {
-                    await savePlanningPrompt(selectedNode.id, editedPlanningPrompt);
-                  }
-                  
-                  const client = supabase || createBrowserClient(
-                    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-                  );
-                  try {
-                    await client
-                      .from("plan_nodes")
-                      .update({ status: "in_progress" })
-                      .eq("id", selectedNode.id);
-
-                    const { createSession } = await import("@/lib/storage");
-                    // Pass the planning prompt to createSession
-                    const session = await createSession(selectedNode.title, undefined, editedPlanningPrompt || undefined);
-                    
-                    await client
-                      .from("plan_nodes")
-                      .update({ session_id: session.id })
-                      .eq("id", selectedNode.id);
-
-                    router.push(`/session?id=${session.id}`);
-                  } catch (err) {
-                    console.error("Failed to start session:", err);
-                  }
-                }}
-                className="mt-6 w-full px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors"
-              >
-                Start Lesson
-              </button>
-            )}
-          </div>
-        </>
-      )}
 
       {showRemixModal && (
         <RemixModal

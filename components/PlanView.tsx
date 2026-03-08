@@ -56,6 +56,9 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [copied, setCopied] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editDescription, setEditDescription] = useState("");
+  const [savingDescription, setSavingDescription] = useState(false);
   
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -85,7 +88,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
 
       const { data: planData, error: planError } = await supabase
         .from("learning_plans")
-        .select("*, profiles:author_id(username), source_type, source_url, source_summary")
+        .select("*, profiles:author_id(username), source_type, source_url, source_summary, description")
         .eq("id", planId)
         .single();
 
@@ -136,6 +139,36 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
     }
   }, [plan?.root_topic]);
 
+  useEffect(() => {
+    if (plan?.description !== undefined) {
+      setEditDescription(plan.description || "");
+    }
+  }, [plan?.description]);
+
+  const saveDescription = async () => {
+    if (!plan) return;
+    setSavingDescription(true);
+    try {
+      const res = await fetch(`/api/learning-plans/${planId}/visibility`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: editDescription }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPlan({ ...plan, description: editDescription || undefined });
+        setIsEditingDescription(false);
+      } else {
+        alert(data.error || "Failed to update description");
+      }
+    } catch (err) {
+      console.error("Error updating description:", err);
+      alert("Failed to update description");
+    } finally {
+      setSavingDescription(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
@@ -156,11 +189,11 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
+    <div className="h-screen bg-[#0a0a0a] text-white flex flex-col overflow-hidden">
       <Navbar />
 
-      <div className="px-3 pt-3 sm:pt-4">
-        <div className={`rounded-xl border p-3 sm:p-4 ${
+      <div className="px-3 pt-2 sm:px-4 sm:pt-3 flex-shrink-0">
+        <div className={`rounded-lg border p-3 ${
           plan.is_public 
             ? "bg-green-950/20 border-green-800/50" 
             : "bg-neutral-900/30 border-neutral-800"
@@ -172,7 +205,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                 href={plan.source_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="relative flex-shrink-0 w-32 sm:w-40 aspect-video rounded-lg overflow-hidden group"
+                className="relative flex-shrink-0 w-20 sm:w-28 aspect-video rounded-md overflow-hidden group"
               >
                 <img
                   src={getYouTubeThumbnail(plan.source_url, "medium") || ""}
@@ -235,8 +268,8 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 mb-1">
-                  <h2 className="text-lg font-semibold text-white truncate">{plan.root_topic}</h2>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <h2 className="text-base font-semibold text-white truncate">{plan.root_topic}</h2>
                   {currentUserId && plan.user_id === currentUserId && (
                     <button
                       onClick={() => setIsEditingTitle(true)}
@@ -249,41 +282,88 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                   )}
                 </div>
               )}
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap text-xs">
                 {plan.source_type === "youtube" && (
-                  <span className="inline-flex items-center gap-1 text-red-400 text-xs font-medium">
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                  <span className="inline-flex items-center gap-1 text-red-400 font-medium">
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
                     </svg>
                     YouTube
                   </span>
                 )}
                 {plan.is_public ? (
-                  <span className="text-green-400 text-sm font-medium">Public</span>
+                  <span className="text-green-400 font-medium">Public</span>
                 ) : (
-                  <span className="text-neutral-400 text-sm font-medium">Private</span>
+                  <span className="text-neutral-400 font-medium">Private</span>
                 )}
                 {plan.is_public && (
-                  <span className="text-neutral-500 text-xs">
-                    · {(plan.remix_count || 0)} {(plan.remix_count || 0) === 1 ? "fork/remix" : "forks/remixes"}
+                  <span className="text-neutral-500">
+                    · {(plan.remix_count || 0)} {(plan.remix_count || 0) === 1 ? "fork" : "forks"}
                   </span>
                 )}
                 {plan.is_public && plan.author_username && (
-                  <span className="text-neutral-500 text-sm">by @{plan.author_username}</span>
+                  <span className="text-neutral-500">by @{plan.author_username}</span>
                 )}
                 {plan.original_plan_id && (
-                  <span className="text-neutral-500 text-sm">· Remixed plan</span>
+                  <span className="text-neutral-500">· Remixed</span>
                 )}
               </div>
-              {!plan.is_public && (
-                <p className="text-xs text-neutral-500">
-                  Make your plan public to let others fork or remix it for their own learning journey.
-                </p>
-              )}
-              {plan.is_public && (
-                <p className="text-xs text-neutral-500">
-                  Others can fork or remix this plan to create their own copy.
-                </p>
+              
+              {/* Description */}
+              {isEditingDescription ? (
+                <div className="mt-2">
+                  <textarea
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    placeholder="Add a description for this learning plan..."
+                    className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 resize-none"
+                    rows={2}
+                    autoFocus
+                  />
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={saveDescription}
+                      disabled={savingDescription}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 text-white text-xs rounded-lg transition-colors"
+                    >
+                      {savingDescription ? "Saving..." : "Save"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditDescription(plan.description || "");
+                        setIsEditingDescription(false);
+                      }}
+                      className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white text-xs rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2 group/desc">
+                  {plan.description ? (
+                    <p className="text-sm text-neutral-400 leading-relaxed">
+                      {plan.description}
+                      {currentUserId && plan.user_id === currentUserId && (
+                        <button
+                          onClick={() => setIsEditingDescription(true)}
+                          className="ml-2 text-neutral-500 hover:text-white transition-colors opacity-0 group-hover/desc:opacity-100"
+                        >
+                          <svg className="w-3.5 h-3.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                      )}
+                    </p>
+                  ) : currentUserId && plan.user_id === currentUserId ? (
+                    <button
+                      onClick={() => setIsEditingDescription(true)}
+                      className="text-sm text-neutral-500 hover:text-neutral-400 transition-colors"
+                    >
+                      + Add description
+                    </button>
+                  ) : null}
+                </div>
               )}
             </div>
             {currentUserId && plan.user_id === currentUserId ? (
@@ -364,7 +444,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
         </div>
       </div>
 
-      <main className="flex-1 p-3 sm:p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4 overflow-hidden">
+      <main className="flex-1 p-3 sm:p-4 pb-3 sm:pb-4 min-h-0 overflow-hidden">
         <PlanChat 
           plan={plan} 
           nodes={nodes} 

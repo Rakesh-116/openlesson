@@ -29,7 +29,6 @@ interface PlanNode {
 
 interface ChatPanelProps {
   planId: string;
-  description?: string;
   model?: string;
   onModelChange?: (model: string) => void;
   onRefresh?: () => void;
@@ -39,7 +38,7 @@ interface ChatPanelProps {
   currentUserId?: string | null;
 }
 
-export function ChatPanel({ planId, description, model, onModelChange, onRefresh, onNodesUpdate, supabase, isOwner = true, currentUserId }: ChatPanelProps) {
+export function ChatPanel({ planId, model, onModelChange, onRefresh, onNodesUpdate, supabase, isOwner = true, currentUserId }: ChatPanelProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -57,18 +56,28 @@ export function ChatPanel({ planId, description, model, onModelChange, onRefresh
 
   const currentModel = model || "x-ai/grok-4";
 
+  const instructionalMessage = `**Welcome to your Learning Plan!**
+
+Use this chat to customize your plan. You can:
+- **Add sessions** – "Add a session on advanced topics"
+- **Remove sessions** – "Remove the intro session"  
+- **Reorder** – "Move session 3 before session 2"
+- **Modify content** – "Make session 2 more hands-on"
+
+Your changes will appear in the Sessions panel on the right.`;
+
   useEffect(() => {
-    if (description && messages.length === 0) {
+    if (messages.length === 0) {
       setMessages([
         {
-          id: "welcome",
+          id: "instructions",
           role: "assistant",
-          content: description,
+          content: instructionalMessage,
           timestamp: new Date(),
         },
       ]);
     }
-  }, [description]);
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -179,24 +188,24 @@ export function ChatPanel({ planId, description, model, onModelChange, onRefresh
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center mb-3 sm:mb-4 px-1">
-        <h2 className="text-lg font-semibold text-white">AI Planner</h2>
+      <div className="flex items-center mb-3 px-1">
+        <h2 className="text-base font-semibold text-white">AI Planner</h2>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-3 sm:space-y-4 mb-3 sm:mb-4 pr-2">
+      <div className="flex-1 overflow-y-auto space-y-3 mb-3 pr-2">
         {messages.map((msg) => (
           <div
             key={msg.id}
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[85%] px-4 py-3 rounded-2xl ${
+              className={`max-w-[85%] px-4 py-2.5 rounded-xl ${
                 msg.role === "user"
-                  ? "bg-blue-600 text-white rounded-br-md"
-                  : "bg-neutral-800 text-neutral-200 rounded-bl-md"
+                  ? "bg-blue-600 text-white rounded-br-sm"
+                  : "bg-neutral-800 text-neutral-200 rounded-bl-sm"
               }`}
             >
-              <div className="prose prose-invert prose-sm max-w-none">
+              <div className="prose prose-invert prose-sm max-w-none prose-p:my-2 prose-p:leading-relaxed prose-headings:mt-3 prose-headings:mb-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-pre:my-2 prose-blockquote:my-2">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm, remarkMath]}
                   rehypePlugins={[rehypeKatex]}
@@ -204,19 +213,18 @@ export function ChatPanel({ planId, description, model, onModelChange, onRefresh
                   {msg.content}
                 </ReactMarkdown>
               </div>
-              <p className={`text-[10px] mt-2 ${
+              <p className={`text-[10px] mt-1.5 ${
                 msg.role === "user" ? "text-blue-200" : "text-neutral-500"
               }`}>
-                {msg.role === "user" ? "You" : "AI Planner"} • {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {msg.role === "user" ? "You" : "AI"} • {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
-
             </div>
           </div>
         ))}
         
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-neutral-800 px-4 py-3 rounded-2xl rounded-bl-md">
+            <div className="bg-neutral-800 px-4 py-3 rounded-xl rounded-bl-sm">
               <div className="flex gap-1">
                 <div className="w-2 h-2 bg-neutral-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
                 <div className="w-2 h-2 bg-neutral-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
@@ -261,21 +269,21 @@ export function ChatPanel({ planId, description, model, onModelChange, onRefresh
           </button>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="relative">
+        <form onSubmit={handleSubmit} className="relative flex items-center gap-2">
           <textarea
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask to modify your plan..."
-          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 pr-10 sm:pr-12 bg-neutral-800 border border-neutral-700 rounded-xl text-white placeholder-neutral-500 text-sm resize-none focus:outline-none focus:border-neutral-600 focus:ring-1 focus:ring-neutral-600"
-          rows={2}
-          disabled={isLoading}
-        />
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Add, remove, or reorder sessions..."
+            className="flex-1 px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-xl text-white placeholder-neutral-500 text-sm resize-none focus:outline-none focus:border-neutral-600 focus:ring-1 focus:ring-neutral-600"
+            rows={3}
+            disabled={isLoading}
+          />
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="absolute right-2 bottom-2.5 sm:bottom-3 p-2 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white rounded-lg transition-colors"
+            className="p-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white rounded-xl transition-colors self-center"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
