@@ -89,15 +89,22 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
   const [leftWidth, setLeftWidth] = useState<number>(55);
   const [isDragging, setIsDragging] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // Load saved width from localStorage on mount
+  // Load saved width from localStorage on mount and track desktop state
   useEffect(() => {
     setIsMounted(true);
     const saved = localStorage.getItem(DIVIDER_STORAGE_KEY);
     if (saved) {
       setLeftWidth(parseFloat(saved));
     }
+    
+    // Check if desktop and listen for resize
+    const checkDesktop = () => setIsDesktop(window.innerWidth >= 768);
+    checkDesktop();
+    window.addEventListener("resize", checkDesktop);
+    return () => window.removeEventListener("resize", checkDesktop);
   }, []);
 
   useEffect(() => {
@@ -249,14 +256,15 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
         </button>
       </div>
 
-      {/* Chat Panel - Desktop: resizable, Mobile: full when selected */}
+      {/* Chat Panel - Desktop: resizable, Mobile: full width when selected */}
       <div 
         className={`
           flex flex-col
           ${activeTab === "chat" ? "flex-1" : "hidden md:flex"}
           h-full min-h-0
+          ${isDesktop ? "flex-none" : ""}
         `}
-        style={isMounted ? { width: `${leftWidth}%` } : undefined}
+        style={isDesktop ? { width: `${leftWidth}%` } : undefined}
       >
         <div className="flex-1 bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden flex flex-col p-4">
           <ChatPanel
@@ -280,14 +288,15 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
         <div className={`w-0.5 h-full rounded-full transition-colors ${isDragging ? "bg-blue-500" : "bg-neutral-700 group-hover:bg-neutral-500"}`} />
       </div>
 
-      {/* Sessions Panel - Desktop: resizable, Mobile: full when selected */}
+      {/* Sessions Panel - Desktop: resizable, Mobile: full width when selected */}
       <div 
         className={`
           flex flex-col
           ${activeTab === "sessions" ? "flex-1" : "hidden md:flex"}
           h-full min-h-0
+          ${isDesktop ? "flex-none" : ""}
         `}
-        style={isMounted ? { width: `${100 - leftWidth - 0.5}%` } : undefined}
+        style={isDesktop ? { width: `${100 - leftWidth - 0.5}%` } : undefined}
       >
         <div className="flex-1 bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden">
           <SessionList
