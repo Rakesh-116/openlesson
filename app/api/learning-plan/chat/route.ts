@@ -104,7 +104,7 @@ Respond with JSON containing your explanation and the complete updated sessions 
       [systemMessage(SYSTEM_PROMPT), userMessage(prompt)],
       {
         model,
-        maxTokens: 8000,
+        maxTokens: 16000,
         temperature: 0.3,
       }
     );
