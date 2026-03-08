@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+import { callOpenRouterJSON, systemMessage, userMessage, DEFAULT_MODEL } from "@/lib/openrouter-client";
 
 const SYSTEM_PROMPT = `You are an AI Learning Planner assistant. Your role is to help users understand and customize their learning plans.
 
@@ -30,6 +29,13 @@ const SYSTEM_PROMPT = `You are an AI Learning Planner assistant. Your role is to
   - Completed sessions must appear in the sessions array unchanged
   - The "order" field determines the sequence (1 = first session, 2 = second, etc.)
   - If no changes requested, just return current sessions unchanged`;
+
+interface ChatResponse {
+  explanation: string;
+  planModified?: boolean;
+  sessions?: Array<{ id?: string; title: string; description?: string; order?: number }>;
+  questions?: string[];
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -71,17 +77,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch nodes" }, { status: 500 });
     }
 
-    const existingCompletedNodes = nodes.filter((n: any) => n.status === "completed");
-    const activeNodes = nodes.filter((n: any) => n.status !== "completed");
-    
-    const orderedActive = getOrderedSessions(activeNodes);
+    const model = userModel || DEFAULT_MODEL;
 
-    const model = userModel || "google/gemini-2.5-flash";
-
-    // Build conversation history context - include ALL messages for full context
+    // Build conversation history context
     let historyContext = "";
     if (conversationHistory && conversationHistory.length > 0) {
-      historyContext = `\n\nCONVERSATION HISTORY (full):\n${conversationHistory.map((m: any) => 
+      historyContext = `\n\nCONVERSATION HISTORY (full):\n${conversationHistory.map((m: { role: string; content: string }) => 
         `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`
       ).join("\n")}\n`;
     }
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
     const prompt = `Current Learning Plan: "${plan.root_topic}"
 
 CURRENT SESSIONS (include the id for any session you want to keep/modify):
-${nodes.map((n: any, i: number) => `${n.id} | order:${i+1} | ${n.status === "completed" ? "✓ DONE" : "active"} | ${n.title}: ${n.description || "No description"}`).join("\n")}
+${nodes.map((n: { id: string; status: string; title: string; description?: string }, i: number) => `${n.id} | order:${i+1} | ${n.status === "completed" ? "✓ DONE" : "active"} | ${n.title}: ${n.description || "No description"}`).join("\n")}
 
 CONVERSATION HISTORY:${historyContext}
 
@@ -99,70 +100,30 @@ ${plan.description ? `Plan context: ${plan.description}` : ""}
 
 Respond with JSON containing your explanation and the complete updated sessions array.`;
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    
-    if (!apiKey) {
-      return NextResponse.json({ error: "AI service not configured" }, { status: 500 });
-    }
-
-    const aiResponse = await fetch(OPENROUTER_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "openLesson",
-      },
-      body: JSON.stringify({
+    const aiResponse = await callOpenRouterJSON<ChatResponse>(
+      [systemMessage(SYSTEM_PROMPT), userMessage(prompt)],
+      {
         model,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: prompt }
-        ],
-        max_tokens: 2000,
-        temperature: 0.7,
-      }),
-    });
+        maxTokens: 8000,
+        temperature: 0.3,
+      }
+    );
 
-    if (!aiResponse.ok) {
+    if (!aiResponse.success || !aiResponse.data) {
       return NextResponse.json({ error: "Failed to get AI response" }, { status: 500 });
     }
 
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content;
-
-    if (!content) {
-      return NextResponse.json({ error: "No response from AI" }, { status: 500 });
-    }
-
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    let response: {
-      explanation: string;
-      planModified?: boolean;
-      sessions?: Array<{ id?: string; title: string; description?: string; order?: number }>;
-      questions?: string[];
-    } = { explanation: "I've updated your plan.", planModified: false, sessions: [], questions: [] };
-    
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[0]);
-        response = {
-          explanation: parsed.explanation || "I've updated your plan.",
-          planModified: parsed.planModified ?? true,
-          sessions: parsed.sessions || [],
-          questions: parsed.questions || []
-        };
-      } catch {
-        response.explanation = content;
-      }
-    } else {
-      response.explanation = content;
-    }
+    const response = {
+      explanation: aiResponse.data.explanation || "I've updated your plan.",
+      planModified: aiResponse.data.planModified ?? true,
+      sessions: aiResponse.data.sessions || [],
+      questions: aiResponse.data.questions || []
+    };
 
     const llmSessions = response.sessions || [];
-    const existingIds = new Set(nodes.map((n: any) => n.id));
-    const completedNodes = nodes.filter((n: any) => n.status === "completed");
-    const completedIds = new Set(completedNodes.map((n: any) => n.id));
+    const existingIds = new Set(nodes.map((n: { id: string }) => n.id));
+    const completedNodes = nodes.filter((n: { status: string }) => n.status === "completed");
+    const completedIds = new Set(completedNodes.map((n: { id: string }) => n.id));
     
     console.log("[Chat] LLM sessions:", llmSessions.length);
     console.log("[Chat] Existing nodes:", nodes.length);
@@ -173,7 +134,6 @@ Respond with JSON containing your explanation and the complete updated sessions 
       const cleanId = session.id?.replace(/[^a-zA-Z0-9-]/g, "");
       
       if (cleanId && existingIds.has(cleanId) && !completedIds.has(cleanId)) {
-        const existingNode = nodes.find((n: any) => n.id === cleanId);
         await supabase
           .from("plan_nodes")
           .update({
@@ -182,7 +142,7 @@ Respond with JSON containing your explanation and the complete updated sessions 
           })
           .eq("id", cleanId);
         if (session.id) idMap.set(session.id, cleanId);
-      } else if (!completedIds.has(cleanId)) {
+      } else if (cleanId && !completedIds.has(cleanId)) {
         const { data: newNode, error: insertError } = await supabase
           .from("plan_nodes")
           .insert({
@@ -208,7 +168,7 @@ Respond with JSON containing your explanation and the complete updated sessions 
     }).filter(Boolean));
 
     for (const node of nodes) {
-      if (!completedIds.has(node.id) && !llmIds.has(node.id)) {
+      if (!completedIds.has(node.id) && !llmIds.has(node.id as string)) {
         await supabase.from("plan_nodes").delete().eq("id", node.id);
       }
     }
@@ -240,7 +200,7 @@ Respond with JSON containing your explanation and the complete updated sessions 
 
     // Build a summary of the current plan structure
     const orderedAll = getOrderedSessions(updatedNodes || []);
-    const currentPlanSummary = orderedAll.map((n: any, i: number) => 
+    const currentPlanSummary = orderedAll.map((n: { title: string; status?: string }, i: number) => 
       `${i + 1}. ${n.title}${n.status === "completed" ? " ✓" : ""}`
     ).join("\n");
 
@@ -261,11 +221,19 @@ Respond with JSON containing your explanation and the complete updated sessions 
   }
 }
 
-function getOrderedSessions(nodes: any[]): any[] {
+interface PlanNode {
+  id: string;
+  title: string;
+  status?: string;
+  is_start?: boolean;
+  next_node_ids?: string[];
+}
+
+function getOrderedSessions(nodes: PlanNode[]): PlanNode[] {
   if (nodes.length === 0) return [];
   
   const visited = new Set<string>();
-  const ordered: any[] = [];
+  const ordered: typeof nodes = [];
   
   const startNodes = nodes.filter(n => n.is_start);
   const queue = [...startNodes];
@@ -295,103 +263,4 @@ function getOrderedSessions(nodes: any[]): any[] {
   }
   
   return ordered;
-}
-
-function calculateForceDirectedLayout(
-  nodes: any[],
-  edges: { from: string; to: string }[]
-): Map<string, { x: number; y: number }> {
-  const positions = new Map<string, { x: number; y: number }>();
-  
-  if (nodes.length === 0) return positions;
-  
-  const width = 800;
-  const height = 600;
-  const padding = 100;
-  
-  nodes.forEach((node, i) => {
-    if (node.position_x && node.position_y) {
-      positions.set(node.id, { x: node.position_x, y: node.position_y });
-      return;
-    }
-    const angle = (2 * Math.PI * i) / nodes.length - Math.PI / 2;
-    const radius = Math.min(width, height) / 3;
-    positions.set(node.id, {
-      x: width / 2 + Math.cos(angle) * radius,
-      y: height / 2 + Math.sin(angle) * radius,
-    });
-  });
-  
-  const iterations = 30;
-  const repulsion = 4000;
-  const attraction = 0.08;
-  const damping = 0.85;
-  
-  const velocities = new Map<string, { x: number; y: number }>();
-  nodes.forEach((n) => velocities.set(n.id, { x: 0, y: 0 }));
-  
-  for (let iter = 0; iter < iterations; iter++) {
-    const forces = new Map<string, { x: number; y: number }>();
-    nodes.forEach((n) => forces.set(n.id, { x: 0, y: 0 }));
-    
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const posA = positions.get(nodes[i].id)!;
-        const posB = positions.get(nodes[j].id)!;
-        
-        const dx = posB.x - posA.x;
-        const dy = posB.y - posA.y;
-        const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-        
-        const force = repulsion / (dist * dist);
-        const fx = (dx / dist) * force;
-        const fy = (dy / dist) * force;
-        
-        const fA = forces.get(nodes[i].id)!;
-        const fB = forces.get(nodes[j].id)!;
-        fA.x -= fx;
-        fA.y -= fy;
-        fB.x += fx;
-        fB.y += fy;
-      }
-    }
-    
-    for (const edge of edges) {
-      const posA = positions.get(edge.from);
-      const posB = positions.get(edge.to);
-      if (!posA || !posB) continue;
-      
-      const dx = posB.x - posA.x;
-      const dy = posB.y - posA.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      
-      const force = (dist - 120) * attraction;
-      const fx = (dx / dist) * force;
-      const fy = (dy / dist) * force;
-      
-      const fA = forces.get(edge.from)!;
-      const fB = forces.get(edge.to)!;
-      fA.x += fx;
-      fA.y += fy;
-      fB.x -= fx;
-      fB.y -= fy;
-    }
-    
-    for (const node of nodes) {
-      const pos = positions.get(node.id)!;
-      const vel = velocities.get(node.id)!;
-      const force = forces.get(node.id)!;
-      
-      vel.x = (vel.x + force.x) * damping;
-      vel.y = (vel.y + force.y) * damping;
-      
-      pos.x += vel.x;
-      pos.y += vel.y;
-      
-      pos.x = Math.max(padding, Math.min(width - padding, pos.x));
-      pos.y = Math.max(padding, Math.min(height - padding, pos.y));
-    }
-  }
-  
-  return positions;
 }
