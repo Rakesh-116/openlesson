@@ -253,6 +253,7 @@ export default function CertifyPage() {
                   subtitle="Enter a certification and we'll create a structured study plan with milestones."
                   placeholder="Which certification are you preparing for? (e.g., AWS SAA, PMP, CPA)"
                   exampleTopics={["AWS Solutions Architect", "PMP", "CPA", "CompTIA A+", "CISSP", "Google Cloud"]}
+                  showYouTubeTab={false}
                 />
               </div>
             )}

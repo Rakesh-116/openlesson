@@ -234,6 +234,7 @@ export default function HomeschoolPage() {
                   subtitle="Create a structured learning plan aligned with your child's grade level."
                   placeholder="What subject or unit should we plan? (e.g., 4th Grade Math, US History, Biology)"
                   exampleTopics={["4th Grade Math", "US History", "Life Science", "Grammar & Writing", "World Geography", "Chemistry"]}
+                  showYouTubeTab={false}
                 />
               </div>
             )}

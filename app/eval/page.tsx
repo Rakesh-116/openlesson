@@ -229,6 +229,7 @@ export default function EvalPage() {
                   subtitle="Create a structured assessment covering multiple competency areas."
                   placeholder="What skills should this assessment evaluate? (e.g., Backend Engineering, Data Analysis)"
                   exampleTopics={["Backend Engineering", "Data Analysis", "System Design", "Product Management", "DevOps", "Frontend"]}
+                  showYouTubeTab={false}
                 />
               </div>
             )}

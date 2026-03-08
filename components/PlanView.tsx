@@ -7,6 +7,7 @@ import Link from "next/link";
 import { PlanChat } from "@/components/PlanChat";
 import { Navbar } from "@/components/Navbar";
 import { RemixModal } from "@/components/RemixModal";
+import { getYouTubeThumbnail } from "@/lib/youtube";
 
 export interface PlanNode {
   id: string;
@@ -29,6 +30,10 @@ export interface LearningPlan {
   author_username?: string;
   original_plan_id?: string;
   remix_count?: number;
+  // YouTube/source fields
+  source_type?: "topic" | "youtube";
+  source_url?: string;
+  source_summary?: string;
 }
 
 interface PlanViewProps {
@@ -80,7 +85,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
 
       const { data: planData, error: planError } = await supabase
         .from("learning_plans")
-        .select("*, profiles:author_id(username)")
+        .select("*, profiles:author_id(username), source_type, source_url, source_summary")
         .eq("id", planId)
         .single();
 
@@ -161,7 +166,30 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
             : "bg-neutral-900/30 border-neutral-800"
         }`}>
           <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
+            {/* YouTube Thumbnail */}
+            {plan.source_type === "youtube" && plan.source_url && (
+              <a
+                href={plan.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="relative flex-shrink-0 w-32 sm:w-40 aspect-video rounded-lg overflow-hidden group"
+              >
+                <img
+                  src={getYouTubeThumbnail(plan.source_url, "medium") || ""}
+                  alt="Source video thumbnail"
+                  className="w-full h-full object-cover"
+                />
+                {/* Play button overlay */}
+                <div className="absolute inset-0 bg-black/30 group-hover:bg-black/50 transition-colors flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <svg className="w-5 h-5 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
+                </div>
+              </a>
+            )}
+            <div className="flex-1 min-w-0">
               {isEditingTitle ? (
                 <div className="flex items-center gap-2 mb-2">
                   <input
@@ -208,11 +236,11 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                 </div>
               ) : (
                 <div className="flex items-center gap-2 mb-1">
-                  <h2 className="text-lg font-semibold text-white">{plan.root_topic}</h2>
+                  <h2 className="text-lg font-semibold text-white truncate">{plan.root_topic}</h2>
                   {currentUserId && plan.user_id === currentUserId && (
                     <button
                       onClick={() => setIsEditingTitle(true)}
-                      className="text-neutral-500 hover:text-white transition-colors"
+                      className="text-neutral-500 hover:text-white transition-colors flex-shrink-0"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -222,6 +250,14 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                 </div>
               )}
               <div className="flex items-center gap-2 mb-1 flex-wrap">
+                {plan.source_type === "youtube" && (
+                  <span className="inline-flex items-center gap-1 text-red-400 text-xs font-medium">
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                    YouTube
+                  </span>
+                )}
                 {plan.is_public ? (
                   <span className="text-green-400 text-sm font-medium">Public</span>
                 ) : (

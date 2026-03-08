@@ -228,6 +228,7 @@ export default function SchoolsPage() {
                   subtitle="Design a multi-week unit plan for your classroom."
                   placeholder="What unit are you planning? (e.g., Algebra 1 Unit 3, AP Biology Genetics, Essay Writing)"
                   exampleTopics={["Algebra 1", "AP Biology", "US History", "Essay Writing", "Chemistry", "Physics"]}
+                  showYouTubeTab={false}
                 />
               </div>
             )}

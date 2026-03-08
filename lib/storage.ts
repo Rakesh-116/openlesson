@@ -22,6 +22,8 @@ export interface Probe {
   isRevealed?: boolean; // user has clicked to reveal this question
   requestType?: RequestType; // type of request (question, task, suggestion, checkpoint, feedback)
   planStepId?: string; // links to SessionPlanStep.id for step context
+  archived?: boolean; // probe has been resolved/archived
+  focused?: boolean; // user is focusing on this probe for analysis context
 }
 
 // Session Plan types for the Session Planner feature
@@ -121,6 +123,8 @@ function mapDbProbe(p: any): Probe {
     isRevealed: p.is_revealed ?? false,
     requestType: p.request_type ?? "question",
     planStepId: p.plan_step_id ?? undefined,
+    archived: p.archived ?? false,
+    focused: p.focused ?? false,
   };
 }
 
@@ -301,6 +305,39 @@ export async function updateProbeRevealed(probeId: string, isRevealed: boolean):
     .from("probes")
     .update({ is_revealed: isRevealed })
     .eq("id", probeId);
+}
+
+export async function archiveProbe(probeId: string): Promise<void> {
+  const supabase = createClient();
+  await supabase
+    .from("probes")
+    .update({ archived: true })
+    .eq("id", probeId);
+}
+
+export async function unarchiveProbe(probeId: string): Promise<void> {
+  const supabase = createClient();
+  await supabase
+    .from("probes")
+    .update({ archived: false })
+    .eq("id", probeId);
+}
+
+export async function toggleProbeFocused(probeId: string, focused: boolean): Promise<void> {
+  const supabase = createClient();
+  await supabase
+    .from("probes")
+    .update({ focused })
+    .eq("id", probeId);
+}
+
+export async function resetSessionProbes(sessionId: string): Promise<void> {
+  const supabase = createClient();
+  // Delete all probes for this session (keeps audio/EEG data intact)
+  await supabase
+    .from("probes")
+    .delete()
+    .eq("session_id", sessionId);
 }
 
 export async function startSession(sessionId: string): Promise<void> {
@@ -1016,6 +1053,10 @@ export interface LearningPlan {
   author_username?: string;
   remix_count?: number;
   original_plan_id?: string;
+  // YouTube/source fields
+  source_type?: "topic" | "youtube";
+  source_url?: string;
+  source_summary?: string;
 }
 
 export interface PlanNode {
@@ -1120,6 +1161,9 @@ export async function getPlanById(planId: string): Promise<LearningPlan | null> 
       user_id,
       remix_count,
       original_plan_id,
+      source_type,
+      source_url,
+      source_summary,
       profiles:author_id (username)
     `)
     .eq("id", planId)
@@ -1138,6 +1182,9 @@ export async function getPlanById(planId: string): Promise<LearningPlan | null> 
     author_username: data.profiles?.username || "anonymous",
     remix_count: data.remix_count || 0,
     original_plan_id: data.original_plan_id,
+    source_type: data.source_type || "topic",
+    source_url: data.source_url,
+    source_summary: data.source_summary,
   };
 }
 

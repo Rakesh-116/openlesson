@@ -8,6 +8,7 @@ const EMBEDDING_URL = "https://openrouter.ai/api/v1/embeddings";
 
 export const DEFAULT_MODEL = "x-ai/grok-4";
 export const AUDIO_MODEL = "google/gemini-2.5-flash"; // For audio input (Grok doesn't support audio)
+export const VIDEO_MODEL = "google/gemini-2.5-flash"; // For YouTube video processing (native URL support)
 export const EMBEDDING_MODEL = "google/gemini-embedding-001";
 
 // ============================================
@@ -23,7 +24,8 @@ export type MessageContent =
   | { type: "text"; text: string }
   | { type: "image_url"; image_url: { url: string } }
   | { type: "input_audio"; input_audio: { data: string; format: string } }
-  | { type: "file"; file: { filename: string; file_data: string } };
+  | { type: "file"; file: { filename: string; file_data: string } }
+  | { type: "video_url"; video_url: { url: string } };
 
 export interface JsonSchema {
   name: string;
@@ -727,6 +729,53 @@ export async function callOpenRouterWithOptionalAudio(
   // No audio, just text
   const messages: Message[] = [{ role: "user", content: prompt }];
   return callOpenRouter<string>(messages, config);
+}
+
+/**
+ * Build multimodal message content with text and YouTube video URL
+ * OpenRouter requires the video_url content type for video processing
+ */
+export function buildYouTubeContent(prompt: string, youtubeUrl: string): MessageContent[] {
+  return [
+    {
+      type: "video_url",
+      video_url: { url: youtubeUrl },
+    },
+    { type: "text", text: prompt },
+  ];
+}
+
+/**
+ * Call OpenRouter with a YouTube video URL
+ * Uses the video_url content type which OpenRouter routes to Gemini for native
+ * YouTube video processing (frames + audio).
+ * 
+ * Note: Google Gemini on AI Studio only supports YouTube links for video_url.
+ */
+export async function callOpenRouterWithYouTube<T>(
+  prompt: string,
+  youtubeUrl: string,
+  config: Omit<OpenRouterConfig, "responseFormat"> & { responseFormat?: "json" | "json_schema" | "text" }
+): Promise<OpenRouterResponse<T>> {
+  // Build multimodal content with video_url type
+  const content = buildYouTubeContent(prompt, youtubeUrl);
+  const messages: Message[] = [{ role: "user", content }];
+
+  if (config.responseFormat === "text" || !config.responseFormat) {
+    return callOpenRouter<T>(messages, {
+      ...config,
+      model: config.model || VIDEO_MODEL,
+      responseFormat: undefined,
+    });
+  }
+
+  return callOpenRouter<T>(messages, {
+    ...config,
+    model: config.model || VIDEO_MODEL,
+    responseFormat: config.responseFormat as "json" | "json_schema",
+    // Lower temperature for video analysis to ensure consistent structure
+    temperature: Math.min(config.temperature, 0.3),
+  });
 }
 
 // ============================================

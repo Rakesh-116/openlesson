@@ -214,6 +214,7 @@ export default function EnterprisePage() {
                   subtitle="Design a multi-week training curriculum for your team."
                   placeholder="What should the training cover? (e.g., Product knowledge, Sales methodology)"
                   exampleTopics={["Product Knowledge", "Sales Objections", "GDPR Compliance", "Technical Demos", "Onboarding", "Leadership"]}
+                  showYouTubeTab={false}
                 />
               </div>
             )}
