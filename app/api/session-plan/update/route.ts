@@ -16,7 +16,9 @@ export async function POST(request: NextRequest) {
       signals, 
       transcript, 
       trafficLight, 
-      previousProbes 
+      previousProbes,
+      focusedProbes,
+      openProbeCount,
     } = body;
 
     if (!sessionId) {
@@ -58,6 +60,8 @@ export async function POST(request: NextRequest) {
       transcript: transcript || "",
       trafficLight: trafficLight || "yellow",
       previousProbes: previousProbes || [],
+      focusedProbes: focusedProbes || [],
+      openProbeCount: openProbeCount ?? 0,
       promptOverrides,
     });
 
@@ -68,7 +72,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { planChanged, shouldPause, pauseReason, updatedSteps, currentStepIndex, nextRequest, reasoning } = result.result;
+    const { planChanged, shouldPause, pauseReason, updatedSteps, currentStepIndex, nextRequest, probesToArchive, canGenerateProbe, reasoning } = result.result;
 
     // Update plan in database if it changed
     let updatedPlan = currentPlan;
@@ -116,6 +120,8 @@ export async function POST(request: NextRequest) {
       shouldPause,
       pauseReason,
       nextRequest,
+      probesToArchive,
+      canGenerateProbe,
       reasoning,
     });
   } catch (error) {

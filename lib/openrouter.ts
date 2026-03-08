@@ -280,6 +280,15 @@ RECENT OBSERVATIONS:
 - Traffic Light Status: {traffic_light} (red=struggling, yellow=some difficulty, green=progressing well)
 - Requests/Probes Already Presented: {previous_probes}
 
+PROBE MANAGEMENT:
+- Current Open Probes (not archived): {open_probe_count} / 5 maximum
+- Focused Probes (user is actively working on these): {focused_probes}
+
+IMPORTANT CONSTRAINT: There can be a maximum of 5 open (non-archived) probes at any time. If open_probe_count is already 5:
+- You MUST NOT generate a new probe unless you can archive at least one existing probe
+- Evaluate the focused probes and any probes that seem addressed based on the transcript/context
+- If you determine a probe has been adequately addressed, include its ID in "probes_to_archive"
+
 Based on these observations, decide:
 1. Should the plan change? Consider:
    - Is the student stuck on a concept? (might need to add a simpler step or suggestion)
@@ -296,6 +305,12 @@ Based on these observations, decide:
    - This could be the next step in the plan, a modified version, or something adaptive
    - Match the type (question/task/suggestion/checkpoint/feedback) to what the student needs right now
    - Use "feedback" type when giving encouragement, acknowledging progress, or suggesting a break
+   - If at probe cap (5) and cannot archive any, set next_request to null
+
+4. Should any probes be auto-archived?
+   - Check if focused probes have been addressed (evidence in transcript, whiteboard, or actions)
+   - Check if any non-focused probes are clearly resolved
+   - Only archive if there's clear evidence the student has engaged with and addressed the probe
 
 Return ONLY valid JSON:
 {
@@ -307,13 +322,50 @@ Return ONLY valid JSON:
   "next_request": {
     "type": "question" | "task" | "suggestion" | "checkpoint" | "feedback",
     "text": "The actual text to show the student"
-  },
+  } | null,
+  "probes_to_archive": ["probe_id_1", "probe_id_2"],
+  "can_generate_probe": true/false,
   "reasoning": "Brief 1-sentence explanation of your decision"
 }
 
 If plan_changed is false, updated_steps can be omitted or be the same as current steps.
 If should_pause is false, pause_reason can be omitted.
+If no probes should be archived, probes_to_archive should be an empty array.
+Set can_generate_probe to false if at probe cap (5) and cannot archive any.
 The next_request should be ready to display directly to the student - make it engaging and clear.`,
+
+  // ============================================
+  // PROBE ARCHIVE CHECK
+  // ============================================
+
+  check_probe_archive: `You are evaluating whether a probe (guiding question) has been adequately addressed by the student and can be archived.
+
+PROBE TO EVALUATE:
+"{probe_text}"
+
+SESSION CONTEXT:
+- Goal: {session_goal}
+- Recent Transcript: {transcript}
+- Whiteboard/Visual Data: {whiteboard_data}
+- Code/Activity Data: {coding_data}
+
+A probe should be ARCHIVED if:
+1. The student has verbally addressed the question (even partially) showing they've engaged with the underlying concept
+2. Evidence in whiteboard/code shows they've worked through the issue the probe was targeting
+3. The student has moved past this concept to more advanced thinking
+4. The probe is no longer relevant to their current line of inquiry
+
+A probe should NOT be archived if:
+1. There's no evidence the student has engaged with it
+2. The underlying gap the probe was targeting is still present
+3. The student explicitly expressed confusion about this topic recently
+4. Archiving it would leave a critical gap unaddressed
+
+Return ONLY valid JSON:
+{
+  "can_archive": true/false,
+  "reason": "Brief explanation (1-2 sentences) of why this probe can or cannot be archived"
+}`,
 
 } as const;
 
@@ -378,6 +430,10 @@ export const PROMPT_META: Record<PromptKey, { label: string; description: string
   session_plan_update: {
     label: "Session Plan Update",
     description: "Updates the plan during the session based on observations. Variables: {goal}, {strategy}, {steps}, {current_step}, {gap_score}, {signals}, {transcript}, {traffic_light}, {previous_probes}",
+  },
+  check_probe_archive: {
+    label: "Probe Archive Check",
+    description: "Evaluates if a probe can be archived based on student progress. Variables: {probe_text}, {session_goal}, {transcript}, {whiteboard_data}, {coding_data}",
   },
 };
 
@@ -1103,8 +1159,15 @@ export interface SessionPlanUpdateResult {
   pauseReason?: string;
   updatedSteps?: SessionPlanStep[];
   currentStepIndex: number;
-  nextRequest: SessionPlanUpdateRequest;
+  nextRequest: SessionPlanUpdateRequest | null;
+  probesToArchive: string[];
+  canGenerateProbe: boolean;
   reasoning: string;
+}
+
+export interface FocusedProbeInfo {
+  id: string;
+  text: string;
 }
 
 export async function updateSessionPlanLLM(options: {
@@ -1117,11 +1180,18 @@ export async function updateSessionPlanLLM(options: {
   transcript?: string;
   trafficLight: "red" | "yellow" | "green";
   previousProbes: string[];
+  focusedProbes?: FocusedProbeInfo[];
+  openProbeCount?: number;
   promptOverrides?: UserPrompts;
 }): Promise<{ success: boolean; result?: SessionPlanUpdateResult; error?: string }> {
   const stepsText = options.steps.map((s, i) => 
     `${i + 1}. [${s.type}] ${s.description} (status: ${s.status || "pending"})`
   ).join("\n");
+
+  // Format focused probes for the prompt
+  const focusedProbesText = options.focusedProbes && options.focusedProbes.length > 0
+    ? options.focusedProbes.map(p => `- [${p.id}]: "${p.text}"`).join("\n")
+    : "None";
 
   const prompt = getPrompt("session_plan_update", options.promptOverrides)
     .replace("{goal}", options.goal)
@@ -1134,7 +1204,9 @@ export async function updateSessionPlanLLM(options: {
     .replace("{traffic_light}", options.trafficLight)
     .replace("{previous_probes}", options.previousProbes.length > 0
       ? options.previousProbes.map((p, i) => `${i + 1}. ${p}`).join("\n")
-      : "None yet");
+      : "None yet")
+    .replace("{open_probe_count}", (options.openProbeCount ?? 0).toString())
+    .replace("{focused_probes}", focusedProbesText);
 
   interface RawPlanUpdate {
     plan_changed?: boolean;
@@ -1142,7 +1214,9 @@ export async function updateSessionPlanLLM(options: {
     pause_reason?: string;
     updated_steps?: SessionPlanStep[];
     current_step_index?: number;
-    next_request?: { type?: string; text?: string };
+    next_request?: { type?: string; text?: string } | null;
+    probes_to_archive?: string[];
+    can_generate_probe?: boolean;
     reasoning?: string;
   }
 
@@ -1172,12 +1246,66 @@ export async function updateSessionPlanLLM(options: {
       status: step.status || "pending",
     })),
     currentStepIndex: parsed.current_step_index ?? options.currentStepIndex,
-    nextRequest: {
+    nextRequest: parsed.next_request === null ? null : {
       type: (parsed.next_request?.type as SessionPlanUpdateRequest["type"]) || "question",
       text: parsed.next_request?.text || "What are you thinking about right now?",
     },
+    probesToArchive: parsed.probes_to_archive || [],
+    canGenerateProbe: parsed.can_generate_probe ?? true,
     reasoning: parsed.reasoning || "",
   };
 
   return { success: true, result };
+}
+
+// ============================================
+// PROBE ARCHIVE CHECK
+// ============================================
+
+export interface ProbeArchiveCheckResult {
+  canArchive: boolean;
+  reason: string;
+}
+
+export async function checkProbeArchivable(options: {
+  probeText: string;
+  sessionGoal: string;
+  transcript?: string;
+  whiteboardData?: string;
+  codingData?: string;
+  promptOverrides?: UserPrompts;
+}): Promise<{ success: boolean; result?: ProbeArchiveCheckResult; error?: string }> {
+  const prompt = getPrompt("check_probe_archive", options.promptOverrides)
+    .replace("{probe_text}", options.probeText)
+    .replace("{session_goal}", options.sessionGoal || "Not specified")
+    .replace("{transcript}", options.transcript || "No recent transcript available")
+    .replace("{whiteboard_data}", options.whiteboardData || "No whiteboard data")
+    .replace("{coding_data}", options.codingData || "No coding data");
+
+  interface RawArchiveCheck {
+    can_archive?: boolean;
+    reason?: string;
+  }
+
+  const response = await callOpenRouterJSON<RawArchiveCheck>(
+    [userMessage(prompt)],
+    {
+      model: MODEL,
+      maxTokens: 300,
+      temperature: 0.2,
+    }
+  );
+
+  if (!response.success || !response.data) {
+    return { success: false, error: response.error || "Archive check failed" };
+  }
+
+  const parsed = response.data;
+  return {
+    success: true,
+    result: {
+      canArchive: parsed.can_archive ?? false,
+      reason: parsed.reason || "Unable to determine",
+    },
+  };
 }

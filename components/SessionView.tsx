@@ -26,6 +26,9 @@ import {
   updateSessionStatus,
   logToolUsage,
   getSessionPlan,
+  archiveProbe,
+  toggleProbeFocused,
+  resetSessionProbes,
   type Session,
   type SessionPlan,
   type Probe,
@@ -35,6 +38,7 @@ import {
   type ToolAction,
   type RequestType,
 } from "@/lib/storage";
+import { playArchiveSound } from "@/lib/sounds";
 import { formatTime } from "@/lib/utils";
 import { AudioVisualizer, RecordingIndicator } from "./AudioVisualizer";
 import { ActiveProbe } from "./ActiveProbe";
@@ -136,6 +140,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [trafficLight, setTrafficLight] = useState<"red" | "yellow" | "green">("green");
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [stuckLoading, setStuckLoading] = useState(false);
+
+  // Archive/Focus probe state
+  const [archivingProbeId, setArchivingProbeId] = useState<string | null>(null);
 
   // Mobile tabs
   const [mobileTab, setMobileTab] = useState<"main" | "canvas" | "notes" | "questions" | "prep">("main");
@@ -759,6 +766,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       const currentPlan = sessionPlanRef.current;
       let nextRequestText: string | null = null;
       let nextRequestType: RequestType = "question";
+      let canGenerateProbe = true;
+      
+      // Calculate open (non-archived) probes and focused probes
+      const openProbes = currentSession.probes.filter(p => !p.archived);
+      const focusedProbes = openProbes.filter(p => p.focused).map(p => ({ id: p.id, text: p.text }));
+      const openProbeCount = openProbes.length;
       
       if (currentPlan) {
         try {
@@ -772,6 +785,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               transcript: gapData.transcript || "",
               trafficLight: trafficLightRef.current,
               previousProbes: currentSession.probes.map((p) => p.text),
+              focusedProbes,
+              openProbeCount,
             }),
           });
           
@@ -783,6 +798,30 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               setSessionPlan(planData.plan);
               sessionPlanRef.current = planData.plan;
             }
+            
+            // Handle auto-archiving of resolved probes
+            if (planData.probesToArchive && planData.probesToArchive.length > 0) {
+              let updatedSession = currentSession;
+              for (const probeId of planData.probesToArchive) {
+                await archiveProbe(probeId);
+                updatedSession = {
+                  ...updatedSession,
+                  probes: updatedSession.probes.map(p => 
+                    p.id === probeId ? { ...p, archived: true } : p
+                  ),
+                };
+              }
+              setSession(updatedSession);
+              sessionRef.current = updatedSession;
+              
+              // Play success sound for auto-archive
+              if (planData.probesToArchive.length > 0) {
+                playArchiveSound();
+              }
+            }
+            
+            // Update canGenerateProbe flag
+            canGenerateProbe = planData.canGenerateProbe !== false;
             
             // Check if LLM wants to pause the session
             if (planData.shouldPause) {
@@ -799,7 +838,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                 planStepId: currentStep?.id,
               });
               
-              const updatedSession = addProbeToSession(currentSession, pauseProbe);
+              const sessionForUpdate = sessionRef.current || currentSession;
+              const updatedSession = addProbeToSession(sessionForUpdate, pauseProbe);
               setSession(updatedSession);
               sessionRef.current = updatedSession;
               setActiveProbe(pauseProbe);
@@ -838,7 +878,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         }
       }
       
-      if (gapData.gapScore >= threshold) {
+      // Check if we can generate a new probe (respect 5-probe cap)
+      const currentOpenProbeCount = (sessionRef.current?.probes || currentSession.probes).filter(p => !p.archived).length;
+      const shouldGenerateProbe = gapData.gapScore >= threshold && canGenerateProbe && currentOpenProbeCount < 5;
+      
+      if (shouldGenerateProbe) {
         // Use plan-provided request or fall back to generating one
         let probeText = nextRequestText;
         let requestType: RequestType = nextRequestType;
@@ -1476,6 +1520,135 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     setMuteRemaining(durationMs);
     if (muteTimerRef.current) clearTimeout(muteTimerRef.current);
     muteTimerRef.current = setTimeout(() => { setIsMuted(false); setMuteRemaining(0); }, durationMs);
+  };
+
+  // Reset session - deletes probes but keeps data chunks
+  const handleReset = async () => {
+    if (!session) return;
+    
+    try {
+      // Clear probes from database
+      await resetSessionProbes(session.id);
+      
+      // Clear local probe state
+      const resetSession = { ...session, probes: [] };
+      setSession(resetSession);
+      sessionRef.current = resetSession;
+      setActiveProbe(null);
+      setViewingProbeIndex(-1);
+      
+      // Reset probe-related refs
+      lastProbeTimeRef.current = 0;
+    } catch (err) {
+      console.error("Reset session error:", err);
+    }
+  };
+
+  // Close session - navigate to dashboard without ending
+  const handleClose = () => {
+    // Session stays paused, just navigate away
+    router.push("/");
+  };
+
+  // Archive a probe with LLM validation
+  const handleArchiveProbe = async (probeId: string) => {
+    if (!session) return;
+    
+    const probe = session.probes.find(p => p.id === probeId);
+    if (!probe) return;
+    
+    setArchivingProbeId(probeId);
+    
+    try {
+      // Get current context for LLM check
+      const recorder = recorderRef.current;
+      let transcript = "";
+      
+      if (recorder) {
+        const recentAudio = recorder.getRecentAudio(30000);
+        if (recentAudio && recentAudio.size > 1000) {
+          const audioBase64 = await blobToBase64(recentAudio);
+          const audioFormat = recorder.getAudioFormat();
+          const gapRes = await fetch("/api/analyze-gap", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              audioBase64, 
+              audioFormat, 
+              problem: session.problem,
+              whiteboardData: whiteboardDataRef.current,
+            }),
+          });
+          if (gapRes.ok) {
+            const gapData = await gapRes.json();
+            transcript = gapData.transcript || "";
+          }
+        }
+      }
+
+      // Check with LLM if probe can be archived
+      const checkRes = await fetch("/api/check-probe-archive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          probeId,
+          probeText: probe.text,
+          sessionId: session.id,
+          sessionGoal: sessionPlan?.goal || session.problem,
+          transcript,
+          whiteboardData: whiteboardDataRef.current,
+          codingData,
+        }),
+      });
+
+      if (checkRes.ok) {
+        const result = await checkRes.json();
+        
+        if (result.canArchive) {
+          // Archive the probe
+          await archiveProbe(probeId);
+          
+          // Update local state
+          const updatedProbes = session.probes.map(p => 
+            p.id === probeId ? { ...p, archived: true } : p
+          );
+          const updatedSession = { ...session, probes: updatedProbes };
+          setSession(updatedSession);
+          sessionRef.current = updatedSession;
+          
+          // Play success sound
+          playArchiveSound();
+        } else {
+          // Show reason why it can't be archived (could use a toast here)
+          console.log("Cannot archive probe:", result.reason);
+          // For now, we'll just log it - could add a toast notification
+        }
+      }
+    } catch (err) {
+      console.error("Archive probe error:", err);
+    } finally {
+      // Delay clearing to allow animation to complete
+      setTimeout(() => setArchivingProbeId(null), 500);
+    }
+  };
+
+  // Toggle focus on a probe
+  const handleToggleFocus = async (probeId: string, focused: boolean) => {
+    if (!session) return;
+    
+    try {
+      await toggleProbeFocused(probeId, focused);
+      
+      // Update local state
+      const updatedProbes = session.probes.map(p => 
+        p.id === probeId ? { ...p, focused } : p
+      );
+      const updatedSession = { ...session, probes: updatedProbes };
+      setSession(updatedSession);
+      sessionRef.current = updatedSession;
+    } catch (err) {
+      console.error("Toggle focus error:", err);
+    }
   };
 
   const [forcingProbe, setForcingProbe] = useState(false);
@@ -2227,6 +2400,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   elapsedSeconds={elapsedSeconds}
                   cycleProgress={elapsedSeconds % 60}
                   isAnalyzing={isAnalyzing}
+                  onArchiveProbe={handleArchiveProbe}
+                  onToggleFocus={handleToggleFocus}
+                  onReset={handleReset}
+                  onClose={handleClose}
+                  archivingProbeId={archivingProbeId}
                 />
               }
             />
@@ -2300,6 +2478,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   elapsedSeconds={elapsedSeconds}
                   cycleProgress={elapsedSeconds % 60}
                   isAnalyzing={isAnalyzing}
+                  onArchiveProbe={handleArchiveProbe}
+                  onToggleFocus={handleToggleFocus}
+                  onReset={handleReset}
+                  onClose={handleClose}
+                  archivingProbeId={archivingProbeId}
                 />
               )}
               {mobileTab === "prep" && (
