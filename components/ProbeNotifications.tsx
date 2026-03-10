@@ -198,7 +198,12 @@ export function ProbeNotifications({
       {/* Probes/Plan Split View - Scrollable Middle Section */}
       <div className="flex gap-2 flex-1 min-h-0 overflow-hidden px-3 py-2">
         {/* Left side - Probes */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden p-4">
+            {/* Section Title */}
+            <div className="mb-6 shrink-0">
+              <h2 className="text-lg font-semibold text-white mb-1">Guiding Tasks</h2>
+              <p className="text-xs text-neutral-500">Questions and suggestions to guide your learning</p>
+            </div>
             {/* Active/Archived Toggle */}
             <div className="flex items-center gap-2 mb-2 shrink-0">
               <div className="flex rounded-md overflow-hidden border border-neutral-700">
