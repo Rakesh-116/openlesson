@@ -463,10 +463,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         try {
           // First try to load existing plan
           const existingPlan = await getSessionPlan(s.id);
-          if (existingPlan) {
+          // Validate existing plan before using
+          if (existingPlan && existingPlan.steps && Array.isArray(existingPlan.steps) && existingPlan.steps.length > 0 && existingPlan.goal) {
             setSessionPlan(existingPlan);
             sessionPlanRef.current = existingPlan;
-          } else {
+          } else if (existingPlan) {
+            console.warn("Loaded existing plan is invalid, will create new one:", existingPlan);
+          }
+          
+          if (!existingPlan || !existingPlan.steps || !Array.isArray(existingPlan.steps) || existingPlan.steps.length === 0 || !existingPlan.goal) {
             // Create new plan
             const planRes = await fetch("/api/session-plan/create", {
               method: "POST",
@@ -481,8 +486,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             if (!cancelled) {
               if (planRes.ok) {
                 const { plan } = await planRes.json();
-                setSessionPlan(plan);
-                sessionPlanRef.current = plan;
+                // Validate plan before setting
+                if (plan && plan.steps && Array.isArray(plan.steps) && plan.steps.length > 0 && plan.goal) {
+                  setSessionPlan(plan);
+                  sessionPlanRef.current = plan;
+                } else {
+                  console.warn("Session plan creation returned invalid data:", plan);
+                  setPlanError("Failed to create valid session plan");
+                }
               } else {
                 const errorData = await planRes.json().catch(() => ({}));
                 setPlanError(errorData.error || "Failed to create session plan");
@@ -784,8 +795,18 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       const openProbeCount = openProbes.length;
       
       if (currentPlan) {
-        try {
-          const planUpdateRes = await fetch("/api/session-plan/update", {
+        // Helper to validate plan data
+        const isValidPlan = (plan: SessionPlan | null | undefined): boolean => {
+          return !!(plan && 
+            plan.steps && 
+            Array.isArray(plan.steps) && 
+            plan.steps.length > 0 &&
+            plan.goal);
+        };
+
+        // Helper to fetch plan update
+        const fetchPlanUpdate = async () => {
+          const res = await fetch("/api/session-plan/update", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -799,21 +820,28 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               openProbeCount,
             }),
           });
+          if (!res.ok) return null;
+          return res.json();
+        };
+
+        try {
+          let planData = await fetchPlanUpdate();
           
-          if (planUpdateRes.ok) {
-            const planData = await planUpdateRes.json();
-            
+          // If plan is corrupted, retry once
+          if (planData && !isValidPlan(planData.plan)) {
+            console.warn('[Plan Update] Received corrupted plan, retrying...', planData.plan);
+            await new Promise(resolve => setTimeout(resolve, 500)); // Brief delay before retry
+            planData = await fetchPlanUpdate();
+          }
+          
+          if (planData) {
             // Update local plan state (with validation to prevent corruption)
-            if (planData.plan && 
-                planData.plan.steps && 
-                Array.isArray(planData.plan.steps) && 
-                planData.plan.steps.length > 0 &&
-                planData.plan.goal) {
+            if (isValidPlan(planData.plan)) {
               setSessionPlan(planData.plan);
               sessionPlanRef.current = planData.plan;
             } else if (planData.plan) {
-              // Log corruption for debugging
-              console.warn('[Plan Update] Received corrupted plan, keeping previous state:', planData.plan);
+              // Log corruption for debugging, keep previous state
+              console.warn('[Plan Update] Plan still corrupted after retry, keeping previous state:', planData.plan);
             }
             
             // Handle auto-archiving of resolved probes
@@ -1860,8 +1888,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       
       if (planRes.ok) {
         const { plan } = await planRes.json();
-        setSessionPlan(plan);
-        sessionPlanRef.current = plan;
+        // Validate plan before updating
+        if (plan && plan.steps && Array.isArray(plan.steps) && plan.steps.length > 0 && plan.goal) {
+          setSessionPlan(plan);
+          sessionPlanRef.current = plan;
+        } else {
+          console.warn('[Plan Recalculate] Received corrupted plan, keeping previous state:', plan);
+          setPlanError("Plan regeneration returned invalid data. Please try again.");
+        }
       } else {
         const errorData = await planRes.json().catch(() => ({}));
         setPlanError(errorData.error || "Failed to regenerate session plan");
