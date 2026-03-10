@@ -284,6 +284,13 @@ PROBE MANAGEMENT:
 - Current Open Probes (not archived): {open_probe_count} / 5 maximum
 - Focused Probes (user is actively working on these): {focused_probes}
 
+AVAILABLE ILE TOOLS (for tool suggestions):
+- chat: Teaching Assistant - Get Socratic guidance from the AI tutor
+- canvas: Canvas - Draw diagrams, visualizations, or work through problems visually
+- notebook: Notebook - Write down thoughts, insights, and notes
+- coding: Coding - Write and run code to test ideas and implementations
+- grokipedia: Grokipedia - Search external knowledge sources
+
 IMPORTANT CONSTRAINT: There can be a maximum of 5 open (non-archived) probes at any time. If open_probe_count is already 5:
 - You MUST NOT generate a new probe unless you can archive at least one existing probe
 - Evaluate the focused probes and any probes that seem addressed based on the transcript/context
@@ -306,6 +313,7 @@ Based on these observations, decide:
    - Match the type (question/task/suggestion/checkpoint/feedback) to what the student needs right now
    - Use "feedback" type when giving encouragement, acknowledging progress, or suggesting a break
    - If at probe cap (5) and cannot archive any, set next_request to null
+   - For "task" type requests, consider which ILE tools would help and include 1-2 suggested_tools
 
 4. Should any probes be auto-archived?
    - Check if focused probes have been addressed (evidence in transcript, whiteboard, or actions)
@@ -321,7 +329,8 @@ Return ONLY valid JSON:
   "current_step_index": <number>,
   "next_request": {
     "type": "question" | "task" | "suggestion" | "checkpoint" | "feedback",
-    "text": "The actual text to show the student"
+    "text": "The actual text to show the student",
+    "suggested_tools": ["canvas", "coding"]
   } | null,
   "probes_to_archive": ["probe_id_1", "probe_id_2"],
   "can_generate_probe": true/false,
@@ -332,7 +341,8 @@ If plan_changed is false, updated_steps can be omitted or be the same as current
 If should_pause is false, pause_reason can be omitted.
 If no probes should be archived, probes_to_archive should be an empty array.
 Set can_generate_probe to false if at probe cap (5) and cannot archive any.
-The next_request should be ready to display directly to the student - make it engaging and clear.`,
+The next_request should be ready to display directly to the student - make it engaging and clear.
+suggested_tools is optional - only include it for "task" or "suggestion" types where specific tools would help. Use tool IDs from the list above (chat, canvas, notebook, coding, grokipedia).`,
 
   // ============================================
   // PROBE ARCHIVE CHECK

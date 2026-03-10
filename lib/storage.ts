@@ -24,6 +24,7 @@ export interface Probe {
   planStepId?: string; // links to SessionPlanStep.id for step context
   archived?: boolean; // probe has been resolved/archived
   focused?: boolean; // user is focusing on this probe for analysis context
+  suggestedTools?: ToolName[]; // ILE tools that would help with this probe (ephemeral, not persisted)
 }
 
 // Session Plan types for the Session Planner feature
@@ -262,6 +263,12 @@ export async function addProbe(
   sessionId: string,
   probe: Omit<Probe, "id">
 ): Promise<Probe> {
+  // Validate that probe text is not empty
+  const probeText = probe.text?.trim();
+  if (!probeText) {
+    throw new Error("Cannot create probe with empty text");
+  }
+
   const supabase = createClient();
 
   const { data, error } = await supabase
@@ -271,7 +278,7 @@ export async function addProbe(
       timestamp_ms: probe.timestamp,
       gap_score: probe.gapScore,
       signals: probe.signals,
-      text: probe.text,
+      text: probeText,
       expanded_text: probe.expandedText || null,
       request_type: probe.requestType || "question",
       plan_step_id: probe.planStepId || null,

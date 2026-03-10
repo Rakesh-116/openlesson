@@ -139,6 +139,22 @@ export function WhiteboardCanvas({ onCanvasChange, initialData }: WhiteboardCanv
     return () => window.removeEventListener("resize", resizeCanvas);
   }, []);
 
+  // Restore canvas from initialData when component mounts
+  useEffect(() => {
+    if (!initialData) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const img = new Image();
+    img.onload = () => {
+      // Draw the saved image onto the canvas
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    };
+    img.src = initialData;
+  }, [initialData]);
+
   const colors = ["#ffffff", "#22c55e", "#3b82f6", "#ef4444"];
 
   return (

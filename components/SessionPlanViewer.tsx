@@ -8,10 +8,28 @@ interface SessionPlanViewerProps {
   loading?: boolean;
   error?: string | null;
   onRecalculate?: () => Promise<void>;
+  originalPrompt?: string;
 }
 
-export function SessionPlanViewer({ plan, loading, error, onRecalculate }: SessionPlanViewerProps) {
+export function SessionPlanViewer({ plan, loading, error, onRecalculate, originalPrompt }: SessionPlanViewerProps) {
   const [recalculating, setRecalculating] = useState(false);
+  const [promptExpanded, setPromptExpanded] = useState(false);
+  const [goalExpanded, setGoalExpanded] = useState(false);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [strategyExpanded, setStrategyExpanded] = useState(false);
+  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
+
+  const toggleStep = (stepId: string) => {
+    setExpandedSteps(prev => {
+      const next = new Set(prev);
+      if (next.has(stepId)) {
+        next.delete(stepId);
+      } else {
+        next.add(stepId);
+      }
+      return next;
+    });
+  };
 
   const handleRecalculate = async () => {
     if (!onRecalculate || recalculating) return;
@@ -23,7 +41,14 @@ export function SessionPlanViewer({ plan, loading, error, onRecalculate }: Sessi
     }
   };
 
-  const isCorrupted = plan && (!plan.steps || plan.steps.length === 0);
+  // Enhanced validation - check for various corruption states
+  const isCorrupted = plan && (
+    !plan.steps || 
+    !Array.isArray(plan.steps) || 
+    plan.steps.length === 0 ||
+    !plan.goal
+  );
+  
   if (loading) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-6">
@@ -162,55 +187,101 @@ export function SessionPlanViewer({ plan, loading, error, onRecalculate }: Sessi
         </p>
       </div>
 
-      {/* Goal */}
-      <div className="mb-6 p-4 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20">
-        <div className="flex items-center gap-2 mb-2">
+      {/* Original Prompt - Collapsible */}
+      {originalPrompt && (
+        <div className="mb-4">
+          <button
+            onClick={() => setPromptExpanded(!promptExpanded)}
+            className="flex items-center gap-2 w-full text-left text-xs text-neutral-500 hover:text-neutral-400 transition-colors"
+          >
+            <svg
+              className={`w-3 h-3 transition-transform ${promptExpanded ? "rotate-90" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            <span className="font-medium uppercase tracking-wider">Original Prompt</span>
+          </button>
+          {promptExpanded && (
+            <div className="mt-2 ml-5 p-3 rounded-lg bg-neutral-800/30 border border-neutral-700/30">
+              <p className="text-xs text-neutral-400 leading-relaxed whitespace-pre-wrap">{originalPrompt}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Goal - Collapsible */}
+      <div className="mb-4">
+        <button
+          onClick={() => setGoalExpanded(!goalExpanded)}
+          className="flex items-center gap-2 w-full text-left text-xs text-neutral-500 hover:text-neutral-400 transition-colors"
+        >
           <svg
-            className="w-4 h-4 text-cyan-400"
+            className={`w-3 h-3 transition-transform ${goalExpanded ? "rotate-90" : ""}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 10V3L4 14h7v7l9-11h-7z"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
-          <span className="text-xs font-medium text-cyan-400 uppercase tracking-wider">
-            Goal
-          </span>
-        </div>
-        <p className="text-sm text-white leading-relaxed">{plan.goal}</p>
+          <span className="font-medium uppercase tracking-wider">Goal</span>
+        </button>
+        {goalExpanded && (
+          <div className="mt-2 ml-5 p-3 rounded-lg bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20">
+            <p className="text-sm text-white leading-relaxed">{plan.goal}</p>
+          </div>
+        )}
       </div>
 
-      {/* Description (if available) */}
+      {/* Description - Collapsible (if available) */}
       {plan.description && (
-        <div className="mb-4 p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/50">
-          <p className="text-sm text-neutral-300 leading-relaxed">{plan.description}</p>
+        <div className="mb-4">
+          <button
+            onClick={() => setDescriptionExpanded(!descriptionExpanded)}
+            className="flex items-center gap-2 w-full text-left text-xs text-neutral-500 hover:text-neutral-400 transition-colors"
+          >
+            <svg
+              className={`w-3 h-3 transition-transform ${descriptionExpanded ? "rotate-90" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            <span className="font-medium uppercase tracking-wider">Description</span>
+          </button>
+          {descriptionExpanded && (
+            <div className="mt-2 ml-5 p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/50">
+              <p className="text-sm text-neutral-300 leading-relaxed">{plan.description}</p>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Strategy (collapsible) */}
+      {/* Strategy - Collapsible */}
       {plan.strategy && (
-        <div className="mb-6">
-          <details className="group">
-            <summary className="flex items-center gap-2 cursor-pointer text-xs text-neutral-500 hover:text-neutral-400 transition-colors">
-              <svg
-                className="w-3 h-3 transition-transform group-open:rotate-90"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-              Strategy
-            </summary>
-            <p className="text-xs text-neutral-400 mt-2 pl-5 leading-relaxed">
-              {plan.strategy}
-            </p>
-          </details>
+        <div className="mb-4">
+          <button
+            onClick={() => setStrategyExpanded(!strategyExpanded)}
+            className="flex items-center gap-2 w-full text-left text-xs text-neutral-500 hover:text-neutral-400 transition-colors"
+          >
+            <svg
+              className={`w-3 h-3 transition-transform ${strategyExpanded ? "rotate-90" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            <span className="font-medium uppercase tracking-wider">Strategy</span>
+          </button>
+          {strategyExpanded && (
+            <div className="mt-2 ml-5 p-3 rounded-lg bg-neutral-800/30 border border-neutral-700/30">
+              <p className="text-xs text-neutral-400 leading-relaxed">{plan.strategy}</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -231,12 +302,66 @@ export function SessionPlanViewer({ plan, loading, error, onRecalculate }: Sessi
       </div>
 
       {/* Steps list */}
-      <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+      <div className="flex-1 overflow-y-auto space-y-1 pr-1">
         {plan.steps.map((step, idx) => {
           const isActive = step.status === "in_progress";
           const isCompleted = step.status === "completed";
           const isSkipped = step.status === "skipped";
+          const isExpanded = expandedSteps.has(step.id) || (isActive && !expandedSteps.has(step.id + "_collapsed"));
 
+          // Collapsed view
+          if (!isExpanded) {
+            return (
+              <button
+                key={step.id}
+                onClick={() => toggleStep(step.id)}
+                className={`relative w-full px-3 py-2 rounded-lg border transition-all text-left ${
+                  isActive
+                    ? "bg-cyan-500/10 border-cyan-500/30"
+                    : isCompleted
+                    ? "bg-green-500/5 border-green-500/20"
+                    : isSkipped
+                    ? "bg-neutral-800/30 border-neutral-700/30 opacity-50"
+                    : "bg-neutral-900/50 border-neutral-800 hover:border-neutral-700"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <svg
+                    className="w-3 h-3 text-neutral-500 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${statusColors[step.status]}`} />
+                  <span className={`${isActive ? "text-cyan-400" : isCompleted ? "text-green-400" : "text-neutral-500"}`}>
+                    {typeIcons[step.type] || typeIcons.question}
+                  </span>
+                  <span className="text-[10px] text-neutral-600">#{idx + 1}</span>
+                  <span className={`text-xs truncate flex-1 ${
+                    isSkipped ? "line-through text-neutral-600" : 
+                    isActive ? "text-white" :
+                    isCompleted ? "text-neutral-500" : "text-neutral-400"
+                  }`}>
+                    {step.description}
+                  </span>
+                  {isActive && (
+                    <span className="shrink-0 px-2 py-0.5 text-[10px] font-medium bg-cyan-500/20 text-cyan-400 rounded-full">
+                      Current
+                    </span>
+                  )}
+                  {isCompleted && (
+                    <svg className="shrink-0 w-3.5 h-3.5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+              </button>
+            );
+          }
+
+          // Expanded view
           return (
             <div
               key={step.id}
@@ -247,22 +372,34 @@ export function SessionPlanViewer({ plan, loading, error, onRecalculate }: Sessi
                   ? "bg-green-500/5 border-green-500/20"
                   : isSkipped
                   ? "bg-neutral-800/30 border-neutral-700/30 opacity-50"
-                  : "bg-neutral-900/50 border-neutral-800 hover:border-neutral-700"
+                  : "bg-neutral-900/50 border-neutral-800"
               }`}
             >
-              {/* Step number indicator */}
-              <div className="absolute -left-px top-1/2 -translate-y-1/2 -translate-x-1/2 w-px h-full" />
-              
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-2">
+                {/* Collapse button */}
+                <button
+                  onClick={() => isActive ? toggleStep(step.id + "_collapsed") : toggleStep(step.id)}
+                  className="shrink-0 mt-0.5 text-neutral-500 hover:text-neutral-400"
+                >
+                  <svg
+                    className="w-3 h-3 rotate-90"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+
                 {/* Status indicator */}
-                <div className="shrink-0 mt-1">
+                <div className="shrink-0 mt-1.5">
                   <div className={`w-2 h-2 rounded-full ${statusColors[step.status]}`} />
                 </div>
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className={`${isCompleted ? "text-green-400" : isActive ? "text-cyan-400" : "text-neutral-500"}`}>
+                    <span className={`${isActive ? "text-cyan-400" : isCompleted ? "text-green-400" : "text-neutral-500"}`}>
                       {typeIcons[step.type] || typeIcons.question}
                     </span>
                     <span className="text-[10px] font-medium uppercase tracking-wider text-neutral-500">

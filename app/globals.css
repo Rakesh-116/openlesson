@@ -117,3 +117,46 @@ body {
 .animate-glow-pulse {
   animation: glow-pulse 1.5s ease-in-out infinite;
 }
+
+/* KaTeX math rendering fixes */
+.prose .katex {
+  font-size: 1em;
+  color: inherit;
+}
+
+.prose .katex-display {
+  margin: 1em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.prose .katex-display > .katex {
+  white-space: normal;
+}
+
+/* Ensure KaTeX elements are visible */
+.katex .base {
+  display: inline-block;
+}
+
+.katex .strut {
+  display: inline-block;
+}
+
+/* Fix math rendering in dark mode */
+.prose-invert .katex {
+  color: inherit;
+}
+
+/* Prevent prose from hiding math elements */
+.prose code.katex,
+.prose pre.katex {
+  background: transparent;
+  padding: 0;
+  border: none;
+}
+
+/* Inline math spacing */
+.prose .math-inline {
+  margin: 0 0.15em;
+}

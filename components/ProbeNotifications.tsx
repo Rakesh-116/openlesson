@@ -1,9 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
-import { type Probe, type SessionPlan, type RequestType } from "@/lib/storage";
+import { type Probe, type SessionPlan, type RequestType, type ToolName } from "@/lib/storage";
+import { SessionPlanViewer } from "./SessionPlanViewer";
 
 const MAX_OPEN_PROBES = 5;
+
+// Tool labels for display
+const TOOL_LABELS: Record<string, string> = {
+  chat: "Teaching Assistant",
+  canvas: "Canvas",
+  notebook: "Notebook",
+  coding: "Coding",
+  grokipedia: "Grokipedia",
+  plan: "Session Plan",
+  rag: "RAG Matches",
+  exercise: "Practice",
+  reading: "Theory",
+  help: "Help",
+};
 
 interface ProbeNotificationsProps {
   sessionId: string;
@@ -19,19 +34,22 @@ interface ProbeNotificationsProps {
   onPause?: () => void;
   onResume?: () => void;
   onGetFeedback?: () => void;
-  onImStuck?: () => void;
   onArchiveProbe?: (probeId: string) => Promise<void>;
   onToggleFocus?: (probeId: string, focused: boolean) => void;
+  onToolSelect?: (tool: ToolName) => void;
   onReset?: () => void;
   onClose?: () => void;
   feedbackLoading?: boolean;
-  stuckLoading?: boolean;
   showControls?: boolean;
   elapsedSeconds?: number;
   cycleProgress?: number;
   isAnalyzing?: boolean;
   feedbackItems?: Array<{ id: string; text: string; timestamp: number }>;
   archivingProbeId?: string | null;
+  planLoading?: boolean;
+  planError?: string | null;
+  onRecalculate?: () => Promise<void>;
+  originalPrompt?: string;
 }
 
 // Type badge styling based on request type
@@ -66,19 +84,22 @@ export function ProbeNotifications({
   onPause,
   onResume,
   onGetFeedback,
-  onImStuck,
   onArchiveProbe,
   onToggleFocus,
+  onToolSelect,
   onReset,
   onClose,
   feedbackLoading,
-  stuckLoading,
   showControls = true,
   elapsedSeconds = 0,
   cycleProgress = 0,
   isAnalyzing = false,
   feedbackItems = [],
   archivingProbeId,
+  planLoading,
+  planError,
+  onRecalculate,
+  originalPrompt,
 }: ProbeNotificationsProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<"active" | "archived">("active");
@@ -128,7 +149,7 @@ export function ProbeNotifications({
   return (
     <div className="flex-1 min-w-0 flex flex-col bg-[#0a0a0a] h-full">
       {/* Header */}
-      <div className="px-3 py-2 border-b border-neutral-800 shrink-0 space-y-2">
+      <div className="px-3 py-2 border-b border-neutral-800 shrink-0">
         <div>
           <h2 className="text-xs font-medium text-white uppercase tracking-wider mb-1">
             Student Monitoring
@@ -139,7 +160,7 @@ export function ProbeNotifications({
         </div>
 
         {/* Probe Slots - Game-like UI */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mt-2">
           <div className="flex gap-1">
             {[0, 1, 2, 3, 4].map((i) => {
               const isFilled = i < openProbeCount;
@@ -172,80 +193,84 @@ export function ProbeNotifications({
             </span>
           )}
         </div>
-
-        {/* View Toggle */}
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-md overflow-hidden border border-neutral-700">
-            <button
-              onClick={() => setViewMode("active")}
-              className={`px-2 py-1 text-[10px] font-medium transition-colors ${
-                viewMode === "active"
-                  ? "bg-cyan-500/20 text-cyan-400"
-                  : "bg-transparent text-neutral-500 hover:text-neutral-400"
-              }`}
-            >
-              Active ({activeProbes.length})
-            </button>
-            <button
-              onClick={() => setViewMode("archived")}
-              className={`px-2 py-1 text-[10px] font-medium transition-colors ${
-                viewMode === "archived"
-                  ? "bg-cyan-500/20 text-cyan-400"
-                  : "bg-transparent text-neutral-500 hover:text-neutral-400"
-              }`}
-            >
-              Archived ({archivedProbes.length})
-            </button>
-          </div>
-
-          {/* Search - Only in Archived view */}
-          {viewMode === "archived" && (
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                placeholder="Search archived..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-6 px-2 pr-6 text-[10px] bg-neutral-800 border border-neutral-700 rounded text-neutral-300 placeholder-neutral-500 focus:outline-none focus:border-neutral-600"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-400"
-                >
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* Recording Status Bar */}
-      {isRecording && (
-        <div className="px-3 py-2 border-b border-neutral-800 flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            {isAnalyzing && (
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+      {/* Probes/Plan Split View - Scrollable Middle Section */}
+      <div className="flex gap-2 flex-1 min-h-0 overflow-hidden px-3 py-2">
+        {/* Left side - Probes */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            {/* Active/Archived Toggle */}
+            <div className="flex items-center gap-2 mb-2 shrink-0">
+              <div className="flex rounded-md overflow-hidden border border-neutral-700">
+                <button
+                  onClick={() => setViewMode("active")}
+                  className={`px-2 py-1 text-[10px] font-medium transition-colors ${
+                    viewMode === "active"
+                      ? "bg-cyan-500/20 text-cyan-400"
+                      : "bg-transparent text-neutral-500 hover:text-neutral-400"
+                  }`}
+                >
+                  Active ({activeProbes.length})
+                </button>
+                <button
+                  onClick={() => setViewMode("archived")}
+                  className={`px-2 py-1 text-[10px] font-medium transition-colors ${
+                    viewMode === "archived"
+                      ? "bg-cyan-500/20 text-cyan-400"
+                      : "bg-transparent text-neutral-500 hover:text-neutral-400"
+                  }`}
+                >
+                  Archived ({archivedProbes.length})
+                </button>
+              </div>
+
+              {/* Search - Only in Archived view */}
+              {viewMode === "archived" && (
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    placeholder="Search archived..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full h-6 px-2 pr-6 text-[10px] bg-neutral-800 border border-neutral-700 rounded text-neutral-300 placeholder-neutral-500 focus:outline-none focus:border-neutral-600"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-400"
+                    >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Recording Status Bar */}
+            {isRecording && (
+              <div className="px-3 py-2 border-b border-neutral-800 flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-1.5">
+                  {isAnalyzing && (
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                  )}
+                  <span className="text-[11px] text-blue-400">{isAnalyzing ? "Observing" : "Monitoring"}</span>
+                </div>
+                <div className="text-xs font-mono text-neutral-300 tabular-nums">
+                  {formatTime(elapsedSeconds)}
+                </div>
+                <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-cyan-500 transition-all duration-1000 ease-linear rounded-full"
+                    style={{ width: `${(cycleProgress / 60) * 100}%` }}
+                  />
+                </div>
+              </div>
             )}
-            <span className="text-[11px] text-blue-400">{isAnalyzing ? "Observing" : "Monitoring"}</span>
-          </div>
-          <div className="text-xs font-mono text-neutral-300 tabular-nums">
-            {formatTime(elapsedSeconds)}
-          </div>
-          <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-cyan-500 transition-all duration-1000 ease-linear rounded-full"
-              style={{ width: `${(cycleProgress / 60) * 100}%` }}
-            />
-          </div>
-        </div>
-      )}
-      
-      {/* Probes List */}
-      <div ref={containerRef} className="flex-1 overflow-y-auto p-3 space-y-2">
+            
+            {/* Probes List */}
+            <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
         {filteredProbes.length === 0 && filteredFeedback.length === 0 ? (
           <p className="text-xs text-neutral-600 text-center py-4">
             {searchQuery 
@@ -326,6 +351,25 @@ export function ProbeNotifications({
                   {probe.text}
                 </p>
 
+                {/* Tool Suggestions */}
+                {probe.suggestedTools && probe.suggestedTools.length > 0 && viewMode === "active" && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    <span className="text-[9px] text-neutral-500 self-center mr-1">Try:</span>
+                    {probe.suggestedTools.map(tool => (
+                      <button
+                        key={tool}
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent focus toggle
+                          onToolSelect?.(tool);
+                        }}
+                        className="px-2 py-0.5 text-[10px] font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-full hover:bg-cyan-500/20 hover:border-cyan-500/40 transition-colors"
+                      >
+                        {TOOL_LABELS[tool] || tool}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 {/* Focused indicator */}
                 {probe.focused && viewMode === "active" && (
                   <div className="mt-2 text-[9px] text-amber-400/80 flex items-center gap-1">
@@ -363,76 +407,79 @@ export function ProbeNotifications({
             ))}
           </>
         )}
+            </div>
+          </div>
+
+          {/* Right side - Session Plan */}
+          <div className="flex-1 flex flex-col min-w-0 border-l border-neutral-800 overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <SessionPlanViewer 
+                plan={sessionPlan ?? null} 
+                loading={planLoading} 
+                error={planError ?? null} 
+                onRecalculate={onRecalculate}
+                originalPrompt={originalPrompt}
+              />
+            </div>
+          </div>
       </div>
-      
-      {/* Controls Section */}
+
+      {/* Session Control Buttons - Fixed at bottom of Student Monitoring */}
       {showControls && (
-        <div className="shrink-0 border-t border-neutral-800 flex flex-col">
+        <div className="shrink-0 border-t border-neutral-800">
           <div className="p-3">
-            {!isRecording && !isPaused ? (
-              <button onClick={onStartRecording} className="w-full py-3 border border-neutral-600 hover:border-neutral-400 text-white font-medium rounded-xl flex items-center justify-center gap-2">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-                Start Session
-              </button>
-            ) : isPaused ? (
-              <div className="flex gap-1.5">
-                <button onClick={onResume} className="flex-1 py-2 border border-green-500/50 hover:bg-green-500/10 text-green-400 font-medium rounded-lg flex items-center justify-center gap-1 text-xs">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              {!isRecording && !isPaused ? (
+                <button onClick={onStartRecording} className="w-full py-3 border border-neutral-600 hover:border-neutral-400 text-white font-medium rounded-xl flex items-center justify-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                   </svg>
-                  Resume
+                  Start Session
                 </button>
-                <button onClick={onReset} className="flex-1 py-2 border border-amber-500/50 hover:bg-amber-500/10 text-amber-400 font-medium rounded-lg flex items-center justify-center gap-1 text-xs">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Reset
-                </button>
-                <button onClick={onClose} className="flex-1 py-2 border border-neutral-600 hover:border-neutral-400 text-neutral-400 font-medium rounded-lg flex items-center justify-center gap-1 text-xs">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  Close
-                </button>
-                <button onClick={onStopRecording} className="flex-1 py-2 border border-red-500/30 hover:bg-red-500/10 text-red-400/80 font-medium rounded-lg flex items-center justify-center gap-1 text-xs">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-                  </svg>
-                  End
-                </button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <button onClick={onImStuck} disabled={stuckLoading} className="flex-1 py-2.5 border border-cyan-500/50 hover:bg-cyan-500/10 text-cyan-400 font-medium rounded-xl flex items-center justify-center gap-1.5 text-xs">
-                  {stuckLoading ? (
-                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              ) : isPaused ? (
+                <div className="flex gap-1.5">
+                  <button onClick={onResume} className="flex-1 py-2 border border-green-500/50 hover:bg-green-500/10 text-green-400 font-medium rounded-lg flex items-center justify-center gap-1 text-xs">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    </svg>
+                    Resume
+                  </button>
+                  <button onClick={onReset} className="flex-1 py-2 border border-amber-500/50 hover:bg-amber-500/10 text-amber-400 font-medium rounded-lg flex items-center justify-center gap-1 text-xs">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                  ) : (
+                    Reset
+                  </button>
+                  <button onClick={onClose} className="flex-1 py-2 border border-neutral-600 hover:border-neutral-400 text-neutral-400 font-medium rounded-lg flex items-center justify-center gap-1 text-xs">
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
-                  )}
-                  {stuckLoading ? "Loading..." : "Need Help"}
-                </button>
-                <button onClick={onPause} className="flex-1 py-2.5 border border-neutral-600 hover:border-neutral-400 text-neutral-400 font-medium rounded-xl flex items-center justify-center gap-1.5 text-xs">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Pause
-                </button>
-                <button onClick={onStopRecording} className="flex-1 py-2.5 border border-neutral-600 hover:border-neutral-400 text-neutral-400 font-medium rounded-xl flex items-center justify-center gap-1.5 text-xs">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-                  </svg>
-                  End
-                </button>
-              </div>
-            )}
+                    Close
+                  </button>
+                  <button onClick={onStopRecording} className="flex-1 py-2 border border-red-500/30 hover:bg-red-500/10 text-red-400/80 font-medium rounded-lg flex items-center justify-center gap-1 text-xs">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                    </svg>
+                    End
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button onClick={onPause} className="flex-1 py-2.5 border border-neutral-600 hover:border-neutral-400 text-neutral-400 font-medium rounded-xl flex items-center justify-center gap-1.5 text-xs">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Pause
+                  </button>
+                  <button onClick={onStopRecording} className="flex-1 py-2.5 border border-neutral-600 hover:border-neutral-400 text-neutral-400 font-medium rounded-xl flex items-center justify-center gap-1.5 text-xs">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                    </svg>
+                    End
+                  </button>
+                </div>
+              )}
           </div>
         </div>
       )}

@@ -47,12 +47,11 @@ import { ResizablePane } from "./ResizablePane";
 import { WhiteboardCanvas } from "./WhiteboardCanvas";
 import { ToolsPanel, type Tool } from "./ToolsPanel";
 import { ToolsHelp } from "./ToolsHelp";
-import { LLMChat } from "./LLMChat";
+import { LLMChat, type ChatMessage } from "./LLMChat";
 import { DataInputTool } from "./DataInputTool";
 import { LogsTool, type LogEntry } from "./LogsTool";
 import { CodingTool } from "./CodingTool";
 import { MobileBlockScreen } from "./MobileBlockScreen";
-import { SessionPlanViewer } from "./SessionPlanViewer";
 
 // Configuration
 const ANALYSIS_INTERVALS: Record<Frequency, number> = {
@@ -61,6 +60,10 @@ const ANALYSIS_INTERVALS: Record<Frequency, number> = {
   frequent: 4000,
 };
 const COOLDOWN_AFTER_PROBE_MS = 15000;
+const AUTO_PAUSE_TIMEOUT_MS = 4 * 60 * 60 * 1000; // 4 hours
+
+// Feature flags
+const ENABLE_AUTO_PAUSE = false; // Disable LLM-triggered auto-pause
 
 export function SessionView({ sessionId }: { sessionId: string }) {
   const router = useRouter();
@@ -132,6 +135,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     chatHistory?: Array<{ role: string; content: string }>;
   } | null>(null);
 
+  // Teaching Assistant Chat
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+
   // New 3-panel layout state
   const [activeTool, setActiveTool] = useState<Tool>("chat");
   const prevToolRef = useRef<Tool | null>(null);
@@ -139,7 +145,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [objectiveStatuses, setObjectiveStatuses] = useState<("red" | "yellow" | "green" | "blue")[]>([]);
   const [trafficLight, setTrafficLight] = useState<"red" | "yellow" | "green">("green");
   const [feedbackLoading, setFeedbackLoading] = useState(false);
-  const [stuckLoading, setStuckLoading] = useState(false);
 
   // Archive/Focus probe state
   const [archivingProbeId, setArchivingProbeId] = useState<string | null>(null);
@@ -292,6 +297,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const analysisRef = useRef<NodeJS.Timeout | null>(null);
   const eegSaveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const autoPauseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastProbeTimeRef = useRef(0);
   const lastAnalysisTimeRef = useRef(0);
   const isAnalyzingRef = useRef(false);
@@ -501,8 +507,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             const plan = sessionPlanRef.current;
             const firstStep = plan?.steps?.[0];
             
-            // If plan has a first step, use that as the opening request
-            if (firstStep) {
+            // If plan has a first step with valid description, use that as the opening request
+            if (firstStep?.description?.trim()) {
               const savedProbe = await addProbe(s.id, {
                 timestamp: 0,
                 gapScore: 0,
@@ -517,7 +523,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               setActiveProbe(savedProbe);
               setViewingProbeIndex(updated.probes.length - 1);
             } else {
-              // Fallback to regular opening probe
+              // Fallback to regular opening probe (no plan, or plan step has empty description)
               const res = await fetch("/api/opening-probe", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -525,18 +531,21 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               });
               if (!cancelled && res.ok) {
                 const { probe: probeText } = await res.json();
-                const savedProbe = await addProbe(s.id, {
-                  timestamp: 0,
-                  gapScore: 0,
-                  signals: ["opening"],
-                  text: probeText,
-                  requestType: "question",
-                });
-                const updated = addProbeToSession(s, savedProbe);
-                setSession(updated);
-                sessionRef.current = updated;
-                setActiveProbe(savedProbe);
-                setViewingProbeIndex(updated.probes.length - 1);
+                // Only create probe if we got a non-empty text
+                if (probeText?.trim()) {
+                  const savedProbe = await addProbe(s.id, {
+                    timestamp: 0,
+                    gapScore: 0,
+                    signals: ["opening"],
+                    text: probeText,
+                    requestType: "question",
+                  });
+                  const updated = addProbeToSession(s, savedProbe);
+                  setSession(updated);
+                  sessionRef.current = updated;
+                  setActiveProbe(savedProbe);
+                  setViewingProbeIndex(updated.probes.length - 1);
+                }
               }
             }
           } catch { /* opening probe is optional */ }
@@ -766,6 +775,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       const currentPlan = sessionPlanRef.current;
       let nextRequestText: string | null = null;
       let nextRequestType: RequestType = "question";
+      let nextRequestSuggestedTools: ToolName[] | undefined = undefined;
       let canGenerateProbe = true;
       
       // Calculate open (non-archived) probes and focused probes
@@ -793,10 +803,17 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           if (planUpdateRes.ok) {
             const planData = await planUpdateRes.json();
             
-            // Update local plan state
-            if (planData.plan) {
+            // Update local plan state (with validation to prevent corruption)
+            if (planData.plan && 
+                planData.plan.steps && 
+                Array.isArray(planData.plan.steps) && 
+                planData.plan.steps.length > 0 &&
+                planData.plan.goal) {
               setSessionPlan(planData.plan);
               sessionPlanRef.current = planData.plan;
+            } else if (planData.plan) {
+              // Log corruption for debugging
+              console.warn('[Plan Update] Received corrupted plan, keeping previous state:', planData.plan);
             }
             
             // Handle auto-archiving of resolved probes
@@ -823,8 +840,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             // Update canGenerateProbe flag
             canGenerateProbe = planData.canGenerateProbe !== false;
             
-            // Check if LLM wants to pause the session
-            if (planData.shouldPause) {
+            // Check if LLM wants to pause the session (feature-flagged)
+            if (ENABLE_AUTO_PAUSE && planData.shouldPause) {
               // Get current step for the feedback probe
               const currentStep = planData.plan?.steps?.[planData.plan?.currentStepIndex || 0];
               
@@ -871,6 +888,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             if (planData.nextRequest) {
               nextRequestText = planData.nextRequest.text;
               nextRequestType = planData.nextRequest.type || "question";
+              // Extract suggested tools if provided
+              if (planData.nextRequest.suggested_tools && Array.isArray(planData.nextRequest.suggested_tools)) {
+                nextRequestSuggestedTools = planData.nextRequest.suggested_tools as ToolName[];
+              }
             }
           }
         } catch (err) {
@@ -909,7 +930,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           }
         }
 
-        if (probeText) {
+        if (probeText?.trim()) {
           // Get current step ID from the updated plan
           const updatedPlan = sessionPlanRef.current;
           const currentStep = updatedPlan?.steps?.[updatedPlan?.currentStepIndex || 0];
@@ -919,10 +940,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
             gapScore: gapData.gapScore,
             signals: gapData.signals || [],
-            text: probeText,
+            text: probeText.trim(),
             requestType,
             planStepId: currentStep?.id,
           });
+          
+          // Add suggested tools if available (ephemeral, not persisted)
+          if (nextRequestSuggestedTools && nextRequestSuggestedTools.length > 0) {
+            savedProbe.suggestedTools = nextRequestSuggestedTools;
+          }
 
           const updatedSession = addProbeToSession(currentSession, savedProbe);
           setSession(updatedSession);
@@ -1186,7 +1212,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         chunkDurationMs: 60000,
         maxBufferDurationMs: 300000,
         onChunk: async (chunk) => {
-          console.log("[onChunk] Callback invoked!", { chunkIndex: chunk.chunkIndex, hasSession: !!session, timestamp: chunk.timestamp });
+          console.log("[onChunk] Callback invoked!", { chunkIndex: chunk.chunkIndex, hasSession: !!session, timestamp: chunk.timestamp, blobSize: chunk.blob.size });
+          
+          // Skip empty audio chunks - don't store sound or transcript
+          if (!chunk.blob.size || chunk.blob.size < 100) {
+            console.log("[onChunk] Skipping empty audio chunk", { chunkIndex: chunk.chunkIndex, blobSize: chunk.blob.size });
+            return;
+          }
+          
           if (session) {
             const idx = chunkIndexRef.current++;
             transferHealthRef.current.audio.sent++;
@@ -1281,6 +1314,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           }
         }
       }, 60000);
+
+      // Auto-pause after 4 hours to prevent storage errors from very long sessions
+      autoPauseTimeoutRef.current = setTimeout(() => {
+        console.log("[Auto-pause] 4 hour timeout reached, pausing session automatically");
+        handlePause();
+      }, AUTO_PAUSE_TIMEOUT_MS);
     } catch (err) {
       setError("Could not access microphone. Please grant permission and try again.");
     }
@@ -1290,6 +1329,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     if (timerRef.current) clearInterval(timerRef.current);
     if (analysisRef.current) clearInterval(analysisRef.current);
     if (eegSaveIntervalRef.current) clearInterval(eegSaveIntervalRef.current);
+    if (autoPauseTimeoutRef.current) clearTimeout(autoPauseTimeoutRef.current);
 
     const recorder = recorderRef.current;
     
@@ -1386,6 +1426,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     if (timerRef.current) clearInterval(timerRef.current);
     if (analysisRef.current) clearInterval(analysisRef.current);
     if (eegSaveIntervalRef.current) clearInterval(eegSaveIntervalRef.current);
+    if (autoPauseTimeoutRef.current) clearTimeout(autoPauseTimeoutRef.current);
 
     const recorder = recorderRef.current;
     await recorder?.stop();
@@ -1413,7 +1454,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         chunkDurationMs: 60000,
         maxBufferDurationMs: 300000,
         onChunk: async (chunk) => {
-          console.log("[onChunk] Callback invoked (resume)!", { chunkIndex: chunk.chunkIndex, hasSession: !!session });
+          console.log("[onChunk] Callback invoked (resume)!", { chunkIndex: chunk.chunkIndex, hasSession: !!session, blobSize: chunk.blob.size });
+          
+          // Skip empty audio chunks - don't store sound or transcript
+          if (!chunk.blob.size || chunk.blob.size < 100) {
+            console.log("[onChunk] Skipping empty audio chunk (resume)", { chunkIndex: chunk.chunkIndex, blobSize: chunk.blob.size });
+            return;
+          }
+          
           if (session) {
             const idx = chunkIndexRef.current++;
             transferHealthRef.current.audio.sent++;
@@ -1510,6 +1558,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           }
         }
       }, 60000);
+
+      // Auto-pause after 4 hours to prevent storage errors from very long sessions
+      autoPauseTimeoutRef.current = setTimeout(() => {
+        console.log("[Auto-pause] 4 hour timeout reached, pausing session automatically");
+        handlePause();
+      }, AUTO_PAUSE_TIMEOUT_MS);
     } catch (err) {
       setError("Could not access microphone. Please grant permission and try again.");
     }
@@ -1550,7 +1604,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     router.push("/");
   };
 
-  // Archive a probe with LLM validation
+  // Archive a probe (immediately, without LLM validation)
   const handleArchiveProbe = async (probeId: string) => {
     if (!session) return;
     
@@ -1560,70 +1614,19 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     setArchivingProbeId(probeId);
     
     try {
-      // Get current context for LLM check
-      const recorder = recorderRef.current;
-      let transcript = "";
+      // Archive the probe directly
+      await archiveProbe(probeId);
       
-      if (recorder) {
-        const recentAudio = recorder.getRecentAudio(30000);
-        if (recentAudio && recentAudio.size > 1000) {
-          const audioBase64 = await blobToBase64(recentAudio);
-          const audioFormat = recorder.getAudioFormat();
-          const gapRes = await fetch("/api/analyze-gap", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-              audioBase64, 
-              audioFormat, 
-              problem: session.problem,
-              whiteboardData: whiteboardDataRef.current,
-            }),
-          });
-          if (gapRes.ok) {
-            const gapData = await gapRes.json();
-            transcript = gapData.transcript || "";
-          }
-        }
-      }
-
-      // Check with LLM if probe can be archived
-      const checkRes = await fetch("/api/check-probe-archive", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          probeId,
-          probeText: probe.text,
-          sessionId: session.id,
-          sessionGoal: sessionPlan?.goal || session.problem,
-          transcript,
-          whiteboardData: whiteboardDataRef.current,
-          codingData,
-        }),
-      });
-
-      if (checkRes.ok) {
-        const result = await checkRes.json();
-        
-        if (result.canArchive) {
-          // Archive the probe
-          await archiveProbe(probeId);
-          
-          // Update local state
-          const updatedProbes = session.probes.map(p => 
-            p.id === probeId ? { ...p, archived: true } : p
-          );
-          const updatedSession = { ...session, probes: updatedProbes };
-          setSession(updatedSession);
-          sessionRef.current = updatedSession;
-          
-          // Play success sound
-          playArchiveSound();
-        } else {
-          // Show reason why it can't be archived (could use a toast here)
-          console.log("Cannot archive probe:", result.reason);
-          // For now, we'll just log it - could add a toast notification
-        }
-      }
+      // Update local state
+      const updatedProbes = session.probes.map(p => 
+        p.id === probeId ? { ...p, archived: true } : p
+      );
+      const updatedSession = { ...session, probes: updatedProbes };
+      setSession(updatedSession);
+      sessionRef.current = updatedSession;
+      
+      // Play success sound
+      playArchiveSound();
     } catch (err) {
       console.error("Archive probe error:", err);
     } finally {
@@ -1836,51 +1839,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     }
   };
 
-  const handleImStuck = async () => {
-    if (!session || !isRecording) return;
-
-    setStuckLoading(true);
-    try {
-      const previousProbes = session.probes.map(p => p.text);
-      const res = await fetch("/api/fresh-question", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          problem: session.problem,
-          previousProbes,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        
-        if (data.question) {
-          // Get current step ID
-          const currentPlan = sessionPlanRef.current;
-          const currentStep = currentPlan?.steps?.[currentPlan?.currentStepIndex || 0];
-          
-          const savedProbe = await addProbe(session.id, {
-            timestamp: Date.now() - new Date(session.startedAt).getTime(),
-            gapScore: 0.7,
-            signals: ["stuck", "user_requested"],
-            text: data.question,
-            requestType: "feedback",
-            planStepId: currentStep?.id,
-          });
-          const updated = addProbeToSession(session, savedProbe);
-          setSession(updated);
-          sessionRef.current = updated;
-          setActiveProbe(savedProbe);
-          setViewingProbeIndex(updated.probes.length - 1);
-        }
-      }
-    } catch (error) {
-      console.error("I'm stuck error:", error);
-    } finally {
-      setStuckLoading(false);
-    }
-  };
-
   const handleRecalculatePlan = async () => {
     if (!session) return;
     
@@ -1937,6 +1895,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       if (timerRef.current) clearInterval(timerRef.current);
       if (analysisRef.current) clearInterval(analysisRef.current);
       if (muteTimerRef.current) clearTimeout(muteTimerRef.current);
+      if (autoPauseTimeoutRef.current) clearTimeout(autoPauseTimeoutRef.current);
       if (micStreamRef.current) {
         micStreamRef.current.getTracks().forEach(t => t.stop());
         micStreamRef.current = null;
@@ -2083,20 +2042,18 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           {/* Desktop: Resizable split view */}
           <div className="hidden md:flex flex-1 min-h-0">
             <ResizablePane
-              defaultLeftWidth={30}
+              defaultLeftWidth={50}
               left={
                 <div className="flex flex-col min-w-0 p-4 overflow-hidden h-full relative">
                   {shouldBlockTools && (
                     <div className="absolute inset-0 bg-neutral-900/30 backdrop-blur-sm z-40" />
                   )}
                   <div className="flex-1 min-h-0 overflow-hidden relative">
-                    {activeTool === "chat" && <LLMChat problem={session.problem} />}
-                    {activeTool === "plan" && (
-                      <SessionPlanViewer 
-                        plan={sessionPlan} 
-                        loading={planLoading} 
-                        error={planError} 
-                        onRecalculate={handleRecalculatePlan}
+                    {activeTool === "chat" && (
+                      <LLMChat 
+                        problem={session.problem}
+                        messages={chatMessages}
+                        onMessagesChange={setChatMessages}
                       />
                     )}
 
@@ -2394,17 +2351,20 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   onPause={handlePause}
                   onResume={handleResume}
                   onGetFeedback={handleGetFeedback}
-                  onImStuck={handleImStuck}
                   feedbackLoading={feedbackLoading}
-                  stuckLoading={stuckLoading}
                   elapsedSeconds={elapsedSeconds}
                   cycleProgress={elapsedSeconds % 60}
                   isAnalyzing={isAnalyzing}
                   onArchiveProbe={handleArchiveProbe}
                   onToggleFocus={handleToggleFocus}
+                  onToolSelect={(tool) => setActiveTool(tool as Tool)}
                   onReset={handleReset}
                   onClose={handleClose}
                   archivingProbeId={archivingProbeId}
+                  planLoading={planLoading}
+                  planError={planError}
+                  onRecalculate={handleRecalculatePlan}
+                  originalPrompt={session.problem}
                 />
               }
             />
@@ -2426,7 +2386,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             <div className="flex-1 min-h-0 overflow-hidden h-full">
               {mobileTab === "main" && (
                 <div className="h-full overflow-hidden">
-                  <LLMChat problem={session.problem} />
+                  <LLMChat 
+                    problem={session.problem}
+                    messages={chatMessages}
+                    onMessagesChange={setChatMessages}
+                  />
                 </div>
               )}
               {mobileTab === "canvas" && (
@@ -2472,17 +2436,23 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   onPause={handlePause}
                   onResume={handleResume}
                   onGetFeedback={handleGetFeedback}
-                  onImStuck={handleImStuck}
                   feedbackLoading={feedbackLoading}
-                  stuckLoading={stuckLoading}
                   elapsedSeconds={elapsedSeconds}
                   cycleProgress={elapsedSeconds % 60}
                   isAnalyzing={isAnalyzing}
                   onArchiveProbe={handleArchiveProbe}
                   onToggleFocus={handleToggleFocus}
+                  onToolSelect={(tool) => {
+                    setActiveTool(tool as Tool);
+                    setMobileTab("main"); // Switch to main tab on mobile to show the tool
+                  }}
                   onReset={handleReset}
                   onClose={handleClose}
                   archivingProbeId={archivingProbeId}
+                  planLoading={planLoading}
+                  planError={planError}
+                  onRecalculate={handleRecalculatePlan}
+                  originalPrompt={session.problem}
                 />
               )}
               {mobileTab === "prep" && (

@@ -7,7 +7,19 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 
-interface Message {
+// Process content to handle common LaTeX escaping issues from LLMs
+function processLatexContent(content: string): string {
+  // Fix double-escaped backslashes that LLMs sometimes produce
+  // e.g., \\frac -> \frac, \\sum -> \sum
+  return content
+    .replace(/\\\\([a-zA-Z]+)/g, '\\$1')  // \\command -> \command
+    .replace(/\\\\\[/g, '\\[')  // \\[ -> \[
+    .replace(/\\\\\]/g, '\\]')  // \\] -> \]
+    .replace(/\\\\\(/g, '\\(')  // \\( -> \(
+    .replace(/\\\\\)/g, '\\)'); // \\) -> \)
+}
+
+export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
@@ -15,10 +27,30 @@ interface Message {
 
 interface LLMChatProps {
   problem: string;
+  messages?: ChatMessage[];
+  onMessagesChange?: (messages: ChatMessage[]) => void;
 }
 
-export function LLMChat({ problem }: LLMChatProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
+const WELCOME_MESSAGE: ChatMessage = {
+  id: "welcome",
+  role: "assistant",
+  content: "Hi! I'm here to help you with your learning. Feel free to ask me questions about the topic, get clarifications, or discuss concepts in a different way.\n\nRemember - I'm a separate assistant from the tutor. Let me know how I can help!",
+};
+
+export function LLMChat({ problem, messages: externalMessages, onMessagesChange }: LLMChatProps) {
+  // Use external state if provided, otherwise use internal state
+  const [internalMessages, setInternalMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
+  const messages = externalMessages ?? internalMessages;
+  
+  // Helper to update messages - handles both internal state and external callback
+  const updateMessages = (newMessages: ChatMessage[]) => {
+    if (onMessagesChange) {
+      onMessagesChange(newMessages);
+    } else {
+      setInternalMessages(newMessages);
+    }
+  };
+  
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -29,29 +61,24 @@ export function LLMChat({ problem }: LLMChatProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Initialize with welcome message if external messages are empty
   useEffect(() => {
-    if (messages.length === 0) {
-      setMessages([
-        {
-          id: "welcome",
-          role: "assistant",
-          content: "Hi! I'm here to help you with your learning. Feel free to ask me questions about the topic, get clarifications, or discuss concepts in a different way.\n\nRemember - I'm a separate assistant from the tutor. Let me know how I can help!",
-        },
-      ]);
+    if (externalMessages && externalMessages.length === 0) {
+      onMessagesChange?.([WELCOME_MESSAGE]);
     }
-  }, []);
+  }, [externalMessages, onMessagesChange]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const userMessage: Message = {
+    const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: "user",
       content: input.trim(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    updateMessages([...messages, userMessage]);
     setInput("");
     setIsLoading(true);
 
@@ -77,21 +104,22 @@ export function LLMChat({ problem }: LLMChatProps) {
       const data = await response.json();
 
       if (data.message) {
-        const assistantMessage: Message = {
+        const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
           content: data.message,
         };
-        setMessages((prev) => [...prev, assistantMessage]);
+        // Need to include user message + assistant message since we're using spread
+        updateMessages([...messages, userMessage, assistantMessage]);
       }
     } catch (error) {
       console.error("Chat error:", error);
-      const errorMessage: Message = {
+      const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
         content: "Sorry, I encountered an error. Please try again.",
       };
-      setMessages((prev) => [...prev, errorMessage]);
+      updateMessages([...messages, userMessage, errorMessage]);
     } finally {
       setIsLoading(false);
       inputRef.current?.focus();
@@ -106,13 +134,7 @@ export function LLMChat({ problem }: LLMChatProps) {
   };
 
   const handleClear = () => {
-    setMessages([
-      {
-        id: "welcome",
-        role: "assistant",
-        content: "Hi! I'm here to help you with your learning. Feel free to ask me questions about the topic, get clarifications, or discuss concepts in a different way.\n\nRemember - I'm a separate assistant from the tutor. Let me know how I can help!",
-      },
-    ]);
+    updateMessages([WELCOME_MESSAGE]);
     setShowClearConfirm(false);
   };
 
@@ -143,12 +165,12 @@ export function LLMChat({ problem }: LLMChatProps) {
                   : "bg-neutral-800 text-neutral-200"
               }`}
             >
-              <div className="prose prose-invert prose-sm max-w-none">
+              <div className="prose prose-invert prose-sm max-w-none [&_.katex]:text-inherit">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={[rehypeKatex]}
+                  rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false }]]}
                 >
-                  {message.content}
+                  {processLatexContent(message.content)}
                 </ReactMarkdown>
               </div>
             </div>
