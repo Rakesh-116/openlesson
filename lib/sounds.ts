@@ -122,3 +122,173 @@ export function playWarningSound(): void {
     console.warn("Could not play sound:", error);
   }
 }
+
+/**
+ * Play a celebratory reward sound for step completion
+ * An elaborate arpeggio with shimmer effect - big reward for the user!
+ */
+export function playStepCompleteSound(): void {
+  try {
+    const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const startTime = audioContext.currentTime;
+    
+    // Major chord arpeggio: C5 -> E5 -> G5 -> C6 (ascending celebration)
+    const notes = [523, 659, 784, 1047];
+    
+    notes.forEach((freq, i) => {
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, startTime + i * 0.1);
+      
+      // Quick attack, smooth decay
+      gain.gain.setValueAtTime(0, startTime + i * 0.1);
+      gain.gain.linearRampToValueAtTime(0.25, startTime + i * 0.1 + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.01, startTime + i * 0.1 + 0.5);
+      
+      osc.start(startTime + i * 0.1);
+      osc.stop(startTime + i * 0.1 + 0.5);
+      
+      // Add harmonic for richness
+      const harmonic = audioContext.createOscillator();
+      const harmonicGain = audioContext.createGain();
+      harmonic.connect(harmonicGain);
+      harmonicGain.connect(audioContext.destination);
+      harmonic.type = "sine";
+      harmonic.frequency.setValueAtTime(freq * 2, startTime + i * 0.1);
+      harmonicGain.gain.setValueAtTime(0, startTime + i * 0.1);
+      harmonicGain.gain.linearRampToValueAtTime(0.08, startTime + i * 0.1 + 0.03);
+      harmonicGain.gain.exponentialRampToValueAtTime(0.01, startTime + i * 0.1 + 0.4);
+      harmonic.start(startTime + i * 0.1);
+      harmonic.stop(startTime + i * 0.1 + 0.4);
+    });
+    
+    // Add final shimmer/sparkle effect (high frequency flourish)
+    const shimmer = audioContext.createOscillator();
+    const shimmerGain = audioContext.createGain();
+    shimmer.connect(shimmerGain);
+    shimmerGain.connect(audioContext.destination);
+    shimmer.type = "triangle";
+    shimmer.frequency.setValueAtTime(2093, startTime + 0.4); // C7
+    shimmer.frequency.exponentialRampToValueAtTime(2637, startTime + 0.55); // E7
+    shimmerGain.gain.setValueAtTime(0, startTime + 0.4);
+    shimmerGain.gain.linearRampToValueAtTime(0.12, startTime + 0.43);
+    shimmerGain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.8);
+    shimmer.start(startTime + 0.4);
+    shimmer.stop(startTime + 0.8);
+    
+    // Second shimmer for sparkle
+    const shimmer2 = audioContext.createOscillator();
+    const shimmer2Gain = audioContext.createGain();
+    shimmer2.connect(shimmer2Gain);
+    shimmer2Gain.connect(audioContext.destination);
+    shimmer2.type = "sine";
+    shimmer2.frequency.setValueAtTime(3136, startTime + 0.5); // G7
+    shimmer2Gain.gain.setValueAtTime(0, startTime + 0.5);
+    shimmer2Gain.gain.linearRampToValueAtTime(0.08, startTime + 0.52);
+    shimmer2Gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.9);
+    shimmer2.start(startTime + 0.5);
+    shimmer2.stop(startTime + 0.9);
+  } catch (error) {
+    console.warn("Could not play step complete sound:", error);
+  }
+}
+
+/**
+ * Play a grand celebratory sound for session/plan completion
+ * A fuller, more elaborate fanfare to mark the achievement
+ */
+export function playSessionCompleteSound(): void {
+  try {
+    const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const startTime = audioContext.currentTime;
+    
+    // Grand fanfare: C major chord then resolve to G major
+    // First chord: C-E-G (C major)
+    const chord1 = [523, 659, 784]; // C5, E5, G5
+    // Second chord: G-B-D (G major) 
+    const chord2 = [392, 494, 587]; // G4, B4, D5
+    // Final resolution: C major octave higher
+    const chord3 = [1047, 1319, 1568]; // C6, E6, G6
+    
+    // Play first chord
+    chord1.forEach((freq, i) => {
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(0.2, startTime + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.1, startTime + 0.3);
+      gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.5);
+      osc.start(startTime);
+      osc.stop(startTime + 0.5);
+    });
+    
+    // Play second chord (after brief pause)
+    chord2.forEach((freq) => {
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, startTime + 0.35);
+      gain.gain.setValueAtTime(0, startTime + 0.35);
+      gain.gain.linearRampToValueAtTime(0.15, startTime + 0.4);
+      gain.gain.exponentialRampToValueAtTime(0.08, startTime + 0.6);
+      gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.85);
+      osc.start(startTime + 0.35);
+      osc.stop(startTime + 0.85);
+    });
+    
+    // Play final resolving chord
+    chord3.forEach((freq, i) => {
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, startTime + 0.7);
+      gain.gain.setValueAtTime(0, startTime + 0.7);
+      gain.gain.linearRampToValueAtTime(0.25 - i * 0.05, startTime + 0.75);
+      gain.gain.exponentialRampToValueAtTime(0.01, startTime + 1.5);
+      osc.start(startTime + 0.7);
+      osc.stop(startTime + 1.5);
+      
+      // Add harmonics for richness
+      const harmonic = audioContext.createOscillator();
+      const harmonicGain = audioContext.createGain();
+      harmonic.connect(harmonicGain);
+      harmonicGain.connect(audioContext.destination);
+      harmonic.type = "sine";
+      harmonic.frequency.setValueAtTime(freq * 2, startTime + 0.7);
+      harmonicGain.gain.setValueAtTime(0, startTime + 0.7);
+      harmonicGain.gain.linearRampToValueAtTime(0.06, startTime + 0.75);
+      harmonicGain.gain.exponentialRampToValueAtTime(0.01, startTime + 1.3);
+      harmonic.start(startTime + 0.7);
+      harmonic.stop(startTime + 1.3);
+    });
+    
+    // Final sparkle/shimmer
+    const shimmer = audioContext.createOscillator();
+    const shimmerGain = audioContext.createGain();
+    shimmer.connect(shimmerGain);
+    shimmerGain.connect(audioContext.destination);
+    shimmer.type = "triangle";
+    shimmer.frequency.setValueAtTime(2093, startTime + 1.0);
+    shimmer.frequency.exponentialRampToValueAtTime(3136, startTime + 1.3);
+    shimmerGain.gain.setValueAtTime(0, startTime + 1.0);
+    shimmerGain.gain.linearRampToValueAtTime(0.1, startTime + 1.05);
+    shimmerGain.gain.exponentialRampToValueAtTime(0.01, startTime + 1.6);
+    shimmer.start(startTime + 1.0);
+    shimmer.stop(startTime + 1.6);
+  } catch (error) {
+    console.warn("Could not play session complete sound:", error);
+  }
+}

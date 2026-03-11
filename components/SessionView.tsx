@@ -38,7 +38,7 @@ import {
   type ToolAction,
   type RequestType,
 } from "@/lib/storage";
-import { playArchiveSound, playStepCompleteSound } from "@/lib/sounds";
+import { playArchiveSound, playStepCompleteSound, playSessionCompleteSound } from "@/lib/sounds";
 import { formatTime } from "@/lib/utils";
 import { AudioVisualizer, RecordingIndicator } from "./AudioVisualizer";
 import { ActiveProbe } from "./ActiveProbe";
@@ -153,6 +153,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   
   // Celebration state for step completion
   const [isCelebrating, setIsCelebrating] = useState(false);
+  
+  // Plan complete modal (shown when all steps are done)
+  const [showPlanCompleteModal, setShowPlanCompleteModal] = useState(false);
 
   // Mobile tabs
   const [mobileTab, setMobileTab] = useState<"main" | "canvas" | "notes" | "questions" | "prep">("main");
@@ -1025,7 +1028,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             // Check for step transition BEFORE updating state
             const previousStepIndex = sessionPlanRef.current?.currentStepIndex ?? 0;
             const newStepIndex = planData.plan?.currentStepIndex ?? 0;
+            const totalSteps = planData.plan?.steps?.length ?? 0;
             const isStepTransition = newStepIndex > previousStepIndex && isValidPlan(planData.plan);
+            
+            // Check if plan is now complete (all steps completed)
+            const allStepsCompleted = planData.plan?.steps?.every((s: { status: string }) => s.status === 'completed') ?? false;
+            const isPlanComplete = isStepTransition && allStepsCompleted && totalSteps > 0;
             
             // Update local plan state (with validation to prevent corruption)
             if (isValidPlan(planData.plan)) {
@@ -1055,10 +1063,25 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                 sessionRef.current = sessionWithArchivedProbes;
               }
               
-              // Trigger celebration!
-              setIsCelebrating(true);
-              playStepCompleteSound();
-              setTimeout(() => setIsCelebrating(false), 1500);
+              // Check if this completes the entire plan
+              if (isPlanComplete) {
+                // Plan is fully complete - show completion modal and pause
+                setIsCelebrating(true);
+                playSessionCompleteSound();
+                setTimeout(() => {
+                  setIsCelebrating(false);
+                  setShowPlanCompleteModal(true);
+                  // Auto-pause recording
+                  if (isRecording && !isPaused) {
+                    setIsPaused(true);
+                  }
+                }, 1500);
+              } else {
+                // Regular step completion celebration
+                setIsCelebrating(true);
+                playStepCompleteSound();
+                setTimeout(() => setIsCelebrating(false), 1500);
+              }
             } else if (planData.probesToArchive && planData.probesToArchive.length > 0) {
               // Handle LLM-suggested archiving of resolved probes (only if not a step transition)
               let updatedSession = currentSession;
@@ -2857,6 +2880,37 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                 End session
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Plan Complete Modal - shown when all steps are done */}
+      {showPlanCompleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative z-10 w-[90vw] max-w-lg p-6 bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-semibold text-white">Session Complete</h2>
+            </div>
+            
+            <p className="text-neutral-400 text-sm mb-6">
+              Congratulations! You've completed all steps in your learning plan. Your session has been paused.
+            </p>
+
+            <button
+              onClick={() => {
+                setShowPlanCompleteModal(false);
+                handleConfirmEnd();
+              }}
+              className="w-full py-2.5 px-4 bg-white hover:bg-neutral-100 text-neutral-900 font-medium rounded-lg transition-colors"
+            >
+              End Session
+            </button>
           </div>
         </div>
       )}
