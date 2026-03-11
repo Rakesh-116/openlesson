@@ -50,8 +50,15 @@ import { ToolsHelp } from "./ToolsHelp";
 import { LLMChat, type ChatMessage } from "./LLMChat";
 import { DataInputTool } from "./DataInputTool";
 import { LogsTool, type LogEntry } from "./LogsTool";
-import { CodingTool } from "./CodingTool";
+
 import { MobileBlockScreen } from "./MobileBlockScreen";
+import { PopOutBanner } from "./PopOutBanner";
+import { 
+  useSessionSync, 
+  openPopOutWindow, 
+  type SessionAction 
+} from "@/lib/broadcast-sync";
+
 
 // Configuration
 const ANALYSIS_INTERVALS: Record<Frequency, number> = {
@@ -128,12 +135,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const notebookAnalysisRef = useRef<NodeJS.Timeout | null>(null);
   const lastNotebookAnalysisRef = useRef(0);
 
-  // Coding tool
-  const [codingData, setCodingData] = useState<{
-    code: string;
-    output: Array<{ type: string; content: string }>;
-    chatHistory?: Array<{ role: string; content: string }>;
-  } | null>(null);
+
 
   // Teaching Assistant Chat
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -178,6 +180,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [prepToolContent, setPrepToolContent] = useState<{ title: string; content: string } | null>(null);
   const [prepToolLoading, setPrepToolLoading] = useState(false);
   const [showGrokipediaOnly, setShowGrokipediaOnly] = useState(false);
+
+  // Pop-out window state
+  const [isPopOutActive, setIsPopOutActive] = useState(false);
+  const popOutWindowRef = useRef<Window | null>(null);
+  const popOutDismissedRef = useRef<boolean>(false); // Track if user explicitly dismissed
 
   // RAG matching state (extended)
   const [ragLoading, setRagLoading] = useState(false);
@@ -353,6 +360,183 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   useEffect(() => { museStatusRef.current = museStatus; }, [museStatus]);
   useEffect(() => { isWebcamEnabledRef.current = isWebcamEnabled; }, [isWebcamEnabled]);
   useEffect(() => { sessionPlanRef.current = sessionPlan; }, [sessionPlan]);
+
+  // Ref for action handlers (populated later, used for pop-out communication)
+  const actionHandlersRef = useRef<{
+    startRecording?: () => void;
+    stopRecording?: () => void;
+    handlePause?: () => void;
+    handleResume?: () => void;
+    handleReset?: () => void;
+    handleClose?: () => void;
+    handleGetFeedback?: () => void;
+    handleArchiveProbe?: (probeId: string) => Promise<void>;
+    handleToggleFocus?: (probeId: string, focused: boolean) => void;
+    handleRecalculatePlan?: () => Promise<void>;
+  }>({});
+
+  // Handler for actions from pop-out window
+  const handlePopOutAction = useCallback((action: SessionAction) => {
+    const handlers = actionHandlersRef.current;
+    switch (action.action) {
+      case "start":
+        handlers.startRecording?.();
+        break;
+      case "stop":
+        handlers.stopRecording?.();
+        break;
+      case "pause":
+        handlers.handlePause?.();
+        break;
+      case "resume":
+        handlers.handleResume?.();
+        break;
+      case "reset":
+        handlers.handleReset?.();
+        break;
+      case "close":
+        handlers.handleClose?.();
+        break;
+      case "get_feedback":
+        handlers.handleGetFeedback?.();
+        break;
+      case "archive_probe":
+        if (action.probeId) handlers.handleArchiveProbe?.(action.probeId);
+        break;
+      case "toggle_focus":
+        if (action.probeId !== undefined) handlers.handleToggleFocus?.(action.probeId, action.focused ?? false);
+        break;
+      case "recalculate":
+        handlers.handleRecalculatePlan?.();
+        break;
+    }
+  }, []);
+
+  // Broadcast sync for pop-out window communication
+  const { 
+    broadcastState, 
+    broadcastProbes, 
+    broadcastPlan, 
+    broadcastRecordingStatus 
+  } = useSessionSync({
+    sessionId,
+    isMainWindow: true,
+    onAction: handlePopOutAction,
+    onPeerConnected: () => {
+      // Don't re-enable if user explicitly dismissed the popout
+      if (popOutDismissedRef.current) return;
+      setIsPopOutActive(true);
+      // Send full state to the newly connected pop-out window
+      if (sessionRef.current) {
+        broadcastState({
+          probes: sessionRef.current.probes,
+          sessionPlan: sessionPlanRef.current,
+          isRecording,
+          isPaused,
+          elapsedSeconds,
+          cycleProgress: elapsedSeconds % 60,
+          isAnalyzing,
+          archivingProbeId,
+          planLoading,
+          planError,
+          originalPrompt: sessionRef.current.problem,
+          objectives,
+          objectiveStatuses,
+        });
+      }
+    },
+    onPeerDisconnected: () => {
+      setIsPopOutActive(false);
+      popOutWindowRef.current = null;
+    },
+  });
+
+  // Broadcast state updates when relevant state changes (excluding time-based updates)
+  useEffect(() => {
+    if (!isPopOutActive || !sessionRef.current) return;
+    broadcastState({
+      probes: sessionRef.current.probes,
+      isRecording,
+      isPaused,
+      isAnalyzing,
+      archivingProbeId,
+      planLoading,
+      planError,
+      objectives,
+      objectiveStatuses,
+    });
+  }, [isPopOutActive, isRecording, isPaused, isAnalyzing, archivingProbeId, planLoading, planError, objectives, objectiveStatuses, broadcastState]);
+
+  // Broadcast time updates separately at a lower frequency (every 5 seconds)
+  useEffect(() => {
+    if (!isPopOutActive) return;
+    if (elapsedSeconds % 5 !== 0) return; // Only broadcast every 5 seconds
+    broadcastState({
+      elapsedSeconds,
+      cycleProgress: elapsedSeconds % 60,
+    });
+  }, [isPopOutActive, elapsedSeconds, broadcastState]);
+
+  // Broadcast probes when session probes change
+  useEffect(() => {
+    if (!isPopOutActive || !session?.probes) return;
+    broadcastProbes(session.probes);
+  }, [isPopOutActive, session?.probes, broadcastProbes]);
+
+  // Broadcast session plan when it changes
+  useEffect(() => {
+    if (!isPopOutActive) return;
+    broadcastPlan(sessionPlan);
+  }, [isPopOutActive, sessionPlan, broadcastPlan]);
+
+  // Handle opening pop-out window
+  const handlePopOut = useCallback(() => {
+    if (popOutWindowRef.current && !popOutWindowRef.current.closed) {
+      // Focus existing pop-out
+      popOutWindowRef.current.focus();
+    } else {
+      // Clear dismissed state when user explicitly opens a new popout
+      popOutDismissedRef.current = false;
+      // Open new pop-out
+      const popOut = openPopOutWindow(sessionId);
+      popOutWindowRef.current = popOut;
+      if (popOut) {
+        setIsPopOutActive(true);
+      }
+    }
+  }, [sessionId]);
+
+  // Stable callback for focusing pop-out window (used by memoized overlay)
+  const handleFocusPopOut = useCallback(() => {
+    if (popOutWindowRef.current && !popOutWindowRef.current.closed) {
+      popOutWindowRef.current.focus();
+    }
+  }, []);
+
+  // Change tab title and warn on close when pop-out is active
+  useEffect(() => {
+    if (!isPopOutActive) return;
+
+    // Store original title
+    const originalTitle = document.title;
+    
+    // Change tab title to warning
+    document.title = "⚠️ Keep Open - Session Active";
+
+    // Warn user if they try to close/navigate away
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "The monitoring session is running in a separate window. Closing this tab will end your session.";
+      return e.returnValue;
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      document.title = originalTitle;
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isPopOutActive]);
 
   // Mobile detection
   useEffect(() => {
@@ -1390,7 +1574,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       ...finalSession.metadata,
       whiteboardData: whiteboardData || undefined,
       notebookData: notebookContent || undefined,
-      codingData: codingData || undefined,
     };
 
     // Persist to Supabase
@@ -1908,6 +2091,22 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     }
   };
 
+  // Populate action handlers ref for pop-out window communication
+  useEffect(() => {
+    actionHandlersRef.current = {
+      startRecording,
+      stopRecording,
+      handlePause,
+      handleResume,
+      handleReset,
+      handleClose,
+      handleGetFeedback,
+      handleArchiveProbe,
+      handleToggleFocus,
+      handleRecalculatePlan,
+    };
+  }, [startRecording, stopRecording, handlePause, handleResume, handleReset, handleClose, handleGetFeedback, handleArchiveProbe, handleToggleFocus, handleRecalculatePlan]);
+
   // Auto-pause on browser close/refresh
   useEffect(() => {
     const handleBeforeUnload = async (e: BeforeUnloadEvent) => {
@@ -2070,11 +2269,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           <div className="absolute inset-0 bg-neutral-900/30 backdrop-blur-sm" />
         </div>
       )}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header removed */}
-        <div className="flex-1 flex min-h-0">
+        <div className="flex-1 flex min-h-0 overflow-hidden">
           {/* Desktop: Resizable split view */}
-          <div className="hidden md:flex flex-1 min-h-0">
+          <div className="hidden md:flex flex-1 min-h-0 min-w-0 overflow-hidden">
             <ResizablePane
               defaultLeftWidth={50}
               left={
@@ -2115,15 +2314,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         </div>
                       </div>
                     )}
-                    {activeTool === "coding" && (
-                      <CodingTool
-                        sessionId={session.id}
-                        problem={session.problem}
-                        initialCode={codingData?.code}
-                        initialChatHistory={codingData?.chatHistory}
-                        onDataChange={setCodingData}
-                      />
-                    )}
+
                     {activeTool === "rag" && (
                       <div className="h-full p-4 overflow-auto">
                         {ragLoading && (
@@ -2399,6 +2590,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   planError={planError}
                   onRecalculate={handleRecalculatePlan}
                   originalPrompt={session.problem}
+                  onPopOut={handlePopOut}
+                  isPopOutActive={isPopOutActive}
                 />
               }
             />
@@ -2414,6 +2607,17 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               </div>
             </div>
           )}
+
+          {/* Pop-out active banner - uses DOM manipulation to avoid re-renders */}
+          <PopOutBanner 
+            isVisible={isPopOutActive} 
+            popOutWindowRef={popOutWindowRef}
+            onDismiss={() => {
+              popOutDismissedRef.current = true; // Prevent banner from re-appearing
+              setIsPopOutActive(false);
+              popOutWindowRef.current = null;
+            }}
+          />
 
           {/* Mobile: Tab-based navigation */}
           <div className="flex-1 flex flex-col md:hidden min-h-0 h-full">
@@ -2487,6 +2691,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   planError={planError}
                   onRecalculate={handleRecalculatePlan}
                   originalPrompt={session.problem}
+                  onPopOut={handlePopOut}
+                  isPopOutActive={isPopOutActive}
                 />
               )}
               {mobileTab === "prep" && (

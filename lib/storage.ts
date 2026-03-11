@@ -78,11 +78,7 @@ export interface Session {
     whiteboardData?: string | null;
     notebookData?: string | null;
     trafficLight?: TrafficLight;
-    codingData?: {
-      code: string;
-      output: Array<{ type: string; content: string }>;
-      chatHistory?: Array<{ role: string; content: string }>;
-    } | null;
+
   };
 }
 
@@ -569,7 +565,7 @@ export async function saveFacialData(
 
 // ---- Tool Usage Tracking ----
 
-export type ToolName = "chat" | "canvas" | "notebook" | "grokipedia" | "exercise" | "reading" | "rag" | "help" | "data-input" | "logs" | "goals" | "coding";
+export type ToolName = "chat" | "canvas" | "notebook" | "grokipedia" | "exercise" | "reading" | "rag" | "help" | "data-input" | "logs" | "goals";
 
 export type ToolAction = 
   | "open" 
@@ -582,9 +578,7 @@ export type ToolAction =
   | "rag_query"
   | "rag_select_chunk"
   | "prep_material_load"
-  | "help_view"
-  | "coding_run"
-  | "coding_chat";
+  | "help_view";
 
 export async function logToolUsage(
   sessionId: string,
@@ -741,6 +735,128 @@ export async function saveSessionEEG(
   }
   
   console.log("[saveSessionEEG] Done!");
+}
+
+// ---- Screen Capture Storage ----
+
+export interface SessionScreenshot {
+  id: string;
+  sessionId: string;
+  userId: string;
+  timestamp: number;
+  storagePath: string;
+  createdAt: string;
+}
+
+export async function saveScreenshot(
+  sessionId: string,
+  screenshotBlob: Blob,
+  timestamp: number
+): Promise<string | null> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const path = `${user.id}/${sessionId}/screen_${timestamp}.png`;
+  const contentType = "image/png";
+
+  console.log("[saveScreenshot] Saving:", { sessionId, path, size: screenshotBlob.size });
+
+  const { error } = await supabase.storage
+    .from("session-screens")
+    .upload(path, screenshotBlob, {
+      contentType,
+      upsert: false,
+    });
+
+  if (error) {
+    console.error("[saveScreenshot] Upload error:", error);
+    // Don't throw - screenshots are optional
+    return null;
+  }
+
+  // Also record in database for easier querying
+  const { error: dbError } = await supabase
+    .from("session_screenshots")
+    .insert({
+      session_id: sessionId,
+      user_id: user.id,
+      timestamp_ms: timestamp,
+      storage_path: path,
+    });
+
+  if (dbError) {
+    console.error("[saveScreenshot] DB insert error:", dbError);
+    // Screenshot is saved, just not recorded - continue
+  }
+
+  console.log("[saveScreenshot] Done!");
+  return path;
+}
+
+export async function getSessionScreenshots(sessionId: string): Promise<SessionScreenshot[]> {
+  const supabase = createClient();
+  
+  const { data, error } = await supabase
+    .from("session_screenshots")
+    .select("*")
+    .eq("session_id", sessionId)
+    .order("timestamp_ms", { ascending: true });
+
+  if (error || !data) {
+    console.error("[getSessionScreenshots] Error:", error);
+    return [];
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return data.map((row: any) => ({
+    id: row.id,
+    sessionId: row.session_id,
+    userId: row.user_id,
+    timestamp: row.timestamp_ms,
+    storagePath: row.storage_path,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function getScreenshotUrl(storagePath: string): Promise<string | null> {
+  const supabase = createClient();
+  
+  const { data } = await supabase.storage
+    .from("session-screens")
+    .createSignedUrl(storagePath, 3600); // 1 hour expiry
+
+  return data?.signedUrl || null;
+}
+
+export async function deleteSessionScreenshots(sessionId: string): Promise<void> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // Get all screenshot paths for this session
+  const { data: screenshots } = await supabase
+    .from("session_screenshots")
+    .select("storage_path")
+    .eq("session_id", sessionId);
+
+  if (screenshots && screenshots.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const paths = screenshots.map((s: any) => s.storage_path as string);
+    
+    // Delete from storage
+    await supabase.storage
+      .from("session-screens")
+      .remove(paths);
+
+    // Delete from database
+    await supabase
+      .from("session_screenshots")
+      .delete()
+      .eq("session_id", sessionId);
+  }
+
+  console.log("[deleteSessionScreenshots] Deleted screenshots for session:", sessionId);
 }
 
 // ---- Analytics Helpers ----

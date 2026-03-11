@@ -288,7 +288,6 @@ AVAILABLE ILE TOOLS (for tool suggestions):
 - chat: Teaching Assistant - Get Socratic guidance from the AI tutor
 - canvas: Canvas - Draw diagrams, visualizations, or work through problems visually
 - notebook: Notebook - Write down thoughts, insights, and notes
-- coding: Coding - Write and run code to test ideas and implementations
 - grokipedia: Grokipedia - Search external knowledge sources
 
 IMPORTANT CONSTRAINT: There can be a maximum of 5 open (non-archived) probes at any time. If open_probe_count is already 5:
@@ -330,7 +329,7 @@ Return ONLY valid JSON:
   "next_request": {
     "type": "question" | "task" | "suggestion" | "checkpoint" | "feedback",
     "text": "The actual text to show the student",
-    "suggested_tools": ["canvas", "coding"]
+    "suggested_tools": ["canvas", "notebook"]
   } | null,
   "probes_to_archive": ["probe_id_1", "probe_id_2"],
   "can_generate_probe": true/false,
@@ -342,7 +341,7 @@ If should_pause is false, pause_reason can be omitted.
 If no probes should be archived, probes_to_archive should be an empty array.
 Set can_generate_probe to false if at probe cap (5) and cannot archive any.
 The next_request should be ready to display directly to the student - make it engaging and clear.
-suggested_tools is optional - only include it for "task" or "suggestion" types where specific tools would help. Use tool IDs from the list above (chat, canvas, notebook, coding, grokipedia).`,
+suggested_tools is optional - only include it for "task" or "suggestion" types where specific tools would help. Use tool IDs from the list above (chat, canvas, notebook, grokipedia).`,
 
   // ============================================
   // PROBE ARCHIVE CHECK
@@ -357,7 +356,7 @@ SESSION CONTEXT:
 - Goal: {session_goal}
 - Recent Transcript: {transcript}
 - Whiteboard/Visual Data: {whiteboard_data}
-- Code/Activity Data: {coding_data}
+- Activity Data: {activity_data}
 
 A probe should be ARCHIVED if:
 1. The student has verbally addressed the question (even partially) showing they've engaged with the underlying concept
@@ -443,7 +442,7 @@ export const PROMPT_META: Record<PromptKey, { label: string; description: string
   },
   check_probe_archive: {
     label: "Probe Archive Check",
-    description: "Evaluates if a probe can be archived based on student progress. Variables: {probe_text}, {session_goal}, {transcript}, {whiteboard_data}, {coding_data}",
+    description: "Evaluates if a probe can be archived based on student progress. Variables: {probe_text}, {session_goal}, {transcript}, {whiteboard_data}, {activity_data}",
   },
 };
 
@@ -1282,7 +1281,7 @@ export async function checkProbeArchivable(options: {
   sessionGoal: string;
   transcript?: string;
   whiteboardData?: string;
-  codingData?: string;
+  activityData?: string;
   promptOverrides?: UserPrompts;
 }): Promise<{ success: boolean; result?: ProbeArchiveCheckResult; error?: string }> {
   const prompt = getPrompt("check_probe_archive", options.promptOverrides)
@@ -1290,7 +1289,7 @@ export async function checkProbeArchivable(options: {
     .replace("{session_goal}", options.sessionGoal || "Not specified")
     .replace("{transcript}", options.transcript || "No recent transcript available")
     .replace("{whiteboard_data}", options.whiteboardData || "No whiteboard data")
-    .replace("{coding_data}", options.codingData || "No coding data");
+    .replace("{activity_data}", options.activityData || "No activity data");
 
   interface RawArchiveCheck {
     can_archive?: boolean;

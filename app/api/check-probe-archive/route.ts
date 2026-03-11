@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       sessionGoal,
       transcript, 
       whiteboardData,
-      codingData,
+      activityData,
     } = body;
 
     if (!probeText) {
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       sessionGoal: sessionGoal || "General learning session",
       transcript,
       whiteboardData,
-      codingData: codingData ? JSON.stringify(codingData) : undefined,
+      activityData: activityData ? JSON.stringify(activityData) : undefined,
       promptOverrides,
     });
 

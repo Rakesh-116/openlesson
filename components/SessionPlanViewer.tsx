@@ -51,7 +51,7 @@ export function SessionPlanViewer({ plan, loading, error, onRecalculate, origina
   
   if (loading) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-6">
+      <div className="h-full w-full flex flex-col items-center justify-center p-6">
         <div className="w-8 h-8 border-2 border-neutral-700 border-t-cyan-500 rounded-full animate-spin mb-4" />
         <p className="text-sm text-neutral-500">Creating your session plan...</p>
       </div>
@@ -60,7 +60,7 @@ export function SessionPlanViewer({ plan, loading, error, onRecalculate, origina
 
   if (error || isCorrupted) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-6 text-center">
+      <div className="h-full w-full flex flex-col items-center justify-center p-6 text-center">
         <div className="w-16 h-16 rounded-full bg-red-900/20 flex items-center justify-center mb-4">
           <svg
             className="w-8 h-8 text-red-500"
@@ -112,7 +112,7 @@ export function SessionPlanViewer({ plan, loading, error, onRecalculate, origina
 
   if (!plan) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-6 text-center">
+      <div className="h-full w-full flex flex-col items-center justify-center p-6 text-center">
         <div className="w-16 h-16 rounded-full bg-neutral-800 flex items-center justify-center mb-4">
           <svg
             className="w-8 h-8 text-neutral-600"
@@ -178,7 +178,7 @@ export function SessionPlanViewer({ plan, loading, error, onRecalculate, origina
   };
 
   return (
-    <div className="h-full flex flex-col p-4 overflow-hidden">
+    <div className="h-full w-full flex flex-col p-4 overflow-hidden">
       {/* Header */}
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-white mb-1">Session Plan</h2>
@@ -302,7 +302,7 @@ export function SessionPlanViewer({ plan, loading, error, onRecalculate, origina
       </div>
 
       {/* Steps list */}
-      <div className="flex-1 overflow-y-auto space-y-1 pr-1">
+      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden space-y-1 pr-1">
         {plan.steps.map((step, idx) => {
           const isActive = step.status === "in_progress";
           const isCompleted = step.status === "completed";

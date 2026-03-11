@@ -56,8 +56,8 @@ export function ResizablePane({
   }, [isDragging, minLeftWidth, minRightWidth]);
 
   return (
-    <div ref={containerRef} className="flex flex-1 min-h-0">
-      <div style={{ width: `${leftWidth}%` }} className="min-w-0">
+    <div ref={containerRef} className="flex flex-1 min-h-0 overflow-hidden">
+      <div style={{ width: `${leftWidth}%` }} className="min-w-0 overflow-hidden">
         {left}
       </div>
       <div
@@ -66,7 +66,7 @@ export function ResizablePane({
         }`}
         onMouseDown={handleMouseDown}
       />
-      <div style={{ width: `${100 - leftWidth}%` }} className="min-w-0">
+      <div style={{ width: `${100 - leftWidth}%` }} className="min-w-0 overflow-hidden">
         {right}
       </div>
     </div>

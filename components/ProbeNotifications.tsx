@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { type Probe, type SessionPlan, type RequestType, type ToolName } from "@/lib/storage";
 import { SessionPlanViewer } from "./SessionPlanViewer";
+import { QRCodeModal } from "./QRCodeModal";
 
 const MAX_OPEN_PROBES = 5;
 
@@ -11,7 +12,6 @@ const TOOL_LABELS: Record<string, string> = {
   chat: "Teaching Assistant",
   canvas: "Canvas",
   notebook: "Notebook",
-  coding: "Coding",
   grokipedia: "Grokipedia",
   plan: "Session Plan",
   rag: "RAG Matches",
@@ -50,6 +50,9 @@ interface ProbeNotificationsProps {
   planError?: string | null;
   onRecalculate?: () => Promise<void>;
   originalPrompt?: string;
+  // Pop-out window support
+  onPopOut?: () => void;
+  isPopOutActive?: boolean;
 }
 
 // Type badge styling based on request type
@@ -100,10 +103,13 @@ export function ProbeNotifications({
   planError,
   onRecalculate,
   originalPrompt,
+  onPopOut,
+  isPopOutActive = false,
 }: ProbeNotificationsProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<"active" | "archived">("active");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showQRModal, setShowQRModal] = useState(false);
 
   // Calculate active (non-archived) probes
   const activeProbes = useMemo(() => probes.filter(p => !p.archived), [probes]);
@@ -147,16 +153,60 @@ export function ProbeNotifications({
   };
 
   return (
-    <div className="flex-1 min-w-0 flex flex-col bg-[#0a0a0a] h-full">
+    <div className="flex-1 min-w-0 flex flex-col bg-[#0a0a0a] h-full overflow-hidden">
       {/* Header */}
       <div className="px-3 py-2 border-b border-neutral-800 shrink-0">
-        <div>
-          <h2 className="text-xs font-medium text-white uppercase tracking-wider mb-1">
-            Student Monitoring
-          </h2>
-          <p className="text-[10px] text-neutral-500">
-            Questions and feedback from an AI that monitors your thinking and actions in the ILE
-          </p>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h2 className="text-xs font-medium text-white uppercase tracking-wider mb-1">
+              Student Monitoring
+            </h2>
+            <p className="text-[10px] text-neutral-500">
+              Questions and feedback from an AI that monitors your thinking and actions in the ILE
+            </p>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Open on Smartphone button */}
+            <button
+              onClick={() => setShowQRModal(true)}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-md border bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700 hover:border-neutral-600 hover:text-neutral-300 text-[10px] font-medium transition-colors"
+              title="Open on smartphone"
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              <span className="hidden sm:inline">Smartphone</span>
+            </button>
+
+            {/* Pop-out button */}
+            {onPopOut && (
+              <button
+                onClick={onPopOut}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-medium transition-colors ${
+                  isPopOutActive
+                    ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400"
+                    : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700 hover:border-neutral-600 hover:text-neutral-300"
+                }`}
+                title={isPopOutActive ? "Pop-out window active" : "Open in separate window"}
+              >
+                {isPopOutActive ? (
+                  <>
+                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
+                    <span>Pop-out Active</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    <span>Pop Out</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Probe Slots - Game-like UI */}
@@ -196,9 +246,9 @@ export function ProbeNotifications({
       </div>
 
       {/* Probes/Plan Split View - Scrollable Middle Section */}
-      <div className="flex gap-2 flex-1 min-h-0 overflow-hidden px-3 py-2">
+      <div className="flex gap-2 flex-1 min-h-0 min-w-0 overflow-hidden px-3 py-2">
         {/* Left side - Probes */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden p-4">
+        <div className="w-1/2 flex flex-col min-w-0 min-h-0 overflow-hidden p-4">
             {/* Section Title */}
             <div className="mb-6 shrink-0">
               <h2 className="text-lg font-semibold text-white mb-1">Guiding Tasks</h2>
@@ -416,8 +466,8 @@ export function ProbeNotifications({
           </div>
 
           {/* Right side - Session Plan */}
-          <div className="flex-1 flex flex-col min-w-0 border-l border-neutral-800 overflow-hidden">
-            <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="w-1/2 flex flex-col min-w-0 min-h-0 border-l border-neutral-800 overflow-hidden">
+            <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
               <SessionPlanViewer 
                 plan={sessionPlan ?? null} 
                 loading={planLoading} 
@@ -488,6 +538,13 @@ export function ProbeNotifications({
           </div>
         </div>
       )}
+
+      {/* QR Code Modal for mobile access */}
+      <QRCodeModal
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        sessionId={sessionId}
+      />
     </div>
   );
 }
