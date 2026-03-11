@@ -38,7 +38,7 @@ import {
   type ToolAction,
   type RequestType,
 } from "@/lib/storage";
-import { playArchiveSound } from "@/lib/sounds";
+import { playArchiveSound, playStepCompleteSound } from "@/lib/sounds";
 import { formatTime } from "@/lib/utils";
 import { AudioVisualizer, RecordingIndicator } from "./AudioVisualizer";
 import { ActiveProbe } from "./ActiveProbe";
@@ -150,6 +150,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   // Archive/Focus probe state
   const [archivingProbeId, setArchivingProbeId] = useState<string | null>(null);
+  
+  // Celebration state for step completion
+  const [isCelebrating, setIsCelebrating] = useState(false);
 
   // Mobile tabs
   const [mobileTab, setMobileTab] = useState<"main" | "canvas" | "notes" | "questions" | "prep">("main");
@@ -1019,6 +1022,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           }
           
           if (planData) {
+            // Check for step transition BEFORE updating state
+            const previousStepIndex = sessionPlanRef.current?.currentStepIndex ?? 0;
+            const newStepIndex = planData.plan?.currentStepIndex ?? 0;
+            const isStepTransition = newStepIndex > previousStepIndex && isValidPlan(planData.plan);
+            
             // Update local plan state (with validation to prevent corruption)
             if (isValidPlan(planData.plan)) {
               setSessionPlan(planData.plan);
@@ -1028,8 +1036,31 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               console.warn('[Plan Update] Plan still corrupted after retry, keeping previous state:', planData.plan);
             }
             
-            // Handle auto-archiving of resolved probes
-            if (planData.probesToArchive && planData.probesToArchive.length > 0) {
+            // On step transition: archive ALL active probes and trigger celebration
+            if (isStepTransition) {
+              // Archive all active probes from the previous step
+              const activeProbesForArchive = currentSession.probes.filter(p => !p.archived);
+              if (activeProbesForArchive.length > 0) {
+                let sessionWithArchivedProbes = currentSession;
+                for (const probe of activeProbesForArchive) {
+                  await archiveProbe(probe.id);
+                  sessionWithArchivedProbes = {
+                    ...sessionWithArchivedProbes,
+                    probes: sessionWithArchivedProbes.probes.map(p => 
+                      p.id === probe.id ? { ...p, archived: true } : p
+                    ),
+                  };
+                }
+                setSession(sessionWithArchivedProbes);
+                sessionRef.current = sessionWithArchivedProbes;
+              }
+              
+              // Trigger celebration!
+              setIsCelebrating(true);
+              playStepCompleteSound();
+              setTimeout(() => setIsCelebrating(false), 1500);
+            } else if (planData.probesToArchive && planData.probesToArchive.length > 0) {
+              // Handle LLM-suggested archiving of resolved probes (only if not a step transition)
               let updatedSession = currentSession;
               for (const probeId of planData.probesToArchive) {
                 await archiveProbe(probeId);
@@ -2158,76 +2189,55 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     <div className="h-screen flex bg-[#0a0a0a] overflow-hidden">
       {showWelcomeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => {
-            setShowWelcomeModal(false);
-          }} />
-          <div className="relative z-10 w-[95vw] max-w-5xl p-6 bg-neutral-900 border border-neutral-700 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex gap-6">
-              <div className="flex-shrink-0 text-5xl">👋</div>
-              <div className="flex-1">
-                <h2 className="text-2xl font-bold text-white mb-3">Welcome to your Learning Session!</h2>
-                <p className="text-neutral-300 mb-5">Your AI tutor has created a personalized <strong className="text-cyan-400">Session Plan</strong> to guide you through this topic. Here's how it works:</p>
-                
-                <div className="grid grid-cols-3 gap-4 mb-5">
-                  <div className="flex gap-3">
-                    <span className="flex-shrink-0 w-8 h-8 bg-cyan-500/20 border border-cyan-500/30 rounded-full flex items-center justify-center text-cyan-400 font-semibold text-sm">1</span>
-                    <p className="text-neutral-300 text-sm">Tap <strong className="text-white">Start Session</strong> to begin</p>
-                  </div>
-                  <div className="flex gap-3">
-                    <span className="flex-shrink-0 w-8 h-8 bg-cyan-500/20 border border-cyan-500/30 rounded-full flex items-center justify-center text-cyan-400 font-semibold text-sm">2</span>
-                    <p className="text-neutral-300 text-sm">Tap to <strong className="text-white">reveal</strong> each request</p>
-                  </div>
-                  <div className="flex gap-3">
-                    <span className="flex-shrink-0 w-8 h-8 bg-cyan-500/20 border border-cyan-500/30 rounded-full flex items-center justify-center text-cyan-400 font-semibold text-sm">3</span>
-                    <p className="text-neutral-300 text-sm"><strong className="text-white">Think out loud</strong> as you work!</p>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-lg p-4 mb-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                    </svg>
-                    <span className="text-sm font-medium text-cyan-400">Session Plan</span>
-                  </div>
-                  <p className="text-sm text-neutral-300">Your tutor will guide you through a mix of <strong className="text-white">questions</strong>, <strong className="text-white">tasks</strong>, <strong className="text-white">suggestions</strong>, and <strong className="text-white">checkpoints</strong> — adapting the plan in real-time based on your progress. View your plan anytime using the <strong className="text-white">Session Plan</strong> tool in the sidebar.</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="bg-neutral-800/50 rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                      </svg>
-                      <span className="text-xs font-medium text-purple-400">Teaching Assistant</span>
-                    </div>
-                    <p className="text-xs text-neutral-400">Chat anytime for help, hints, or to discuss what you're learning.</p>
-                  </div>
-                  <div className="bg-neutral-800/50 rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                      </svg>
-                      <span className="text-xs font-medium text-green-400">Canvas & Notebook</span>
-                    </div>
-                    <p className="text-xs text-neutral-400">Draw diagrams or jot notes — the tutor watches these too!</p>
-                  </div>
-                </div>
-
-                <p className="text-sm text-neutral-400 mb-4">Don't worry about sounding perfect — thinking out loud is how your tutor understands your reasoning and adapts to help you best.</p>
-
-                <p className="text-base font-semibold text-white mb-4">Ready to start your learning journey?</p>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative z-10 w-[90vw] max-w-lg p-6 bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl">
+            <h2 className="text-xl font-semibold text-white mb-2">Welcome to Your Session</h2>
+            <p className="text-neutral-400 text-sm mb-5">Your tutor has prepared a personalized plan. Think out loud as you work through each step.</p>
+            
+            <div className="space-y-3 mb-5">
+              <div className="flex items-start gap-3">
+                <span className="flex-shrink-0 w-6 h-6 bg-neutral-800 border border-neutral-700 rounded-full flex items-center justify-center text-neutral-300 text-xs font-medium">1</span>
+                <p className="text-neutral-300 text-sm pt-0.5">Press <span className="text-white font-medium">Start Session</span> to begin</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="flex-shrink-0 w-6 h-6 bg-neutral-800 border border-neutral-700 rounded-full flex items-center justify-center text-neutral-300 text-xs font-medium">2</span>
+                <p className="text-neutral-300 text-sm pt-0.5">Follow the session plan and use our guiding questions to advance</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="flex-shrink-0 w-6 h-6 bg-neutral-800 border border-neutral-700 rounded-full flex items-center justify-center text-neutral-300 text-xs font-medium">3</span>
+                <p className="text-neutral-300 text-sm pt-0.5">Use the sidebar for chat, canvas, and notes</p>
               </div>
             </div>
 
-            <button
-              onClick={() => {
-                setShowWelcomeModal(false);
-              }}
-              className="w-full py-3 px-6 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-medium rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-cyan-500/20"
-            >
-              Let's go!
-            </button>
+            <p className="text-xs text-neutral-500 mb-5">Your tutor adapts to your progress in real-time. Don't worry about sounding perfect.</p>
+
+            {(() => {
+              const isSessionReady = sessionPlan && !planLoading && !openingProbeLoading && session?.probes && session.probes.length > 0;
+              return (
+                <>
+                  {!isSessionReady && (
+                    <div className="flex items-center gap-3 mb-4 p-3 bg-neutral-800/50 rounded-lg">
+                      <div className="w-4 h-4 border-2 border-neutral-600 border-t-white rounded-full animate-spin" />
+                      <span className="text-sm text-neutral-400">Preparing your session...</span>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setShowWelcomeModal(false);
+                    }}
+                    disabled={!isSessionReady}
+                    className={`w-full py-2.5 px-4 font-medium rounded-lg transition-colors ${
+                      !isSessionReady
+                        ? 'bg-neutral-700 text-neutral-500 cursor-not-allowed'
+                        : 'bg-white hover:bg-neutral-100 text-neutral-900'
+                    }`}
+                  >
+                    {!isSessionReady ? 'Please wait...' : 'Get Started'}
+                  </button>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -2592,6 +2602,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   originalPrompt={session.problem}
                   onPopOut={handlePopOut}
                   isPopOutActive={isPopOutActive}
+                  isInitializing={planLoading || openingProbeLoading}
+                  isCelebrating={isCelebrating}
                 />
               }
             />
@@ -2693,6 +2705,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   originalPrompt={session.problem}
                   onPopOut={handlePopOut}
                   isPopOutActive={isPopOutActive}
+                  isInitializing={planLoading || openingProbeLoading}
+                  isCelebrating={isCelebrating}
                 />
               )}
               {mobileTab === "prep" && (
