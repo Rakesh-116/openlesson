@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { HowItWorks } from "@/components/HowItWorks";
-import { Testimonials, PLACEHOLDER_TESTIMONIALS } from "@/components/Testimonials";
+import { FAQ, ABOUT_FAQ_ITEMS } from "@/components/FAQ";
 import { DemoBanner } from "@/components/DemoBanner";
 
 export const metadata = {
@@ -16,29 +16,6 @@ export const metadata = {
     type: "website",
   },
 };
-
-const TIMELINE = [
-  {
-    year: "2019",
-    title: "Uncertain Systems begins",
-    description: "Started live-streaming problem solving on YouTube — no scripts, no edits, just real-time thinking.",
-  },
-  {
-    year: "2023",
-    title: "The idea forms",
-    description: "After years of 1-on-1 coaching, realized guided questioning could be scaled with AI that listens, not lectures.",
-  },
-  {
-    year: "2024",
-    title: "openLesson launches",
-    description: "Released as open source. The first AI tutor that analyzes your reasoning through audio, not text.",
-  },
-  {
-    year: "2025",
-    title: "Growing community",
-    description: "Thousands of learners building genuine understanding through guided dialogue.",
-  },
-];
 
 const VALUES = [
   {
@@ -81,6 +58,53 @@ const HOW_IT_WORKS_STEPS = [
   },
 ];
 
+const USE_CASES = [
+  {
+    icon: "🏠",
+    title: "Homeschool",
+    description: "Guide your kids through any subject with AI that asks the right questions.",
+    href: "/homeschool",
+  },
+  {
+    icon: "🏫",
+    title: "Schools",
+    description: "Classroom tools that let teachers see how each student thinks.",
+    href: "/schools",
+  },
+  {
+    icon: "🏢",
+    title: "Enterprise",
+    description: "Train teams on products, compliance, and sales through active learning.",
+    href: "/enterprise",
+  },
+  {
+    icon: "📜",
+    title: "Certifications",
+    description: "Prepare for AWS, PMP, and other exams by truly understanding the material.",
+    href: "/certify",
+  },
+];
+
+// TODO: Replace these placeholder video IDs with your actual YouTube video IDs
+// Format: Just the video ID from the URL (e.g., "BC7HCkjtOME" from youtube.com/watch?v=BC7HCkjtOME)
+const VIDEOS = [
+  {
+    id: "PLACEHOLDER_VIDEO_1",
+    title: "Video Title 1",
+    description: "Brief description of this video.",
+  },
+  {
+    id: "PLACEHOLDER_VIDEO_2",
+    title: "Video Title 2",
+    description: "Brief description of this video.",
+  },
+  {
+    id: "PLACEHOLDER_VIDEO_3",
+    title: "Video Title 3",
+    description: "Brief description of this video.",
+  },
+];
+
 const WHY_OPENLESSON = [
   {
     title: "We Listen, Not Lecture",
@@ -116,8 +140,9 @@ export default function AboutPage() {
             An AI Tutor That Listens to You Think
           </h1>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto leading-relaxed">
-            openLesson is built on a simple idea: the best way to learn is to explain things yourself 
-            while someone asks you the right questions. We're building AI that does exactly that.
+            The best way to learn isn't being told the answer—it's discovering it yourself 
+            through the right questions. openLesson listens to your reasoning and asks 
+            questions that reveal gaps you didn't know you had.
           </p>
         </div>
 
@@ -133,10 +158,45 @@ export default function AboutPage() {
           />
         </div>
 
-        {/* Why openLesson vs ChatGPT */}
+        {/* Use Cases */}
         <div className="mb-16">
           <h2 className="text-xl sm:text-2xl font-semibold text-white text-center mb-3">
-            Why Not Just Use ChatGPT?
+            Use It Your Way
+          </h2>
+          <p className="text-slate-500 text-center text-sm mb-8 max-w-lg mx-auto">
+            openLesson adapts to how you learn—at home, in the classroom, or at work.
+          </p>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {USE_CASES.map((useCase) => (
+              <Link
+                key={useCase.href}
+                href={useCase.href}
+                className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 hover:border-slate-700 hover:bg-slate-900/70 transition-colors group"
+              >
+                <span className="text-2xl mb-3 block">{useCase.icon}</span>
+                <h3 className="text-base font-medium text-white mb-2 group-hover:text-slate-100">
+                  {useCase.title}
+                </h3>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  {useCase.description}
+                </p>
+              </Link>
+            ))}
+          </div>
+          
+          <p className="text-center mt-6 text-sm text-slate-500">
+            Want personalized guidance?{" "}
+            <Link href="/coaching" className="text-amber-400 hover:text-amber-300 underline underline-offset-2">
+              Try 1-on-1 coaching →
+            </Link>
+          </p>
+        </div>
+
+        {/* What Makes openLesson Different */}
+        <div className="mb-16">
+          <h2 className="text-xl sm:text-2xl font-semibold text-white text-center mb-3">
+            What Makes openLesson Different
           </h2>
           <p className="text-slate-500 text-center text-sm mb-8 max-w-lg mx-auto">
             Most AI tools give you answers. We help you find them yourself.
@@ -160,27 +220,21 @@ export default function AboutPage() {
           </div>
         </div>
 
-        {/* Testimonials */}
-        <div className="mb-16 py-12 border-t border-slate-800">
-          <Testimonials
-            title="What Learners Say"
-            testimonials={PLACEHOLDER_TESTIMONIALS}
-          />
-        </div>
-
         {/* The Story */}
         <div className="mb-16">
           <h2 className="text-2xl font-semibold text-white mb-6">The Story</h2>
           <div className="prose prose-invert max-w-none">
             <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6 space-y-4">
               <p className="text-slate-300 leading-relaxed">
-                I'm Daniel Colomer, and I've been doing live problem-solving streams on YouTube since 2019 
-                under the name <a href="https://www.youtube.com/@UncertainSystems" target="_blank" rel="noopener noreferrer" className="text-white underline underline-offset-2 hover:text-slate-300">Uncertain Systems</a>. 
-                No scripts, no preparation — just working through hard problems in real-time, from competition math to quantum physics.
+                For seven years, I've solved hard problems live on camera—quantum mechanics, competition math, 
+                theoretical physics—with zero preparation. No scripts. Just real-time thinking, mistakes and all.
               </p>
               <p className="text-slate-300 leading-relaxed">
-                Through hundreds of hours of streaming and 1-on-1 coaching, I noticed something: the students who improved fastest 
-                weren't the ones I gave the best explanations to. They were the ones I asked the best <em>questions</em> of.
+                I'm Daniel Colomer, and through{" "}
+                <a href="https://www.youtube.com/@UncertainSystems" target="_blank" rel="noopener noreferrer" className="text-white underline underline-offset-2 hover:text-slate-300">Uncertain Systems</a>, 
+                I've done hundreds of hours of streaming and 1-on-1 coaching. Along the way, I noticed something: 
+                the students who improved fastest weren't the ones I gave the best explanations to. 
+                They were the ones I asked the best <em>questions</em> of.
               </p>
               <p className="text-slate-300 leading-relaxed">
                 Guided questioning — asking questions that expose gaps in understanding — has been the gold standard for teaching 
@@ -196,27 +250,63 @@ export default function AboutPage() {
           </div>
         </div>
 
-        {/* Timeline */}
+        {/* Watch Me Think - YouTube Videos */}
         <div className="mb-16">
-          <h2 className="text-2xl font-semibold text-white mb-6">Timeline</h2>
-          <div className="relative">
-            {/* Line */}
-            <div className="absolute left-4 top-0 bottom-0 w-px bg-slate-800" />
-            
-            <div className="space-y-8">
-              {TIMELINE.map((item, index) => (
-                <div key={index} className="relative pl-12">
-                  {/* Dot */}
-                  <div className="absolute left-2.5 top-1.5 w-3 h-3 rounded-full bg-slate-700 border-2 border-slate-600" />
-                  
-                  <div>
-                    <span className="text-xs text-slate-500 font-mono">{item.year}</span>
-                    <h3 className="text-base font-medium text-white mt-1">{item.title}</h3>
-                    <p className="text-sm text-slate-400 mt-1 leading-relaxed">{item.description}</p>
-                  </div>
+          <h2 className="text-2xl font-semibold text-white mb-2">Watch Me Think</h2>
+          <p className="text-slate-500 text-sm mb-6">
+            Real-time problem solving on{" "}
+            <a
+              href="https://www.youtube.com/@UncertainSystems"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-300 hover:text-white underline underline-offset-2"
+            >
+              Uncertain Systems
+            </a>
+            . No scripts, no edits.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {VIDEOS.map((video) => (
+              <div
+                key={video.id}
+                className="rounded-xl border border-slate-800 bg-slate-900/50 overflow-hidden"
+              >
+                <div className="aspect-video bg-slate-800">
+                  {video.id.startsWith("PLACEHOLDER") ? (
+                    <div className="w-full h-full flex items-center justify-center text-slate-600 text-sm">
+                      Video placeholder
+                    </div>
+                  ) : (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${video.id}`}
+                      title={video.title}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="w-full h-full"
+                    />
+                  )}
                 </div>
-              ))}
-            </div>
+                <div className="p-4">
+                  <h3 className="text-sm font-medium text-white mb-1">{video.title}</h3>
+                  <p className="text-xs text-slate-500">{video.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center mt-4">
+            <a
+              href="https://www.youtube.com/@UncertainSystems"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm text-red-400 hover:text-red-300"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+              </svg>
+              Watch more on YouTube
+            </a>
           </div>
         </div>
 
@@ -266,6 +356,11 @@ export default function AboutPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* FAQ */}
+        <div className="mb-16">
+          <FAQ items={ABOUT_FAQ_ITEMS} />
         </div>
 
         {/* Contact */}
@@ -321,10 +416,10 @@ export default function AboutPage() {
         {/* CTA */}
         <div className="text-center">
           <h2 className="text-xl font-semibold text-white mb-3">
-            Ready to try it?
+            Experience it yourself
           </h2>
           <p className="text-slate-500 text-sm mb-6 max-w-md mx-auto">
-            Start your first session free. Experience guided questioning with AI.
+            Start your first session free. See what guided questioning feels like.
           </p>
           <Link
             href="/register"
