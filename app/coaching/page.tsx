@@ -95,19 +95,6 @@ const WHAT_YOULL_GET = [
   },
 ];
 
-const PLACEHOLDER_COACHING_TESTIMONIALS = [
-  {
-    quote: "Daniel helped me see that I wasn't actually understanding proofs — I was just pattern matching. One session completely changed how I approach mathematics.",
-    name: "Michael",
-    context: "Graduate student, Mathematics",
-  },
-  {
-    quote: "I went from dreading physics problems to actually enjoying them. The systematic approach he taught me works for everything.",
-    name: "Sarah",
-    context: "Competition math preparation",
-  },
-];
-
 export default function CoachingPage() {
   return (
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
@@ -215,41 +202,6 @@ export default function CoachingPage() {
                 <span className="text-3xl mb-3 block">{item.icon}</span>
                 <h3 className="text-sm font-medium text-white mb-2">{item.title}</h3>
                 <p className="text-xs text-slate-500 leading-relaxed">{item.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Testimonials */}
-        <div className="mb-16">
-          <h2 className="text-xl sm:text-2xl font-semibold text-white text-center mb-8">
-            What Clients Say
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto">
-            {PLACEHOLDER_COACHING_TESTIMONIALS.map((testimonial, index) => (
-              <div
-                key={index}
-                className="rounded-xl border border-slate-800 bg-slate-900/50 p-5"
-              >
-                <svg 
-                  className="w-6 h-6 text-slate-700 mb-3" 
-                  fill="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
-                </svg>
-                <p className="text-sm text-slate-300 leading-relaxed mb-4">
-                  "{testimonial.quote}"
-                </p>
-                <div className="flex items-center gap-3 pt-3 border-t border-slate-800">
-                  <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-sm text-slate-400 font-medium">
-                    {testimonial.name.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="text-sm text-white font-medium">{testimonial.name}</p>
-                    <p className="text-xs text-slate-500">{testimonial.context}</p>
-                  </div>
-                </div>
               </div>
             ))}
           </div>

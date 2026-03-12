@@ -100,7 +100,7 @@ export async function POST(request: Request) {
     // Add 15 credits to the referred user's profile
     const { error: creditsError } = await adminClient.rpc("add_user_credits", {
       p_user_id: userId,
-      p_credits: 15,
+      p_lessons: 15,
     });
 
     if (creditsError) {

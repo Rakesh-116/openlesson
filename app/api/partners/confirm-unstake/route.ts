@@ -37,6 +37,17 @@ export async function POST(request: Request) {
       });
     }
 
+    // Revoke token-based plan access
+    await supabase
+      .from("profiles")
+      .update({
+        token_tier: null,
+        token_validated_at: null,
+        token_validity_expires_at: null,
+        wallet_address: null,
+      })
+      .eq("id", user.id);
+
     // Delete partner record (unstake complete)
     const { error: deleteError } = await supabase
       .from("partners")
@@ -50,7 +61,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Successfully unstaked ${(partner.stake_amount / 1_000_000).toFixed(0)}M $UNSYS`,
+      message: `Successfully unstaked ${(partner.stake_amount / 1_000_000).toFixed(0)}M $UNSYS. Your plan access has been revoked. Contact us at https://x.com/uncertainsys to arrange return of your tokens.`,
       tier: partner.tier,
     });
   } catch (error) {

@@ -127,26 +127,35 @@ End the session if:
 
 Otherwise, keep going.`,
 
-  report_generation: `You are reviewing a tutoring session.
+  report_generation: `You are reviewing a tutoring session. Be direct and specific.
 
 Problem: {problem}
 Duration: {duration}
-Number of probes triggered: {count}
-Average gap score: {avg_gap}
-Probes and their gap signals:
+Probes triggered: {count} (avg gap score: {avg_gap})
+Probes and signals:
 {probes_summary}
 
 {eeg_context}
 
-Generate a structured report (markdown) covering:
-1. **Session Overview** - brief summary of what happened
-2. **Key Gaps Identified** - the main reasoning gaps detected
-3. **Progress Arc** - how the student's thinking evolved (did gaps decrease over time?)
-4. **Strengths** - what the student did well
-5. **Areas to Improve** - specific recommendations for next session
-6. **Suggested Next Steps** - 2-3 concrete things to practice
+Write a concise session debrief in markdown:
 
-Keep it encouraging but honest. 300-500 words.`,
+## What Happened
+1-2 sentences. What the student worked on, how it went.
+
+## Gaps Found
+Bullet the specific reasoning gaps detected. No generic observations.
+
+## What Went Well
+1-2 bullets on genuine strengths shown.
+
+## Next Time
+2-3 concrete, actionable things to focus on next session.
+
+Rules:
+- 150-200 words maximum
+- No filler, no motivational fluff
+- Be honest and specific
+- Plain language only`,
 
   expand_probe: `The student engaged with this guiding question while working on a problem:
 
@@ -424,7 +433,7 @@ export const PROMPT_META: Record<PromptKey, { label: string; description: string
   },
   report_generation: {
     label: "Session Report",
-    description: "Generates the post-session report. Variables: {problem}, {duration}, {count}, {avg_gap}, {probes_summary}, {eeg_context}",
+    description: "Generates a concise post-session debrief (150-200 words). Variables: {problem}, {duration}, {count}, {avg_gap}, {probes_summary}, {eeg_context}",
   },
   expand_probe: {
     label: "Expand Probe",
@@ -674,7 +683,7 @@ export async function generateReport(options: {
     [userMessage(prompt)],
     {
       model: MODEL,
-      maxTokens: 1500,
+      maxTokens: 800,
       temperature: RECOMMENDED_TEMPS.report,
     }
   );

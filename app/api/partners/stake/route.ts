@@ -51,31 +51,38 @@ async function checkTransferToTreasury(userWallet: string, stakeAmount: number):
 
     if (!tx?.meta) continue;
 
-    // Check token transfers
+    // Check token transfers by comparing treasury wallet balance before/after
     const postTokenBalances = tx.meta.postTokenBalances || [];
     const preTokenBalances = tx.meta.preTokenBalances || [];
 
-    // Look for a transfer from user wallet to treasury wallet
-    for (const pre of preTokenBalances) {
-      if (pre.owner === userWallet && pre.mint === UNSYS_TOKEN_MINT) {
-        const post = postTokenBalances.find((b: { owner: string; mint: string }) => b.owner === TREASURY_WALLET && b.mint === UNSYS_TOKEN_MINT);
-        if (post) {
-          const preAmount = parseFloat(pre.uiTokenAmount?.uiAmountString || "0");
-          const postAmount = parseFloat(post.uiTokenAmount?.uiAmountString || "0");
-          const transferred = postAmount - preAmount;
-          
-          if (transferred >= stakeAmount) {
-            return true;
-          }
-        }
-      }
-    }
+    // Find treasury wallet's $UNSYS balance before and after the transaction
+    const treasuryPre = preTokenBalances.find(
+      (b: { owner: string; mint: string }) => b.owner === TREASURY_WALLET && b.mint === UNSYS_TOKEN_MINT
+    );
+    const treasuryPost = postTokenBalances.find(
+      (b: { owner: string; mint: string }) => b.owner === TREASURY_WALLET && b.mint === UNSYS_TOKEN_MINT
+    );
 
-    // Also check native SOL transfers (treasury as destination)
-    if (tx.transaction?.message?.instructions) {
-      for (const inst of tx.transaction.message.instructions) {
-        if (inst.parsed?.type === "transfer" && inst.parsed.info?.destination === TREASURY_WALLET) {
-          // For SOL transfers check the amounts
+    if (treasuryPost) {
+      const preAmount = parseFloat(treasuryPre?.uiTokenAmount?.uiAmountString || "0");
+      const postAmount = parseFloat(treasuryPost.uiTokenAmount?.uiAmountString || "0");
+      const received = postAmount - preAmount;
+
+      // Verify the user wallet was the sender (balance decreased)
+      const userPre = preTokenBalances.find(
+        (b: { owner: string; mint: string }) => b.owner === userWallet && b.mint === UNSYS_TOKEN_MINT
+      );
+      const userPost = postTokenBalances.find(
+        (b: { owner: string; mint: string }) => b.owner === userWallet && b.mint === UNSYS_TOKEN_MINT
+      );
+
+      if (userPre) {
+        const userPreAmount = parseFloat(userPre.uiTokenAmount?.uiAmountString || "0");
+        const userPostAmount = parseFloat(userPost?.uiTokenAmount?.uiAmountString || "0");
+        const userSent = userPreAmount - userPostAmount;
+
+        if (received >= stakeAmount && userSent >= stakeAmount) {
+          return true;
         }
       }
     }
@@ -162,6 +169,7 @@ export async function POST(request: Request) {
         tier,
         stake_amount: stakeAmount,
         referral_code: finalReferralCode,
+        wallet_address: walletAddress,
       })
       .select()
       .single();
@@ -171,6 +179,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to create partner record" }, { status: 500 });
     }
 
+    // Auto-grant plan access based on stake tier
+    const planAccess = stakeAmount >= 5_000_000 ? "pro" : "regular";
+    await supabase
+      .from("profiles")
+      .update({
+        wallet_address: walletAddress,
+        token_tier: planAccess,
+        token_validated_at: new Date().toISOString(),
+        token_validity_expires_at: null, // Permanent while staked
+      })
+      .eq("id", user.id);
+
     return NextResponse.json({
       success: true,
       partner: {
@@ -179,6 +199,7 @@ export async function POST(request: Request) {
         stakeAmount,
         referralCode: finalReferralCode,
         revenueShare: PARTNER_TIERS[tier].revenueShare * 100,
+        planAccess,
       },
     });
   } catch (error) {

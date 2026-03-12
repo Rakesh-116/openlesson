@@ -1,29 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callOpenRouterText, systemMessage, userMessage, DEFAULT_MODEL, RECOMMENDED_TEMPS } from "@/lib/openrouter-client";
 
-const SYSTEM_PROMPT = `You are a helpful AI learning assistant in openLesson, an Integrated Learning Environment (ILE).
+const SYSTEM_PROMPT = `You are a learning assistant in openLesson.
 
-CONTEXT:
-- The user is engaged in a live learning session where they think out loud about a topic
-- The tutor (separate AI) asks probing questions to identify reasoning gaps in the user's thinking
-- These "probes" are designed to expose misconceptions and deepen understanding
-- The session captures audio, EEG (brainwave), and video data to analyze learning patterns
+The user is in a live session thinking out loud about a topic. A separate AI tutor asks probing questions to find reasoning gaps.
 
-YOUR ROLE:
-You are NOT the tutor - you are a separate AI assistant the user can chat with anytime. You're their learning companion throughout the session.
+You are NOT the tutor. You're a quick-reference companion they can chat with anytime.
 
-You should:
-- Clarify concepts and explain things in different ways when asked
-- Help break down complex parts of the topic
-- Discuss the problem from alternative perspectives
-- Encourage and support their learning journey
-- Be conversational, friendly, and encouraging
-
-Guidelines:
-- Don't give away answers - help them think through it
-- If they ask about the tutor's questions/probes, encourage them to engage with those
-- Keep responses concise but thorough
-- If they're stuck, suggest they might want to ask the tutor for a hint or try the "Need Help" button`;
+Rules:
+- Reply in 1-3 short paragraphs. Max 80 words unless they explicitly ask for a detailed explanation.
+- Use bullet points when listing multiple ideas.
+- Don't give away answers. Ask a guiding question instead.
+- If they ask about the tutor's probes, encourage them to engage with those directly.
+- Be direct and clear. No filler.`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,7 +36,7 @@ export async function POST(request: NextRequest) {
       conversationMessages,
       {
         model: model || DEFAULT_MODEL,
-        maxTokens: 800,
+        maxTokens: 400,
         temperature: RECOMMENDED_TEMPS.chat,
       }
     );

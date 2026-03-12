@@ -25,6 +25,7 @@ function ResultsContent() {
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!sessionId) {
@@ -90,6 +91,7 @@ function ResultsContent() {
 
   const generateAndSaveReport = async (s: Session) => {
     setReportLoading(true);
+    setReportError(null);
     try {
       const durationMin = Math.round(s.durationMs / 60000);
 
@@ -110,16 +112,23 @@ function ResultsContent() {
         }),
       });
 
-      if (res.ok) {
-        const { report } = await res.json();
-        if (report) {
-          const updatedSession = { ...s, report, reportGeneratedAt: new Date().toISOString() };
-          setSession(updatedSession);
-          await saveSession(updatedSession);
-        }
+      if (!res.ok) {
+        setReportError("Failed to generate report. Please try again.");
+        return;
       }
+
+      const { report } = await res.json();
+      if (!report) {
+        setReportError("Report came back empty. Please try again.");
+        return;
+      }
+
+      const updatedSession = { ...s, report, reportGeneratedAt: new Date().toISOString() };
+      setSession(updatedSession);
+      await saveSession(updatedSession);
     } catch (err) {
       console.error("Report generation failed:", err);
+      setReportError("Something went wrong generating the report.");
     } finally {
       setReportLoading(false);
     }
@@ -219,6 +228,19 @@ function ResultsContent() {
             <div className="flex items-center gap-3 py-6 justify-center">
               <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full" />
               <p className="text-sm text-neutral-500">Generating your session report...</p>
+            </div>
+          </div>
+        ) : reportError ? (
+          <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-5">
+            <h3 className="text-sm font-medium text-neutral-300 mb-3">Session Report</h3>
+            <div className="flex flex-col items-center gap-3 py-4">
+              <p className="text-sm text-red-400">{reportError}</p>
+              <button
+                onClick={() => generateAndSaveReport(session)}
+                className="px-4 py-1.5 text-sm bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg transition-colors"
+              >
+                Retry
+              </button>
             </div>
           </div>
         ) : null}

@@ -29,7 +29,7 @@ export function BecomePartner({ onClose }: BecomePartnerProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           stakeAmount: PARTNER_TIERS[selectedTier].stakeAmount,
-          walletAddress: walletAddress || "mock-" + Date.now(),
+          walletAddress: walletAddress,
         }),
       });
 

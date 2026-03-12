@@ -101,8 +101,10 @@ export function canStartSession(
 
   const planDef = PLANS[plan] || PLANS.free;
 
-  // Check token tier validity (3-month validation)
-  const isTokenValid = token_tier && token_validity_expires_at && new Date(token_validity_expires_at) > new Date();
+  // Check token tier validity (null expiry = permanent for stakers, otherwise 3-month window)
+  const isTokenValid = token_tier && (
+    token_validity_expires_at === null || new Date(token_validity_expires_at) > new Date()
+  );
   
   // If token tier is valid and better than current plan, use token tier
   if (isTokenValid) {

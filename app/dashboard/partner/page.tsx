@@ -212,8 +212,9 @@ export default function PartnerPage() {
               <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Check className="w-8 h-8 text-emerald-400" />
               </div>
-              <h2 className="text-2xl font-bold text-white mb-2">You're now a partner!</h2>
-              <p className="text-neutral-400 mb-6">Your partner account has been created.</p>
+              <h2 className="text-2xl font-bold text-white mb-2">You&apos;re now a partner!</h2>
+              <p className="text-neutral-400 mb-2">Your partner account has been created.</p>
+              <p className="text-sm text-emerald-400 mb-6">Your plan has been automatically upgraded based on your stake tier.</p>
               <button
                 onClick={() => router.push("/dashboard")}
                 className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500"
@@ -236,6 +237,10 @@ export default function PartnerPage() {
                 <code className="block mt-3 p-3 bg-neutral-800 rounded-lg text-emerald-400 text-sm break-all">
                   {STAKING_WALLET}
                 </code>
+                <p className="text-xs text-neutral-500 mt-3">
+                  Staking is currently a manual token transfer. Smart contract staking coming soon.
+                  Your plan will be automatically upgraded once the transfer is verified.
+                </p>
               </div>
 
               <div className="flex gap-3">
@@ -488,11 +493,16 @@ export default function PartnerPage() {
                 {stats.isUnstakeLocked ? "Unstake in Progress" : "Ready to Complete Unstake"}
               </span>
             </div>
-            <p className="text-sm text-neutral-400 mb-4">
+            <p className="text-sm text-neutral-400 mb-2">
               {stats.isUnstakeLocked 
                 ? `${daysRemaining} days remaining until you can complete your unstake.`
                 : "Your 60-day lockup period has ended. You can now complete your unstake."
               }
+            </p>
+            <p className="text-xs text-neutral-500 mb-4">
+              Your plan access will be revoked upon completion. Contact{" "}
+              <a href="https://x.com/uncertainsys" target="_blank" rel="noopener noreferrer" className="text-neutral-400 underline">@uncertainsys</a>
+              {" "}to arrange token return.
             </p>
             {!stats.isUnstakeLocked && (
               <button
@@ -557,12 +567,17 @@ export default function PartnerPage() {
             <div className="bg-neutral-900 rounded-xl p-6 max-w-md border border-neutral-800">
               <h3 className="text-xl font-bold text-white mb-4">Unstake $UNSYS</h3>
               <p className="text-neutral-400 mb-4">
-                Are you sure you want to unstake? You'll lose your partner status and your referral code will no longer work.
+                Are you sure you want to unstake? You&apos;ll lose your partner status, plan access, and your referral code will no longer work.
               </p>
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-4">
                 <p className="text-sm text-amber-400">
                   <AlertTriangle className="w-4 h-4 inline mr-2" />
-                  60-day lockup period begins now. You won't be able to withdraw your tokens until the period ends.
+                  60-day lockup period begins now. After the lockup, your partner status and plan access will be removed.
+                </p>
+                <p className="text-xs text-amber-400/70 mt-2">
+                  Contact us at{" "}
+                  <a href="https://x.com/uncertainsys" target="_blank" rel="noopener noreferrer" className="underline">@uncertainsys</a>
+                  {" "}to arrange return of your $UNSYS tokens after unstaking completes.
                 </p>
               </div>
               <div className="flex gap-3">

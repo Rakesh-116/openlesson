@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
+import { PARTNER_TIERS, type PartnerTier } from "@/lib/partners";
 
 export const runtime = "nodejs";
 
@@ -80,12 +81,8 @@ export async function POST(request: NextRequest) {
                 .single();
 
               if (partner) {
-                const revenueShares: Record<string, number> = {
-                  bronze: 0.10,
-                  silver: 0.30,
-                  gold: 0.50,
-                };
-                const share = revenueShares[partner.tier] || 0.10;
+                const tierConfig = PARTNER_TIERS[partner.tier as PartnerTier];
+                const share = tierConfig?.revenueShare ?? 0.10;
                 const partnerRevenue = (amountPaid * share) / 100;
 
                 if (partnerRevenue > 0) {
@@ -198,12 +195,8 @@ export async function POST(request: NextRequest) {
             if (partner) {
               // Calculate revenue share (amount_paid is in cents)
               const amountPaid = invoice.amount_paid || 0;
-              const revenueShares: Record<string, number> = {
-                bronze: 0.10,
-                silver: 0.30,
-                gold: 0.50,
-              };
-              const share = revenueShares[partner.tier] || 0.10;
+              const tierConfig = PARTNER_TIERS[partner.tier as PartnerTier];
+              const share = tierConfig?.revenueShare ?? 0.10;
               const partnerRevenue = (amountPaid * share) / 100; // Convert from cents
 
               if (partnerRevenue > 0) {

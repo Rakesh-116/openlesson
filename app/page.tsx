@@ -75,8 +75,7 @@ export default function Home() {
             <ProblemInput initialTopic={selectedTopic} theme="slate" />
 
             {/* Topic Browser */}
-            <div className="w-full mt-8">
-              <div className="h-px bg-slate-800 mb-8" />
+            <div className="w-full max-w-3xl mx-auto mt-6 rounded-2xl border border-slate-800/60 bg-slate-900/30 p-4 sm:p-5">
               <TopicBrowser onSelectTopic={setSelectedTopic} fullWidth />
             </div>
           </>
