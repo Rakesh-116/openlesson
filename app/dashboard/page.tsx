@@ -1146,9 +1146,15 @@ export default function DashboardPage() {
 
             {/* API Access Section (merged from Agentic Usage) */}
             <div className="border-t border-neutral-800/60 pt-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-2">
                 <h2 className="text-lg font-semibold">API Access</h2>
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                  Experimental
+                </span>
               </div>
+              <p className="text-xs text-neutral-500 mb-4">
+                The Agent API is experimental and does not yet support the full tutoring harness (probes, gap tracking, session plans). We&apos;re actively working on full parity.
+              </p>
               {user?.plan !== "pro" && !user?.isAdmin && (
                 <div className="mb-4 p-4 rounded-lg border border-yellow-500/30 bg-yellow-500/5">
                   <p className="text-sm text-yellow-400">

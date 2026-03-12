@@ -210,7 +210,28 @@ export default function UserDetailPage() {
           </div>
           <div>
             <div className="text-xs text-neutral-500">Extra Lessons</div>
-            <div className="text-neutral-200">{user?.extra_lessons ?? 0}</div>
+            <div className="flex items-center gap-2">
+              <span className="text-neutral-200">{user?.extra_lessons ?? 0}</span>
+              {[1, 10, 100].map((amount) => (
+                <button
+                  key={amount}
+                  onClick={async () => {
+                    const newTotal = (user?.extra_lessons ?? 0) + amount;
+                    const res = await fetch("/api/admin/users", {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ userId: user?.id, extra_lessons: newTotal }),
+                    });
+                    if (res.ok) {
+                      setUser((prev) => prev ? { ...prev, extra_lessons: newTotal } : prev);
+                    }
+                  }}
+                  className="px-1.5 py-0.5 text-[10px] font-medium bg-green-900/30 text-green-400 border border-green-800/50 rounded hover:bg-green-900/50 transition-colors"
+                >
+                  +{amount}
+                </button>
+              ))}
+            </div>
           </div>
           <div>
             <div className="text-xs text-neutral-500">Token Tier</div>

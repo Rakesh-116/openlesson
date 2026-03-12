@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
+import { Bot } from "lucide-react";
 
 const ENDPOINTS = [
   {
@@ -145,7 +146,7 @@ curl -X POST https://openlesson.academy/api/agent/session/end \\
   -d '{"session_id": "session-uuid"}'
 
 # Step 5: Get the session report
-curl "https://openlesson.academy/api/agent/summary?session_id=session-uuid" \
+curl "https://openlesson.academy/api/agent/session/summary?session_id=session-uuid" \
   -H "Authorization: Bearer YOUR_API_KEY"`;
 
 export function AgenticModeSelect() {
@@ -178,10 +179,14 @@ export function AgenticModeSelect() {
         <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
           Agentic Mode
         </h2>
-        <p className="text-slate-500 max-w-lg mx-auto text-sm leading-relaxed">
+        <p className="text-slate-500 max-w-lg mx-auto text-sm leading-relaxed mb-4">
           Let your own personal assistant teach you using our tools. Programmatic access to 
           openLesson for AI agents and autonomous apps.
         </p>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
+          <span className="text-xs font-medium text-amber-400">Experimental</span>
+          <span className="text-xs text-amber-400/70">— does not yet support the full tutoring harness. Working on it.</span>
+        </div>
       </div>
 
       {/* Framework Integration Cards */}
@@ -263,12 +268,7 @@ export function AgenticModeSelect() {
           className="block p-6 bg-slate-900/50 border border-slate-800 rounded-xl hover:border-green-500/50 transition-all group"
         >
           <div className="aspect-square rounded-lg mb-4 flex items-center justify-center bg-slate-800/50">
-            <svg className="w-16 h-16 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a6 6 0 100-12 6 6 0 000 12z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 14a2 2 0 100-4 2 2 0 000 4z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v2M12 20v2M2 12h2M20 12h2" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-            </svg>
+            <Bot className="w-16 h-16 text-slate-600" strokeWidth={1.5} />
           </div>
           <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-green-400 transition-colors">
             Any Agent

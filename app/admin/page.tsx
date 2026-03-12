@@ -8,9 +8,9 @@ import { createClient } from "@/lib/supabase/client";
 interface Stats {
   totalUsers: number;
   totalSessions: number;
-  totalAudioChunks: number;
-  totalToolEvents: number;
-  totalEEGRecords: number;
+  completedSessions: number;
+  totalPlans: number;
+  totalPartners: number;
   totalOrganizations: number;
 }
 
@@ -20,6 +20,8 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [excludeAdmins, setExcludeAdmins] = useState(true);
+  const [adminIds, setAdminIds] = useState<string[]>([]);
 
   useEffect(() => {
     checkAdminAndLoadStats();
@@ -45,7 +47,15 @@ export default function AdminPage() {
         return;
       }
 
-      loadStats();
+      // Load admin IDs for the exclude toggle
+      const { data: admins } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("is_admin", true);
+      const ids = admins?.map((a: { id: string }) => a.id) || [];
+      setAdminIds(ids);
+
+      loadStats(ids);
     } catch (err) {
       console.error("Admin check error:", err);
       setError("Failed to verify admin status");
@@ -53,25 +63,43 @@ export default function AdminPage() {
     }
   };
 
-  const loadStats = async () => {
+  useEffect(() => {
+    if (adminIds.length > 0 || !excludeAdmins) {
+      loadStats(adminIds);
+    }
+  }, [excludeAdmins]);
+
+  const loadStats = async (admins: string[]) => {
     try {
-      const [usersRes, sessionsRes, dataRes, orgsRes] = await Promise.all([
-        supabase.from("profiles").select("id", { count: "exact", head: true }),
-        supabase.from("sessions").select("id", { count: "exact", head: true }),
-        supabase.from("session_data").select("data_type"),
+      const exclude = excludeAdmins && admins.length > 0;
+
+      let usersQ = supabase.from("profiles").select("id", { count: "exact", head: true });
+      let sessionsQ = supabase.from("sessions").select("id", { count: "exact", head: true });
+      let completedQ = supabase.from("sessions").select("id", { count: "exact", head: true }).eq("status", "completed");
+      let plansQ = supabase.from("learning_plans").select("id", { count: "exact", head: true });
+
+      if (exclude) {
+        usersQ = usersQ.eq("is_admin", false);
+        sessionsQ = sessionsQ.not("user_id", "in", `(${admins.join(",")})`);
+        completedQ = completedQ.not("user_id", "in", `(${admins.join(",")})`);
+        plansQ = plansQ.not("user_id", "in", `(${admins.join(",")})`);
+      }
+
+      const [usersRes, sessionsRes, completedRes, plansRes, partnersRes, orgsRes] = await Promise.all([
+        usersQ,
+        sessionsQ,
+        completedQ,
+        plansQ,
+        supabase.from("partners").select("id", { count: "exact", head: true }),
         supabase.from("organizations").select("id", { count: "exact", head: true }),
       ]);
-
-      const audioChunks = dataRes.data?.filter((d: { data_type: string }) => d.data_type === "audio").length || 0;
-      const toolEvents = dataRes.data?.filter((d: { data_type: string }) => d.data_type === "tool").length || 0;
-      const eegRecords = dataRes.data?.filter((d: { data_type: string }) => d.data_type === "eeg").length || 0;
 
       setStats({
         totalUsers: usersRes.count || 0,
         totalSessions: sessionsRes.count || 0,
-        totalAudioChunks: audioChunks,
-        totalToolEvents: toolEvents,
-        totalEEGRecords: eegRecords,
+        completedSessions: completedRes.count || 0,
+        totalPlans: plansRes.count || 0,
+        totalPartners: partnersRes.count || 0,
         totalOrganizations: orgsRes.count || 0,
       });
     } catch (err) {
@@ -100,8 +128,21 @@ export default function AdminPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-6">
-        <h1 className="text-2xl font-bold text-white mb-2">Admin Dashboard</h1>
-        <p className="text-neutral-400 mb-8">Overview and quick navigation</p>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-white mb-1">Admin Dashboard</h1>
+            <p className="text-neutral-400">Overview and quick navigation</p>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={excludeAdmins}
+              onChange={(e) => setExcludeAdmins(e.target.checked)}
+              className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-800 text-blue-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+            />
+            <span className="text-xs text-neutral-400">Exclude admins</span>
+          </label>
+        </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-6">
@@ -113,16 +154,16 @@ export default function AdminPage() {
             <div className="text-neutral-400 text-sm mt-1">Total Sessions</div>
           </div>
           <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-6">
-            <div className="text-3xl font-bold text-white">{stats?.totalAudioChunks || 0}</div>
-            <div className="text-neutral-400 text-sm mt-1">Audio Chunks</div>
+            <div className="text-3xl font-bold text-white">{stats?.completedSessions || 0}</div>
+            <div className="text-neutral-400 text-sm mt-1">Completed Sessions</div>
           </div>
           <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-6">
-            <div className="text-3xl font-bold text-white">{stats?.totalToolEvents || 0}</div>
-            <div className="text-neutral-400 text-sm mt-1">Tool Events</div>
+            <div className="text-3xl font-bold text-white">{stats?.totalPlans || 0}</div>
+            <div className="text-neutral-400 text-sm mt-1">Learning Plans</div>
           </div>
           <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-6">
-            <div className="text-3xl font-bold text-white">{stats?.totalEEGRecords || 0}</div>
-            <div className="text-neutral-400 text-sm mt-1">EEG Records</div>
+            <div className="text-3xl font-bold text-white">{stats?.totalPartners || 0}</div>
+            <div className="text-neutral-400 text-sm mt-1">Partners</div>
           </div>
           <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-6">
             <div className="text-3xl font-bold text-white">{stats?.totalOrganizations || 0}</div>
@@ -178,6 +219,16 @@ export default function AdminPage() {
             <h2 className="text-lg font-semibold text-white mb-2">Organizations</h2>
             <p className="text-neutral-400 text-sm">
               Manage organizations, members, and generate invite links
+            </p>
+          </Link>
+
+          <Link 
+            href="/admin/plans" 
+            className="block bg-neutral-900/50 border border-neutral-800 rounded-lg p-6 hover:border-neutral-700 transition-colors"
+          >
+            <h2 className="text-lg font-semibold text-white mb-2">Learning Plans</h2>
+            <p className="text-neutral-400 text-sm">
+              View all learning plans, filter by status, and see usage
             </p>
           </Link>
 

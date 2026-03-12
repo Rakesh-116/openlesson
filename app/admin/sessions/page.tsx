@@ -45,6 +45,8 @@ export default function SessionsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>("created_at");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [excludeAdmins, setExcludeAdmins] = useState(true);
+  const [adminIds, setAdminIds] = useState<string[]>([]);
 
   const PAGE_SIZE = 25;
 
@@ -79,6 +81,9 @@ export default function SessionsPage() {
         setLoading(false);
         return;
       }
+
+      const { data: admins } = await supabase.from("profiles").select("id").eq("is_admin", true);
+      setAdminIds(admins?.map((a: { id: string }) => a.id) || []);
 
       loadSessions();
     } catch (err) {
@@ -230,8 +235,57 @@ export default function SessionsPage() {
             ← Back to Admin
           </Link>
           <h1 className="text-2xl font-bold text-white mt-2">Sessions</h1>
-          <p className="text-neutral-400 text-sm">{totalCount} total sessions</p>
+          <div className="flex items-center justify-between">
+            <p className="text-neutral-400 text-sm">{totalCount} total sessions</p>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={excludeAdmins}
+                onChange={(e) => setExcludeAdmins(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-800 text-blue-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+              />
+              <span className="text-xs text-neutral-400">Exclude admins</span>
+            </label>
+          </div>
         </div>
+
+        {/* KPI Summary */}
+        {(() => {
+          const kpiSessions = excludeAdmins && adminIds.length > 0
+            ? sessions.filter(s => !adminIds.includes(s.user_id))
+            : sessions;
+          return (
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4">
+                <div className="text-2xl font-bold text-white">{kpiSessions.length}</div>
+                <div className="text-neutral-500 text-xs mt-1">Sessions (this page)</div>
+              </div>
+              <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4">
+                <div className="text-2xl font-bold text-white">
+                  {kpiSessions.filter(s => s.status === "completed").length}
+                </div>
+                <div className="text-neutral-500 text-xs mt-1">Completed</div>
+                <div className="flex gap-2 mt-2 text-[11px]">
+                  <span className="text-blue-400">Active: {kpiSessions.filter(s => s.status === "active").length}</span>
+                  <span className="text-yellow-400">Paused: {kpiSessions.filter(s => s.status === "paused").length}</span>
+                </div>
+              </div>
+              <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4">
+                <div className="text-2xl font-bold text-white">
+                  {kpiSessions.length > 0
+                    ? formatDuration(kpiSessions.reduce((sum, s) => sum + s.duration_ms, 0) / kpiSessions.length)
+                    : "—"}
+                </div>
+                <div className="text-neutral-500 text-xs mt-1">Avg Duration</div>
+                <div className="flex gap-2 mt-2 text-[11px]">
+                  <span className="text-neutral-400">
+                    Total: {kpiSessions.length > 0 ? formatDuration(kpiSessions.reduce((sum, s) => sum + s.duration_ms, 0)) : "—"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="flex flex-wrap gap-4 mb-6">
           <div className="flex-1 min-w-[200px]">

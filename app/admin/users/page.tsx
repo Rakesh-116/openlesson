@@ -42,6 +42,7 @@ export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [sortColumn, setSortColumn] = useState<SortColumn>("created_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [excludeAdmins, setExcludeAdmins] = useState(true);
 
   useEffect(() => {
     checkAdminAndLoadUsers();
@@ -145,7 +146,11 @@ export default function UsersPage() {
     }
   };
 
+  const kpiUsers = excludeAdmins ? users.filter(u => !u.is_admin) : users;
+
   const filteredUsers = users.filter(u => {
+    if (excludeAdmins && u.is_admin) return false;
+
     const matchesSearch = !searchQuery || 
       (u.username || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (u.email || "").toLowerCase().includes(searchQuery.toLowerCase());
@@ -252,7 +257,47 @@ export default function UsersPage() {
             ← Back to Admin
           </Link>
           <h1 className="text-2xl font-bold text-white mt-2">Users</h1>
-          <p className="text-neutral-400 text-sm">{users.length} total users</p>
+          <div className="flex items-center justify-between">
+            <p className="text-neutral-400 text-sm">{filteredUsers.length} users{excludeAdmins ? " (excl. admins)" : ""}</p>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={excludeAdmins}
+                onChange={(e) => setExcludeAdmins(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-800 text-blue-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+              />
+              <span className="text-xs text-neutral-400">Exclude admins</span>
+            </label>
+          </div>
+        </div>
+
+        {/* KPI Summary */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4">
+            <div className="text-2xl font-bold text-white">{kpiUsers.length}</div>
+            <div className="text-neutral-500 text-xs mt-1">Total Users</div>
+            <div className="flex gap-2 mt-2 text-[11px]">
+              <span className="text-neutral-400">Free: {kpiUsers.filter(u => getCurrentTier(u) === "free").length}</span>
+              <span className="text-blue-400">Regular: {kpiUsers.filter(u => getCurrentTier(u) === "regular").length}</span>
+              <span className="text-purple-400">Pro: {kpiUsers.filter(u => getCurrentTier(u) === "pro").length}</span>
+            </div>
+          </div>
+          <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4">
+            <div className="text-2xl font-bold text-green-400">{kpiUsers.filter(u => u.subscription_status === "active").length}</div>
+            <div className="text-neutral-500 text-xs mt-1">Active Subscriptions</div>
+            <div className="flex gap-2 mt-2 text-[11px]">
+              <span className="text-red-400">Inactive: {kpiUsers.filter(u => u.subscription_status === "inactive" || !u.subscription_status).length}</span>
+              <span className="text-yellow-400">Past Due: {kpiUsers.filter(u => u.subscription_status === "past_due").length}</span>
+            </div>
+          </div>
+          <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4">
+            <div className="text-2xl font-bold text-white">{kpiUsers.reduce((sum, u) => sum + (u.lessons_count || 0), 0)}</div>
+            <div className="text-neutral-500 text-xs mt-1">Total Sessions Created</div>
+            <div className="flex gap-2 mt-2 text-[11px]">
+              <span className="text-neutral-400">Plans: {kpiUsers.reduce((sum, u) => sum + (u.plans_count || 0), 0)}</span>
+              <span className="text-neutral-400">Admins: {users.filter(u => u.is_admin).length}</span>
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-4 mb-6">
