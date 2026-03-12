@@ -10,20 +10,28 @@ import type { UserPrompts } from "./openrouter";
  * Load user's custom prompt overrides from their Supabase profile.
  * Returns an empty object if user is not authenticated or has no overrides.
  * Call this from server-side API routes.
+ * 
+ * @param supabaseClient - Optional pre-authenticated Supabase client to avoid redundant auth calls
+ * @param userId - Optional user ID if already known (skips auth.getUser() call)
  */
-export async function getUserPrompts(): Promise<UserPrompts> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getUserPrompts(supabaseClient?: any, userId?: string): Promise<UserPrompts> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return {};
+    const supabase = supabaseClient || await createClient();
+    
+    let uid = userId;
+    if (!uid) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return {};
+      uid = user.id;
+    }
 
     const { data: profile } = await supabase
       .from("profiles")
       .select("metadata")
-      .eq("id", user.id)
+      .eq("id", uid)
       .single();
 
     if (!profile?.metadata?.prompts) return {};

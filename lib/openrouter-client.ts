@@ -47,6 +47,8 @@ export interface OpenRouterConfig {
   stop?: string | string[];
   retries?: number;
   retryDelay?: number;
+  /** Per-request fetch timeout in milliseconds. If set, each fetch attempt will abort after this duration. */
+  fetchTimeout?: number;
 }
 
 export interface OpenRouterResponse<T = string> {
@@ -167,11 +169,18 @@ export async function callOpenRouter<T = string>(
       const headers = getHeaders();
       const body = buildRequestBody(messages, config);
 
-      const response = await fetch(OPENROUTER_API_URL, {
+      const fetchOptions: RequestInit = {
         method: "POST",
         headers,
         body: JSON.stringify(body),
-      });
+      };
+
+      // Apply per-request timeout if configured
+      if (config.fetchTimeout) {
+        fetchOptions.signal = AbortSignal.timeout(config.fetchTimeout);
+      }
+
+      const response = await fetch(OPENROUTER_API_URL, fetchOptions);
 
       if (!response.ok) {
         const errorText = await response.text();

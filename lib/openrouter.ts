@@ -1268,6 +1268,9 @@ export async function updateSessionPlanLLM(options: {
       model: MODEL,
       maxTokens: 1200,
       temperature: 0.3,
+      retries: 2,
+      retryDelay: 500,
+      fetchTimeout: 45_000, // 45s per attempt — fail fast before Vercel 60s limit
     }
   );
 

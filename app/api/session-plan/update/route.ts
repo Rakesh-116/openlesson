@@ -5,7 +5,7 @@ import { getUserPrompts } from "@/lib/prompts";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,8 +36,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    // Get current plan (pass server client for RLS)
-    const currentPlan = await getSessionPlan(sessionId, supabase);
+    // Fetch plan and prompt overrides in parallel (reuse authenticated client)
+    const [currentPlan, promptOverrides] = await Promise.all([
+      getSessionPlan(sessionId, supabase),
+      getUserPrompts(supabase, user.id),
+    ]);
     
     if (!currentPlan) {
       return NextResponse.json(
@@ -45,9 +48,6 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
-
-    // Get user prompt overrides
-    const promptOverrides = await getUserPrompts();
 
     // Update the plan using LLM
     const result = await updateSessionPlanLLM({
