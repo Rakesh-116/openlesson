@@ -42,7 +42,7 @@ export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [sortColumn, setSortColumn] = useState<SortColumn>("created_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
-  const [excludeAdmins, setExcludeAdmins] = useState(true);
+
 
   useEffect(() => {
     checkAdminAndLoadUsers();
@@ -146,11 +146,9 @@ export default function UsersPage() {
     }
   };
 
-  const kpiUsers = excludeAdmins ? users.filter(u => !u.is_admin) : users;
+  const kpiUsers = users;
 
   const filteredUsers = users.filter(u => {
-    if (excludeAdmins && u.is_admin) return false;
-
     const matchesSearch = !searchQuery || 
       (u.username || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (u.email || "").toLowerCase().includes(searchQuery.toLowerCase());
@@ -257,18 +255,7 @@ export default function UsersPage() {
             ← Back to Admin
           </Link>
           <h1 className="text-2xl font-bold text-white mt-2">Users</h1>
-          <div className="flex items-center justify-between">
-            <p className="text-neutral-400 text-sm">{filteredUsers.length} users{excludeAdmins ? " (excl. admins)" : ""}</p>
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={excludeAdmins}
-                onChange={(e) => setExcludeAdmins(e.target.checked)}
-                className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-800 text-blue-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
-              />
-              <span className="text-xs text-neutral-400">Exclude admins</span>
-            </label>
-          </div>
+          <p className="text-neutral-400 text-sm">{filteredUsers.length} users</p>
         </div>
 
         {/* KPI Summary */}

@@ -41,9 +41,6 @@ export default function AdminPlansPage() {
   const [visibilityFilter, setVisibilityFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>("created_at");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [excludeAdmins, setExcludeAdmins] = useState(true);
-  const [adminIds, setAdminIds] = useState<string[]>([]);
-
   useEffect(() => {
     checkAdminAndLoadPlans();
   }, [page, visibilityFilter, sortField, sortDirection]);
@@ -75,9 +72,6 @@ export default function AdminPlansPage() {
         setLoading(false);
         return;
       }
-
-      const { data: admins } = await supabase.from("profiles").select("id").eq("is_admin", true);
-      setAdminIds(admins?.map((a: { id: string }) => a.id) || []);
 
       loadPlans();
     } catch (err) {
@@ -191,9 +185,7 @@ export default function AdminPlansPage() {
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   // KPI calculations
-  const kpiPlans = excludeAdmins && adminIds.length > 0
-    ? plans.filter(p => !adminIds.includes(p.user_id))
-    : plans;
+  const kpiPlans = plans;
   const publicCount = kpiPlans.filter(p => p.is_public).length;
   const agentCount = kpiPlans.filter(p => p.is_agent_session).length;
   const avgNodes = kpiPlans.length > 0
@@ -215,18 +207,7 @@ export default function AdminPlansPage() {
           ← Back to Admin
         </Link>
         <h1 className="text-2xl font-bold text-white mt-2">Learning Plans</h1>
-        <div className="flex items-center justify-between">
-          <p className="text-neutral-400 text-sm">{totalCount} total plans</p>
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={excludeAdmins}
-              onChange={(e) => setExcludeAdmins(e.target.checked)}
-              className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-800 text-blue-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
-            />
-            <span className="text-xs text-neutral-400">Exclude admins</span>
-          </label>
-        </div>
+        <p className="text-neutral-400 text-sm">{totalCount} total plans</p>
       </div>
 
       {/* KPI Summary */}

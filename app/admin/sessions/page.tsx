@@ -5,11 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
-interface SessionData {
-  session_id: string;
-  data_type: string;
-}
-
 interface UserProfile {
   id: string;
   username: string | null;
@@ -23,13 +18,10 @@ interface Session {
   status: string;
   created_at: string;
   duration_ms: number;
-  audio_chunks: number;
-  eeg_records: number;
-  tool_events: number;
   user?: UserProfile;
 }
 
-type SortField = "created_at" | "duration_ms" | "audio_chunks" | "eeg_records" | "tool_events";
+type SortField = "created_at" | "duration_ms";
 type SortDirection = "asc" | "desc";
 
 export default function SessionsPage() {
@@ -45,8 +37,6 @@ export default function SessionsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>("created_at");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [excludeAdmins, setExcludeAdmins] = useState(true);
-  const [adminIds, setAdminIds] = useState<string[]>([]);
 
   const PAGE_SIZE = 25;
 
@@ -82,9 +72,6 @@ export default function SessionsPage() {
         return;
       }
 
-      const { data: admins } = await supabase.from("profiles").select("id").eq("is_admin", true);
-      setAdminIds(admins?.map((a: { id: string }) => a.id) || []);
-
       loadSessions();
     } catch (err) {
       console.error("Admin check error:", err);
@@ -113,7 +100,7 @@ export default function SessionsPage() {
       }
 
       const { data: sessionsData, count, error: sessionError } = await query
-        .order(sortField === "duration_ms" ? "created_at" : sortField, { ascending: sortDirection === "asc" })
+        .order(sortField, { ascending: sortDirection === "asc" })
         .range(from, to);
 
       if (sessionError) throw sessionError;
@@ -125,42 +112,12 @@ export default function SessionsPage() {
         return;
       }
 
-      const sessionIds = sessionsData.map((s: { id: string }) => s.id);
       const userIds = [...new Set(sessionsData.map((s: { user_id: string }) => s.user_id))];
-
-      let sessionDataRecords: { session_id: string; data_type: string }[] = [];
-      if (sessionIds.length > 0) {
-        try {
-          const { data, error: dataError } = await supabase
-            .from("session_data")
-            .select("session_id, data_type")
-            .in("session_id", sessionIds);
-
-          if (dataError) {
-            console.error("session_data query error:", dataError.message);
-          } else {
-            sessionDataRecords = data || [];
-          }
-        } catch (e) {
-          console.error("session_data query exception:", e);
-        }
-      }
 
       // Skip user profile lookup to avoid RLS issues - just use ID as fallback
       const userMap = new Map<string, UserProfile>();
       for (const uid of userIds) {
         userMap.set(uid as string, { id: uid as string, username: null, email: (uid as string).slice(0, 8) });
-      }
-
-      const dataBySession = new Map<string, { audio: number; eeg: number; tool: number }>();
-      for (const record of sessionDataRecords) {
-        if (!dataBySession.get(record.session_id)) {
-          dataBySession.set(record.session_id, { audio: 0, eeg: 0, tool: 0 });
-        }
-        const counts = dataBySession.get(record.session_id)!;
-        if (record.data_type === "audio") counts.audio++;
-        else if (record.data_type === "eeg") counts.eeg++;
-        else if (record.data_type === "tool") counts.tool++;
       }
 
       const sessionsWithData: Session[] = sessionsData.map((s: { id: string; user_id: string; problem: string; status: string; created_at: string; duration_ms: number | null }) => ({
@@ -170,14 +127,11 @@ export default function SessionsPage() {
         status: s.status,
         created_at: s.created_at,
         duration_ms: s.duration_ms || 0,
-        audio_chunks: dataBySession.get(s.id)?.audio || 0,
-        eeg_records: dataBySession.get(s.id)?.eeg || 0,
-        tool_events: dataBySession.get(s.id)?.tool || 0,
         user: userMap.get(s.user_id),
       }));
 
       if (sortField === "duration_ms") {
-        sessionsWithData.sort((a: Session, b: Session) => 
+        sessionsWithData.sort((a, b) => 
           sortDirection === "desc" 
             ? b.duration_ms - a.duration_ms 
             : a.duration_ms - b.duration_ms
@@ -235,57 +189,39 @@ export default function SessionsPage() {
             ← Back to Admin
           </Link>
           <h1 className="text-2xl font-bold text-white mt-2">Sessions</h1>
-          <div className="flex items-center justify-between">
-            <p className="text-neutral-400 text-sm">{totalCount} total sessions</p>
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={excludeAdmins}
-                onChange={(e) => setExcludeAdmins(e.target.checked)}
-                className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-800 text-blue-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
-              />
-              <span className="text-xs text-neutral-400">Exclude admins</span>
-            </label>
-          </div>
+          <p className="text-neutral-400 text-sm">{totalCount} total sessions</p>
         </div>
 
         {/* KPI Summary */}
-        {(() => {
-          const kpiSessions = excludeAdmins && adminIds.length > 0
-            ? sessions.filter(s => !adminIds.includes(s.user_id))
-            : sessions;
-          return (
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4">
-                <div className="text-2xl font-bold text-white">{kpiSessions.length}</div>
-                <div className="text-neutral-500 text-xs mt-1">Sessions (this page)</div>
-              </div>
-              <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4">
-                <div className="text-2xl font-bold text-white">
-                  {kpiSessions.filter(s => s.status === "completed").length}
-                </div>
-                <div className="text-neutral-500 text-xs mt-1">Completed</div>
-                <div className="flex gap-2 mt-2 text-[11px]">
-                  <span className="text-blue-400">Active: {kpiSessions.filter(s => s.status === "active").length}</span>
-                  <span className="text-yellow-400">Paused: {kpiSessions.filter(s => s.status === "paused").length}</span>
-                </div>
-              </div>
-              <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4">
-                <div className="text-2xl font-bold text-white">
-                  {kpiSessions.length > 0
-                    ? formatDuration(kpiSessions.reduce((sum, s) => sum + s.duration_ms, 0) / kpiSessions.length)
-                    : "—"}
-                </div>
-                <div className="text-neutral-500 text-xs mt-1">Avg Duration</div>
-                <div className="flex gap-2 mt-2 text-[11px]">
-                  <span className="text-neutral-400">
-                    Total: {kpiSessions.length > 0 ? formatDuration(kpiSessions.reduce((sum, s) => sum + s.duration_ms, 0)) : "—"}
-                  </span>
-                </div>
-              </div>
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4">
+            <div className="text-2xl font-bold text-white">{totalCount}</div>
+            <div className="text-neutral-500 text-xs mt-1">Total Sessions</div>
+          </div>
+          <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4">
+            <div className="text-2xl font-bold text-white">
+              {sessions.filter(s => s.status === "completed").length}
             </div>
-          );
-        })()}
+            <div className="text-neutral-500 text-xs mt-1">Completed (this page)</div>
+            <div className="flex gap-2 mt-2 text-[11px]">
+              <span className="text-blue-400">Active: {sessions.filter(s => s.status === "active").length}</span>
+              <span className="text-yellow-400">Paused: {sessions.filter(s => s.status === "paused").length}</span>
+            </div>
+          </div>
+          <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4">
+            <div className="text-2xl font-bold text-white">
+              {sessions.length > 0
+                ? formatDuration(sessions.reduce((sum, s) => sum + s.duration_ms, 0) / sessions.length)
+                : "—"}
+            </div>
+            <div className="text-neutral-500 text-xs mt-1">Avg Duration (this page)</div>
+            <div className="flex gap-2 mt-2 text-[11px]">
+              <span className="text-neutral-400">
+                Total: {sessions.length > 0 ? formatDuration(sessions.reduce((sum, s) => sum + s.duration_ms, 0)) : "—"}
+              </span>
+            </div>
+          </div>
+        </div>
 
         <div className="flex flex-wrap gap-4 mb-6">
           <div className="flex-1 min-w-[200px]">
@@ -331,21 +267,18 @@ export default function SessionsPage() {
                   Duration {sortField === "duration_ms" && (sortDirection === "asc" ? "↑" : "↓")}
                 </th>
                 <th className="text-center p-4 text-neutral-400 text-sm font-medium">Status</th>
-                <th className="text-center p-4 text-neutral-400 text-sm font-medium">Audio</th>
-                <th className="text-center p-4 text-neutral-400 text-sm font-medium">EEG</th>
-                <th className="text-center p-4 text-neutral-400 text-sm font-medium">Tools</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-neutral-400">
+                  <td colSpan={5} className="p-8 text-center text-neutral-400">
                     Loading...
                   </td>
                 </tr>
               ) : sessions.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-neutral-400">
+                  <td colSpan={5} className="p-8 text-center text-neutral-400">
                     No sessions found
                   </td>
                 </tr>
@@ -379,27 +312,6 @@ export default function SessionsPage() {
                       }`}>
                         {session.status}
                       </span>
-                    </td>
-                    <td className="p-4 text-center">
-                      {session.audio_chunks > 0 ? (
-                        <span className="text-green-400">✓</span>
-                      ) : (
-                        <span className="text-neutral-600">✗</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-center">
-                      {session.eeg_records > 0 ? (
-                        <span className="text-green-400">✓</span>
-                      ) : (
-                        <span className="text-neutral-600">✗</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-center">
-                      {session.tool_events > 0 ? (
-                        <span className="text-green-400">✓</span>
-                      ) : (
-                        <span className="text-neutral-600">✗</span>
-                      )}
                     </td>
                   </tr>
                 ))

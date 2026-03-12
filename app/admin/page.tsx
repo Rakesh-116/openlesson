@@ -20,8 +20,6 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [excludeAdmins, setExcludeAdmins] = useState(true);
-  const [adminIds, setAdminIds] = useState<string[]>([]);
 
   useEffect(() => {
     checkAdminAndLoadStats();
@@ -47,15 +45,7 @@ export default function AdminPage() {
         return;
       }
 
-      // Load admin IDs for the exclude toggle
-      const { data: admins } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("is_admin", true);
-      const ids = admins?.map((a: { id: string }) => a.id) || [];
-      setAdminIds(ids);
-
-      loadStats(ids);
+      loadStats();
     } catch (err) {
       console.error("Admin check error:", err);
       setError("Failed to verify admin status");
@@ -63,33 +53,13 @@ export default function AdminPage() {
     }
   };
 
-  useEffect(() => {
-    if (adminIds.length > 0 || !excludeAdmins) {
-      loadStats(adminIds);
-    }
-  }, [excludeAdmins]);
-
-  const loadStats = async (admins: string[]) => {
+  const loadStats = async () => {
     try {
-      const exclude = excludeAdmins && admins.length > 0;
-
-      let usersQ = supabase.from("profiles").select("id", { count: "exact", head: true });
-      let sessionsQ = supabase.from("sessions").select("id", { count: "exact", head: true });
-      let completedQ = supabase.from("sessions").select("id", { count: "exact", head: true }).eq("status", "completed");
-      let plansQ = supabase.from("learning_plans").select("id", { count: "exact", head: true });
-
-      if (exclude) {
-        usersQ = usersQ.eq("is_admin", false);
-        sessionsQ = sessionsQ.not("user_id", "in", `(${admins.join(",")})`);
-        completedQ = completedQ.not("user_id", "in", `(${admins.join(",")})`);
-        plansQ = plansQ.not("user_id", "in", `(${admins.join(",")})`);
-      }
-
       const [usersRes, sessionsRes, completedRes, plansRes, partnersRes, orgsRes] = await Promise.all([
-        usersQ,
-        sessionsQ,
-        completedQ,
-        plansQ,
+        supabase.from("profiles").select("id", { count: "exact", head: true }),
+        supabase.from("sessions").select("id", { count: "exact", head: true }),
+        supabase.from("sessions").select("id", { count: "exact", head: true }).eq("status", "completed"),
+        supabase.from("learning_plans").select("id", { count: "exact", head: true }),
         supabase.from("partners").select("id", { count: "exact", head: true }),
         supabase.from("organizations").select("id", { count: "exact", head: true }),
       ]);
@@ -128,21 +98,8 @@ export default function AdminPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-6">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-white mb-1">Admin Dashboard</h1>
-            <p className="text-neutral-400">Overview and quick navigation</p>
-          </div>
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={excludeAdmins}
-              onChange={(e) => setExcludeAdmins(e.target.checked)}
-              className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-800 text-blue-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
-            />
-            <span className="text-xs text-neutral-400">Exclude admins</span>
-          </label>
-        </div>
+        <h1 className="text-2xl font-bold text-white mb-2">Admin Dashboard</h1>
+        <p className="text-neutral-400 mb-8">Overview and quick navigation</p>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-6">
