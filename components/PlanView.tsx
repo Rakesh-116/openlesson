@@ -17,6 +17,7 @@ export interface PlanNode {
   next_node_ids: string[];
   status: string;
   planning_prompt?: string;
+  session_id?: string;
 }
 
 export interface LearningPlan {
@@ -124,7 +125,36 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
       if (nodesError) {
         setError("Failed to load nodes");
       } else {
-        setNodes(nodesData || []);
+        let finalNodes = nodesData || [];
+
+        // Derive completion status from linked sessions
+        const sessionIds = finalNodes
+          .map((n: PlanNode) => n.session_id)
+          .filter(Boolean) as string[];
+
+        if (sessionIds.length > 0) {
+          const { data: sessions } = await supabase
+            .from("sessions")
+            .select("id, status")
+            .in("id", sessionIds);
+
+          if (sessions) {
+            const completedSessionIds = new Set(
+              sessions
+                .filter((s: { id: string; status: string }) => s.status === "completed" || s.status === "ended_by_tutor")
+                .map((s: { id: string }) => s.id)
+            );
+
+            finalNodes = finalNodes.map((n: PlanNode) => {
+              if (n.session_id && completedSessionIds.has(n.session_id) && n.status !== "completed") {
+                return { ...n, status: "completed" };
+              }
+              return n;
+            });
+          }
+        }
+
+        setNodes(finalNodes);
       }
 
       setLoading(false);

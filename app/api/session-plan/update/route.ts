@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateSessionPlanLLM } from "@/lib/openrouter";
-import { getSessionPlan, updateSessionPlan, type SessionPlanStep } from "@/lib/storage";
+import { getSessionPlan, updateSessionPlan, validatePlanSteps, type SessionPlanStep } from "@/lib/storage";
 import { getUserPrompts } from "@/lib/prompts";
 import { createClient } from "@/lib/supabase/server";
 
@@ -90,10 +90,33 @@ export async function POST(request: NextRequest) {
             : "pending",
       }));
 
-      updatedPlan = await updateSessionPlan(currentPlan.id, {
-        steps: normalizedSteps,
-        currentStepIndex,
-      }, supabase);
+      // Validate before writing — if LLM returned empty/invalid steps,
+      // fall back to keeping current plan's steps with updated statuses
+      try {
+        validatePlanSteps(normalizedSteps);
+        updatedPlan = await updateSessionPlan(currentPlan.id, {
+          steps: normalizedSteps,
+          currentStepIndex,
+        }, supabase);
+      } catch (validationError) {
+        console.warn('[Plan Update] LLM returned invalid steps, falling back to current steps with status updates:', validationError);
+        // Keep the existing steps but update their statuses based on currentStepIndex
+        const fallbackSteps: SessionPlanStep[] = currentPlan.steps.map((step, idx) => ({
+          id: step.id,
+          description: step.description,
+          type: step.type,
+          order: step.order,
+          status: idx < currentStepIndex 
+            ? "completed" 
+            : idx === currentStepIndex 
+              ? "in_progress" 
+              : step.status === "skipped" ? "skipped" : "pending",
+        }));
+        updatedPlan = await updateSessionPlan(currentPlan.id, {
+          steps: fallbackSteps,
+          currentStepIndex,
+        }, supabase);
+      }
     } else if (currentStepIndex !== currentPlan.currentStepIndex) {
       // Just update the current step index if it changed
       const normalizedSteps: SessionPlanStep[] = currentPlan.steps.map((step, idx) => ({

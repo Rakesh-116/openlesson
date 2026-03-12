@@ -7,12 +7,15 @@ interface SessionPlanViewerProps {
   plan: SessionPlan | null;
   loading?: boolean;
   error?: string | null;
-  onRecalculate?: () => Promise<void>;
+  onAdvanceStep?: () => Promise<void>;
+  onRollbackToStep?: (stepIndex: number) => Promise<void>;
   originalPrompt?: string;
 }
 
-export function SessionPlanViewer({ plan, loading, error, onRecalculate, originalPrompt }: SessionPlanViewerProps) {
-  const [recalculating, setRecalculating] = useState(false);
+export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollbackToStep, originalPrompt }: SessionPlanViewerProps) {
+  const [advancing, setAdvancing] = useState(false);
+  const [rollingBack, setRollingBack] = useState(false);
+  const [rollbackTargetIdx, setRollbackTargetIdx] = useState<number | null>(null);
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [goalExpanded, setGoalExpanded] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
@@ -31,13 +34,27 @@ export function SessionPlanViewer({ plan, loading, error, onRecalculate, origina
     });
   };
 
-  const handleRecalculate = async () => {
-    if (!onRecalculate || recalculating) return;
-    setRecalculating(true);
+  const handleAdvanceStep = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onAdvanceStep || advancing) return;
+    setAdvancing(true);
     try {
-      await onRecalculate();
+      await onAdvanceStep();
     } finally {
-      setRecalculating(false);
+      setAdvancing(false);
+    }
+  };
+
+  const handleRollbackToStep = async (e: React.MouseEvent, stepIndex: number) => {
+    e.stopPropagation();
+    if (!onRollbackToStep || rollingBack) return;
+    setRollingBack(true);
+    setRollbackTargetIdx(stepIndex);
+    try {
+      await onRollbackToStep(stepIndex);
+    } finally {
+      setRollingBack(false);
+      setRollbackTargetIdx(null);
     }
   };
 
@@ -82,30 +99,6 @@ export function SessionPlanViewer({ plan, loading, error, onRecalculate, origina
         <p className="text-xs text-neutral-600 mt-1">
           {isCorrupted ? "The plan has no steps" : error}
         </p>
-        {onRecalculate && (
-          <button
-            onClick={handleRecalculate}
-            disabled={recalculating}
-            className="mt-4 px-4 py-2 text-sm font-medium rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30 hover:border-cyan-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
-          >
-            {recalculating ? (
-              <>
-                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                Recalculating...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Recalculate Plan
-              </>
-            )}
-          </button>
-        )}
       </div>
     );
   }
@@ -415,6 +408,56 @@ export function SessionPlanViewer({ plan, loading, error, onRecalculate, origina
                   }`}>
                     {step.description}
                   </p>
+                  {/* Mark Complete button - only on active step */}
+                  {isActive && onAdvanceStep && (
+                    <button
+                      onClick={handleAdvanceStep}
+                      disabled={advancing}
+                      className="mt-2.5 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-green-500/15 text-green-400 border border-green-500/25 hover:bg-green-500/25 hover:border-green-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1.5"
+                    >
+                      {advancing ? (
+                        <>
+                          <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Completing...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Mark Complete
+                        </>
+                      )}
+                    </button>
+                  )}
+                  {/* Rollback button - only on completed steps */}
+                  {isCompleted && onRollbackToStep && (
+                    <button
+                      onClick={(e) => handleRollbackToStep(e, idx)}
+                      disabled={rollingBack}
+                      className="mt-2.5 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-amber-500/10 text-amber-400/80 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/30 hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1.5"
+                    >
+                      {rollingBack && rollbackTargetIdx === idx ? (
+                        <>
+                          <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Rolling back...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4" />
+                          </svg>
+                          Go back to this step
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
 
                 {/* Status badge */}
@@ -436,33 +479,9 @@ export function SessionPlanViewer({ plan, loading, error, onRecalculate, origina
 
       {/* Footer */}
       <div className="mt-4 pt-3 border-t border-neutral-800">
-        <p className="text-[10px] text-neutral-600 text-center mb-2">
-          Plan updates automatically based on your progress
+        <p className="text-[10px] text-neutral-600 text-center">
+          Steps advance automatically or mark them complete manually
         </p>
-        {onRecalculate && (
-          <button
-            onClick={handleRecalculate}
-            disabled={recalculating}
-            className="w-full px-3 py-1.5 text-[10px] font-medium rounded-lg bg-neutral-800/50 text-neutral-400 border border-neutral-700/50 hover:bg-neutral-800 hover:text-neutral-300 hover:border-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5"
-          >
-            {recalculating ? (
-              <>
-                <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                Recalculating...
-              </>
-            ) : (
-              <>
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Regenerate Plan
-              </>
-            )}
-          </button>
-        )}
       </div>
     </div>
   );

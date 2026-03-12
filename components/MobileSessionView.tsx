@@ -304,29 +304,45 @@ export function MobileSessionView({
     }
   }, []);
 
-  // Recalculate plan
-  const handleRecalculatePlan = useCallback(async () => {
+  // Advance to next step
+  const handleAdvanceStep = useCallback(async () => {
     if (!session) return;
-    setPlanLoading(true);
-    setPlanError(null);
     try {
-      const res = await fetch("/api/session-plan/create", {
+      const res = await fetch("/api/session-plan/advance-step", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: session.id,
-          prompt: session.problem,
-        }),
+        body: JSON.stringify({ sessionId: session.id }),
       });
       
-      if (!res.ok) throw new Error("Failed to regenerate plan");
+      if (!res.ok) throw new Error("Failed to advance step");
       
-      const newPlan = await res.json();
-      setSessionPlan(newPlan);
+      const { plan } = await res.json();
+      if (plan && plan.steps && Array.isArray(plan.steps) && plan.steps.length > 0 && plan.goal) {
+        setSessionPlan(plan);
+      }
     } catch (err) {
-      setPlanError("Failed to regenerate plan");
-    } finally {
-      setPlanLoading(false);
+      console.error("Advance step error:", err);
+    }
+  }, [session]);
+
+  // Rollback to a specific step
+  const handleRollbackToStep = useCallback(async (stepIndex: number) => {
+    if (!session) return;
+    try {
+      const res = await fetch("/api/session-plan/rollback-step", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: session.id, targetStepIndex: stepIndex }),
+      });
+      
+      if (!res.ok) throw new Error("Failed to rollback step");
+      
+      const { plan } = await res.json();
+      if (plan && plan.steps && Array.isArray(plan.steps) && plan.steps.length > 0 && plan.goal) {
+        setSessionPlan(plan);
+      }
+    } catch (err) {
+      console.error("Rollback step error:", err);
     }
   }, [session]);
 
@@ -392,7 +408,8 @@ export function MobileSessionView({
           plan={sessionPlan}
           loading={planLoading}
           error={planError}
-          onRecalculate={handleRecalculatePlan}
+          onAdvanceStep={handleAdvanceStep}
+          onRollbackToStep={handleRollbackToStep}
           originalPrompt={session.problem}
         />
       ),

@@ -7,7 +7,8 @@ interface MobilePlanTabProps {
   plan: SessionPlan | null;
   loading?: boolean;
   error?: string | null;
-  onRecalculate?: () => Promise<void>;
+  onAdvanceStep?: () => Promise<void>;
+  onRollbackToStep?: (stepIndex: number) => Promise<void>;
   originalPrompt?: string;
 }
 
@@ -15,10 +16,13 @@ export function MobilePlanTab({
   plan,
   loading,
   error,
-  onRecalculate,
+  onAdvanceStep,
+  onRollbackToStep,
   originalPrompt,
 }: MobilePlanTabProps) {
-  const [recalculating, setRecalculating] = useState(false);
+  const [advancing, setAdvancing] = useState(false);
+  const [rollingBack, setRollingBack] = useState(false);
+  const [rollbackTargetIdx, setRollbackTargetIdx] = useState<number | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["goal"]));
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
 
@@ -46,13 +50,27 @@ export function MobilePlanTab({
     });
   };
 
-  const handleRecalculate = async () => {
-    if (!onRecalculate || recalculating) return;
-    setRecalculating(true);
+  const handleAdvanceStep = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onAdvanceStep || advancing) return;
+    setAdvancing(true);
     try {
-      await onRecalculate();
+      await onAdvanceStep();
     } finally {
-      setRecalculating(false);
+      setAdvancing(false);
+    }
+  };
+
+  const handleRollbackToStep = async (e: React.MouseEvent, stepIndex: number) => {
+    e.stopPropagation();
+    if (!onRollbackToStep || rollingBack) return;
+    setRollingBack(true);
+    setRollbackTargetIdx(stepIndex);
+    try {
+      await onRollbackToStep(stepIndex);
+    } finally {
+      setRollingBack(false);
+      setRollbackTargetIdx(null);
     }
   };
 
@@ -87,15 +105,6 @@ export function MobilePlanTab({
         <p className="text-xs text-neutral-600 mb-4">
           {isCorrupted ? "The plan has no steps" : error}
         </p>
-        {onRecalculate && (
-          <button
-            onClick={handleRecalculate}
-            disabled={recalculating}
-            className="px-5 py-2.5 text-sm font-medium rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30 disabled:opacity-50 transition-all"
-          >
-            {recalculating ? "Recalculating..." : "Recalculate Plan"}
-          </button>
-        )}
       </div>
     );
   }
@@ -258,39 +267,68 @@ export function MobilePlanTab({
                   } ${!isExpanded ? "line-clamp-2" : ""}`}>
                     {step.description}
                   </p>
+                  {/* Mark Complete button - only on active step */}
+                  {isActive && onAdvanceStep && (
+                    <button
+                      onClick={handleAdvanceStep}
+                      disabled={advancing}
+                      className="mt-3 px-4 py-2 text-xs font-medium rounded-lg bg-green-500/15 text-green-400 border border-green-500/25 hover:bg-green-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                    >
+                      {advancing ? (
+                        <>
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Completing...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Mark Complete
+                        </>
+                      )}
+                    </button>
+                  )}
+                  {/* Rollback button - only on completed steps */}
+                  {isCompleted && onRollbackToStep && (
+                    <button
+                      onClick={(e) => handleRollbackToStep(e, idx)}
+                      disabled={rollingBack}
+                      className="mt-3 px-4 py-2 text-xs font-medium rounded-lg bg-amber-500/10 text-amber-400/80 border border-amber-500/20 hover:bg-amber-500/20 hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                    >
+                      {rollingBack && rollbackTargetIdx === idx ? (
+                        <>
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Rolling back...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4" />
+                          </svg>
+                          Go back to this step
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </button>
             );
           })}
         </div>
 
-        {/* Recalculate button */}
-        {onRecalculate && (
-          <div className="pt-2">
-            <button
-              onClick={handleRecalculate}
-              disabled={recalculating}
-              className="w-full py-3 text-xs font-medium rounded-xl bg-neutral-800/50 text-neutral-400 border border-neutral-700/50 hover:bg-neutral-800 hover:text-neutral-300 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
-            >
-              {recalculating ? (
-                <>
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Recalculating...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Regenerate Plan
-                </>
-              )}
-            </button>
-          </div>
-        )}
+        {/* Footer hint */}
+        <div className="pt-2">
+          <p className="text-[10px] text-neutral-600 text-center">
+            Steps advance automatically or mark them complete manually
+          </p>
+        </div>
       </div>
     </div>
   );

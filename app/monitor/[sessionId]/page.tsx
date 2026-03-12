@@ -154,8 +154,12 @@ export default function MonitorPopOutPage() {
     broadcastAction({ action: "toggle_focus", probeId, focused });
   }, [broadcastAction]);
 
-  const handleRecalculatePlan = useCallback(async () => {
-    broadcastAction({ action: "recalculate" });
+  const handleAdvanceStep = useCallback(async () => {
+    broadcastAction({ action: "advance_step" });
+  }, [broadcastAction]);
+
+  const handleRollbackToStep = useCallback(async (stepIndex: number) => {
+    broadcastAction({ action: "rollback_step", stepIndex });
   }, [broadcastAction]);
 
   const handleToolSelect = useCallback((tool: ToolName) => {
@@ -354,7 +358,8 @@ export default function MonitorPopOutPage() {
             archivingProbeId={archivingProbeId}
             planLoading={planLoading}
             planError={planError}
-            onRecalculate={handleRecalculatePlan}
+            onAdvanceStep={handleAdvanceStep}
+            onRollbackToStep={handleRollbackToStep}
             originalPrompt={originalPrompt}
             showControls={true}
           />

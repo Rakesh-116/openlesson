@@ -14,12 +14,13 @@ export async function POST(request: NextRequest) {
       gapScore, 
       signals, 
       previousProbes, 
+      archivedProbes,
       ragContext, 
       audioBase64, 
       audioFormat, 
       objectives,
-      sessionPlan,  // NEW: session plan context
-      requestType,  // NEW: optional override for request type
+      sessionPlan,
+      requestType,
     } = body;
 
     if (!problem) {
@@ -31,19 +32,28 @@ export async function POST(request: NextRequest) {
 
     const promptOverrides = await getUserPrompts();
 
-    // Build enhanced context with session plan
+    // Build enhanced context with session plan and archived probes
     let enhancedRagContext = ragContext || "";
     if (sessionPlan) {
       const plan = sessionPlan as SessionPlan;
       const currentStep = plan.steps[plan.currentStepIndex];
+      const completedSteps = plan.steps.filter(s => s.status === "completed");
       const planContext = `
 SESSION PLAN CONTEXT:
 - Goal: ${plan.goal}
-- Strategy: ${plan.strategy}
 - Current step (${plan.currentStepIndex + 1}/${plan.steps.length}): [${currentStep?.type || "question"}] ${currentStep?.description || "Continue guiding"}
-- Progress: ${plan.steps.filter(s => s.status === "completed").length}/${plan.steps.length} steps completed
+- Progress: ${completedSteps.length}/${plan.steps.length} steps completed
+${completedSteps.length > 0 ? `- Completed steps: ${completedSteps.map((s, i) => `${i + 1}. ${s.description}`).join("; ")}` : ""}
+
+IMPORTANT: Your question MUST be specifically about the current step topic: "${currentStep?.description || "Continue guiding"}". Stay concrete and specific to this step. Do not ask abstract or meta questions.
 `;
       enhancedRagContext = planContext + (ragContext ? `\n\n${ragContext}` : "");
+    }
+
+    // Add archived probes context so LLM knows what's been covered
+    if (archivedProbes && Array.isArray(archivedProbes) && archivedProbes.length > 0) {
+      const archivedContext = `\nALREADY COVERED (archived probes — do NOT revisit these topics, build forward):\n${archivedProbes.map((p: string) => `- ${p}`).join("\n")}\n`;
+      enhancedRagContext = enhancedRagContext + archivedContext;
     }
 
     const result = await generateProbe({

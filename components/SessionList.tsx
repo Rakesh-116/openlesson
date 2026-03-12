@@ -14,6 +14,7 @@ interface PlanNode {
   position_x?: number;
   position_y?: number;
   planning_prompt?: string;
+  session_id?: string;
 }
 
 interface SessionListProps {
@@ -91,12 +92,15 @@ export function SessionList({ nodes, onSelect, onDelete, onFork, highlightedNode
 
   return (
     <div className="flex flex-col h-full p-3">
-      <div className="flex items-center justify-between mb-3 px-1">
+      <div className="flex items-center justify-between mb-2 px-1">
         <h2 className="text-base font-semibold text-white">Sessions</h2>
         <span className="text-xs text-neutral-500">
           {activeSessions.length} active, {completedSessions.length} done
         </span>
       </div>
+      <p className="text-[11px] text-neutral-500 px-1 mb-3 leading-relaxed">
+        You don&apos;t have to follow the recommended order. Start any session at any time and rerun them as many times as you want.
+      </p>
 
       <div className="flex-1 overflow-y-auto space-y-1 pr-1">
         {activeSessions.map((node, index) => (

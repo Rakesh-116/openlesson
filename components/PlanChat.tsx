@@ -18,6 +18,7 @@ interface PlanNode {
   position_x?: number;
   position_y?: number;
   planning_prompt?: string;
+  session_id?: string;
 }
 
 interface LearningPlan {

@@ -71,6 +71,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate that the LLM produced usable steps before persisting
+    const validSteps = (result.plan.steps || []).filter(
+      (step) => step.description && step.description.trim().length > 0
+    );
+    if (validSteps.length === 0) {
+      console.error('[Plan Create] LLM returned no valid steps:', result.plan.steps);
+      return NextResponse.json(
+        { error: "Plan generation produced no valid steps" },
+        { status: 500 }
+      );
+    }
+    // Use only validated steps
+    result.plan.steps = validSteps;
+
     // Save the plan to the database (including description from LLM)
     const savedPlan = await createSessionPlan(sessionId, {
       goal: result.plan.goal,

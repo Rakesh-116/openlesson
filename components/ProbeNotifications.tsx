@@ -48,7 +48,8 @@ interface ProbeNotificationsProps {
   archivingProbeId?: string | null;
   planLoading?: boolean;
   planError?: string | null;
-  onRecalculate?: () => Promise<void>;
+  onAdvanceStep?: () => Promise<void>;
+  onRollbackToStep?: (stepIndex: number) => Promise<void>;
   originalPrompt?: string;
   // Pop-out window support
   onPopOut?: () => void;
@@ -104,7 +105,8 @@ export function ProbeNotifications({
   archivingProbeId,
   planLoading,
   planError,
-  onRecalculate,
+  onAdvanceStep,
+  onRollbackToStep,
   originalPrompt,
   onPopOut,
   isPopOutActive = false,
@@ -569,7 +571,8 @@ export function ProbeNotifications({
                 plan={sessionPlan ?? null} 
                 loading={planLoading} 
                 error={planError ?? null} 
-                onRecalculate={onRecalculate}
+                onAdvanceStep={onAdvanceStep}
+                onRollbackToStep={onRollbackToStep}
                 originalPrompt={originalPrompt}
               />
             </div>

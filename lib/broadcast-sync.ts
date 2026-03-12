@@ -47,9 +47,10 @@ export interface SyncMessage {
 }
 
 export interface SessionAction {
-  action: "start" | "stop" | "pause" | "resume" | "reset" | "close" | "get_feedback" | "archive_probe" | "toggle_focus" | "recalculate";
+  action: "start" | "stop" | "pause" | "resume" | "reset" | "close" | "get_feedback" | "archive_probe" | "toggle_focus" | "advance_step" | "rollback_step";
   probeId?: string;
   focused?: boolean;
+  stepIndex?: number;
 }
 
 export interface ScreenCaptureStatus {

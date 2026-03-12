@@ -378,7 +378,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     handleGetFeedback?: () => void;
     handleArchiveProbe?: (probeId: string) => Promise<void>;
     handleToggleFocus?: (probeId: string, focused: boolean) => void;
-    handleRecalculatePlan?: () => Promise<void>;
+    handleAdvanceStep?: () => Promise<void>;
+    handleRollbackToStep?: (stepIndex: number) => Promise<void>;
   }>({});
 
   // Handler for actions from pop-out window
@@ -412,8 +413,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       case "toggle_focus":
         if (action.probeId !== undefined) handlers.handleToggleFocus?.(action.probeId, action.focused ?? false);
         break;
-      case "recalculate":
-        handlers.handleRecalculatePlan?.();
+      case "advance_step":
+        handlers.handleAdvanceStep?.();
+        break;
+      case "rollback_step":
+        if (action.stepIndex !== undefined) handlers.handleRollbackToStep?.(action.stepIndex);
         break;
     }
   }, []);
@@ -1185,6 +1189,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               gapScore: gapData.gapScore,
               signals: gapData.signals || [],
               previousProbes: currentSession.probes.map((p) => p.text),
+              archivedProbes: currentSession.probes.filter((p) => p.archived).map((p) => p.text),
               sessionPlan: currentPlan,
             }),
           });
@@ -1293,6 +1298,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             gapScore: data.gapScore,
             signals: data.signals || ["whiteboard_confusion"],
             previousProbes: currentSession.probes.map((p) => p.text),
+            archivedProbes: currentSession.probes.filter((p) => p.archived).map((p) => p.text),
           }),
         });
 
@@ -1363,6 +1369,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             gapScore: data.gapScore,
             signals: data.signals || ["notebook_confusion"],
             previousProbes: currentSession.probes.map((p) => p.text),
+            archivedProbes: currentSession.probes.filter((p) => p.archived).map((p) => p.text),
           }),
         });
 
@@ -1961,6 +1968,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           gapScore: 1.0,
           signals: ["user_requested"],
           previousProbes: currentSession.probes.map((p) => p.text),
+          archivedProbes: currentSession.probes.filter((p) => p.archived).map((p) => p.text),
         }),
       });
 
@@ -2104,44 +2112,205 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     }
   };
 
-  const handleRecalculatePlan = async () => {
+  const handleAdvanceStep = async () => {
     if (!session) return;
-    
-    setPlanLoading(true);
-    setPlanError(null);
+    const currentSession = sessionRef.current || session;
     
     try {
-      // Call the create endpoint with force=true to regenerate
-      const planRes = await fetch("/api/session-plan/create", {
+      const res = await fetch("/api/session-plan/advance-step", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          sessionId: session.id, 
-          problem: session.problem, 
-          objectives: objectives,
-          force: true, // Force regeneration
-        }),
+        body: JSON.stringify({ sessionId: session.id }),
       });
       
-      if (planRes.ok) {
-        const { plan } = await planRes.json();
-        // Validate plan before updating
-        if (plan && plan.steps && Array.isArray(plan.steps) && plan.steps.length > 0 && plan.goal) {
-          setSessionPlan(plan);
-          sessionPlanRef.current = plan;
-        } else {
-          console.warn('[Plan Recalculate] Received corrupted plan, keeping previous state:', plan);
-          setPlanError("Plan regeneration returned invalid data. Please try again.");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Advance step failed:", errorData);
+        return;
+      }
+      
+      const { plan: updatedPlan, allComplete } = await res.json();
+      
+      // Validate plan before updating
+      if (!updatedPlan?.steps?.length || !updatedPlan?.goal) {
+        console.warn('[Advance Step] Received invalid plan, keeping previous state');
+        return;
+      }
+      
+      // Update plan state
+      setSessionPlan(updatedPlan);
+      sessionPlanRef.current = updatedPlan;
+      
+      // Archive all active probes (same as automatic step transitions)
+      const activeProbes = currentSession.probes.filter(p => !p.archived);
+      if (activeProbes.length > 0) {
+        let sessionWithArchivedProbes = currentSession;
+        for (const probe of activeProbes) {
+          await archiveProbe(probe.id);
+          sessionWithArchivedProbes = {
+            ...sessionWithArchivedProbes,
+            probes: sessionWithArchivedProbes.probes.map(p => 
+              p.id === probe.id ? { ...p, archived: true } : p
+            ),
+          };
         }
+        setSession(sessionWithArchivedProbes);
+        sessionRef.current = sessionWithArchivedProbes;
+      }
+      
+      if (allComplete) {
+        // Plan fully complete - celebrate and show modal
+        setIsCelebrating(true);
+        playSessionCompleteSound();
+        setTimeout(() => {
+          setIsCelebrating(false);
+          setShowPlanCompleteModal(true);
+          if (isRecording && !isPaused) {
+            setIsPaused(true);
+          }
+        }, 1500);
       } else {
-        const errorData = await planRes.json().catch(() => ({}));
-        setPlanError(errorData.error || "Failed to regenerate session plan");
+        // Regular step completion - celebrate and generate probe for next step
+        setIsCelebrating(true);
+        playStepCompleteSound();
+        setTimeout(() => setIsCelebrating(false), 1500);
+        
+        // Immediately generate a probe for the new step
+        const newStep = updatedPlan.steps?.[updatedPlan.currentStepIndex];
+        if (newStep) {
+          try {
+            const probeRes = await fetch("/api/generate-probe", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                problem: session.problem,
+                gapScore: 0.5,
+                signals: ["manual_step_advance"],
+                previousProbes: currentSession.probes.map(p => p.text),
+                archivedProbes: currentSession.probes.filter(p => p.archived).map(p => p.text),
+                sessionPlan: updatedPlan,
+              }),
+            });
+            
+            if (probeRes.ok) {
+              const probeData = await probeRes.json();
+              if (probeData.probe?.trim()) {
+                const latestSession = sessionRef.current || currentSession;
+                const savedProbe = await addProbe(session.id, {
+                  timestamp: Date.now() - new Date(session.startedAt).getTime(),
+                  gapScore: 0.5,
+                  signals: ["manual_step_advance", "plan_step"],
+                  text: probeData.probe.trim(),
+                  requestType: probeData.requestType || newStep.type || "question",
+                  planStepId: newStep.id,
+                });
+                
+                const updatedSession = addProbeToSession(latestSession, savedProbe);
+                setSession(updatedSession);
+                sessionRef.current = updatedSession;
+                setActiveProbe(savedProbe);
+                setViewingProbeIndex(updatedSession.probes.length - 1);
+              }
+            }
+          } catch (probeErr) {
+            console.warn("Failed to generate probe for new step:", probeErr);
+          }
+        }
       }
     } catch (err) {
-      console.error("Recalculate plan error:", err);
-      setPlanError("Failed to regenerate session plan");
-    } finally {
-      setPlanLoading(false);
+      console.error("Advance step error:", err);
+    }
+  };
+
+  const handleRollbackToStep = async (stepIndex: number) => {
+    if (!session) return;
+    const currentSession = sessionRef.current || session;
+    
+    try {
+      const res = await fetch("/api/session-plan/rollback-step", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: session.id, targetStepIndex: stepIndex }),
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Rollback step failed:", errorData);
+        return;
+      }
+      
+      const { plan: updatedPlan } = await res.json();
+      
+      // Validate plan before updating
+      if (!updatedPlan?.steps?.length || !updatedPlan?.goal) {
+        console.warn('[Rollback Step] Received invalid plan, keeping previous state');
+        return;
+      }
+      
+      // Update plan state
+      setSessionPlan(updatedPlan);
+      sessionPlanRef.current = updatedPlan;
+      
+      // Archive all active probes (clean slate for the rolled-back step)
+      const activeProbes = currentSession.probes.filter(p => !p.archived);
+      if (activeProbes.length > 0) {
+        let sessionWithArchivedProbes = currentSession;
+        for (const probe of activeProbes) {
+          await archiveProbe(probe.id);
+          sessionWithArchivedProbes = {
+            ...sessionWithArchivedProbes,
+            probes: sessionWithArchivedProbes.probes.map(p => 
+              p.id === probe.id ? { ...p, archived: true } : p
+            ),
+          };
+        }
+        setSession(sessionWithArchivedProbes);
+        sessionRef.current = sessionWithArchivedProbes;
+      }
+      
+      // Generate a probe for the rolled-back step
+      const targetStep = updatedPlan.steps?.[stepIndex];
+      if (targetStep) {
+        try {
+          const probeRes = await fetch("/api/generate-probe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              problem: session.problem,
+              gapScore: 0.5,
+              signals: ["manual_step_rollback"],
+              previousProbes: currentSession.probes.map(p => p.text),
+              archivedProbes: currentSession.probes.filter(p => p.archived).map(p => p.text),
+              sessionPlan: updatedPlan,
+            }),
+          });
+          
+          if (probeRes.ok) {
+            const probeData = await probeRes.json();
+            if (probeData.probe?.trim()) {
+              const latestSession = sessionRef.current || currentSession;
+              const savedProbe = await addProbe(session.id, {
+                timestamp: Date.now() - new Date(session.startedAt).getTime(),
+                gapScore: 0.5,
+                signals: ["manual_step_rollback", "plan_step"],
+                text: probeData.probe.trim(),
+                requestType: probeData.requestType || targetStep.type || "question",
+                planStepId: targetStep.id,
+              });
+              
+              const updatedSession = addProbeToSession(latestSession, savedProbe);
+              setSession(updatedSession);
+              sessionRef.current = updatedSession;
+              setActiveProbe(savedProbe);
+              setViewingProbeIndex(updatedSession.probes.length - 1);
+            }
+          }
+        } catch (probeErr) {
+          console.warn("Failed to generate probe for rolled-back step:", probeErr);
+        }
+      }
+    } catch (err) {
+      console.error("Rollback step error:", err);
     }
   };
 
@@ -2157,9 +2326,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       handleGetFeedback,
       handleArchiveProbe,
       handleToggleFocus,
-      handleRecalculatePlan,
+      handleAdvanceStep,
+      handleRollbackToStep,
     };
-  }, [startRecording, stopRecording, handlePause, handleResume, handleReset, handleClose, handleGetFeedback, handleArchiveProbe, handleToggleFocus, handleRecalculatePlan]);
+  }, [startRecording, stopRecording, handlePause, handleResume, handleReset, handleClose, handleGetFeedback, handleArchiveProbe, handleToggleFocus, handleAdvanceStep, handleRollbackToStep]);
 
   // Auto-pause on browser close/refresh
   useEffect(() => {
@@ -2616,17 +2786,18 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   onArchiveProbe={handleArchiveProbe}
                   onToggleFocus={handleToggleFocus}
                   onToolSelect={(tool) => setActiveTool(tool as Tool)}
-                  onReset={handleReset}
-                  onClose={handleClose}
-                  archivingProbeId={archivingProbeId}
-                  planLoading={planLoading}
-                  planError={planError}
-                  onRecalculate={handleRecalculatePlan}
-                  originalPrompt={session.problem}
-                  onPopOut={handlePopOut}
-                  isPopOutActive={isPopOutActive}
-                  isInitializing={planLoading || openingProbeLoading}
-                  isCelebrating={isCelebrating}
+                   onReset={handleReset}
+                   onClose={handleClose}
+                   archivingProbeId={archivingProbeId}
+                   planLoading={planLoading}
+                   planError={planError}
+                   onAdvanceStep={handleAdvanceStep}
+                   onRollbackToStep={handleRollbackToStep}
+                   originalPrompt={session.problem}
+                   onPopOut={handlePopOut}
+                   isPopOutActive={isPopOutActive}
+                   isInitializing={planLoading || openingProbeLoading}
+                   isCelebrating={isCelebrating}
                 />
               }
             />
@@ -2719,17 +2890,18 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                     setActiveTool(tool as Tool);
                     setMobileTab("main"); // Switch to main tab on mobile to show the tool
                   }}
-                  onReset={handleReset}
-                  onClose={handleClose}
-                  archivingProbeId={archivingProbeId}
-                  planLoading={planLoading}
-                  planError={planError}
-                  onRecalculate={handleRecalculatePlan}
-                  originalPrompt={session.problem}
-                  onPopOut={handlePopOut}
-                  isPopOutActive={isPopOutActive}
-                  isInitializing={planLoading || openingProbeLoading}
-                  isCelebrating={isCelebrating}
+                   onReset={handleReset}
+                   onClose={handleClose}
+                   archivingProbeId={archivingProbeId}
+                   planLoading={planLoading}
+                   planError={planError}
+                   onAdvanceStep={handleAdvanceStep}
+                   onRollbackToStep={handleRollbackToStep}
+                   originalPrompt={session.problem}
+                   onPopOut={handlePopOut}
+                   isPopOutActive={isPopOutActive}
+                   isInitializing={planLoading || openingProbeLoading}
+                   isCelebrating={isCelebrating}
                 />
               )}
               {mobileTab === "prep" && (

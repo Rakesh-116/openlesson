@@ -73,12 +73,15 @@ GOOD question patterns (use these as inspiration, don't copy literally):
 BAD questions (never do these):
 - Generic icebreakers: "What do you already know about X?"
 - Meta questions: "How would you approach this?" or "What assumptions do you have?"
+- Abstract or philosophical questions: "What does X mean to you?" or "How do you think about...?"
 - Anything a search engine could answer directly.
 - Leading questions that hint at the answer.
+- Suggesting breaks or pauses.
 
 Rules:
-- The question must be directly about solving THIS specific problem.
-- It should feel slightly uncomfortable — the kind of question that makes someone pause and realize they're less sure than they thought.
+- The question must be directly about solving THIS specific problem with concrete specificity.
+- If a session plan step is provided, the question must be directly about that step's topic.
+- Ask about specific concepts, examples, or mechanisms — not about the student's feelings or approach.
 - Max 25 words. Warm but intellectually rigorous.
 - ONLY output the question. No preamble, no quotes, no formatting.`,
 
@@ -100,7 +103,11 @@ Generate ONE probing question to help them make progress toward SOLVING this spe
 - Keep it short (1 sentence, max 20 words).
 - Make it feel like a natural thought the student might have themselves.
 - Be genuinely curious, not leading or rhetorical.
-- Focus on helping them make progress toward a solution, not just understanding the topic.
+- The question MUST be specific and concrete about the topic at hand. Ask about specific concepts, specific examples, or specific steps.
+- NEVER ask abstract, meta, or philosophical questions like "How would you approach this?" or "What's your strategy?" or "What do you think about...?"
+- NEVER suggest taking a break, pausing, or stepping away.
+- Build on what was already covered in previous/archived probes — don't revisit old ground, push forward.
+- If a session plan step is provided in the context, your question must be directly about that step's specific topic.
 
 Return ONLY the question text, no JSON or formatting.`,
 
@@ -153,6 +160,8 @@ Rules:
 - Each question should probe a different angle of the same gap.
 - Keep each question to 1 sentence.
 - Make them progressively deeper.
+- Every question must be specific and concrete about the topic — ask about particular concepts, examples, or mechanisms.
+- NEVER ask abstract or meta questions like "Why does this matter?" or "What's your approach?"
 
 Return the questions as a numbered list, nothing else.`,
 
@@ -207,7 +216,9 @@ Rules for the new question:
 - Only ask a question, never give answers
 - Build on their last response, don't repeat previous questions
 - Keep it short (max 20 words)
-- Make it feel like a natural thought they should consider`,
+- Make it feel like a natural thought they should consider
+- The question must be specific and concrete about the topic — no abstract or meta questions
+- NEVER suggest taking a break or pausing`,
 
   fresh_question: `You are a tutor using guided questioning. The student is stuck and needs a completely fresh perspective.
 
@@ -221,7 +232,10 @@ Generate a brand new guiding question from a completely different angle. Rules:
 - Only ask a question, never give answers or hints
 - Keep it short (max 20 words)
 - Make it feel like a new insight they haven't considered
-- Focus on a different aspect of the problem
+- Focus on a different specific, concrete aspect of the problem
+- The question must be about a specific concept, example, or mechanism — NOT abstract or meta
+- NEVER ask about their approach, strategy, or feelings. Ask about the subject matter itself.
+- NEVER suggest taking a break or pausing.
 
 Return ONLY the question text, no JSON or formatting.`,
 
@@ -295,6 +309,13 @@ IMPORTANT CONSTRAINT: There can be a maximum of 5 open (non-archived) probes at 
 - Evaluate the focused probes and any probes that seem addressed based on the transcript/context
 - If you determine a probe has been adequately addressed, include its ID in "probes_to_archive"
 
+CRITICAL RULES:
+- NEVER suggest taking a break or pausing. Always set should_pause to false.
+- EVERY question or request MUST be specific to the CURRENT STEP in the plan. Never ask abstract, meta, or philosophical questions.
+- Stay laser-focused on the concrete topic of the current step. Ask about specific concepts, specific examples, specific applications — not "how do you feel about..." or "what is your approach to...".
+- Your obsession is to move the student FORWARD through concrete understanding of each step. Every probe should make tangible progress.
+- Be aware of what has already been covered in archived/previous probes — do not revisit ground already covered. Build on it.
+
 Based on these observations, decide:
 1. Should the plan change? Consider:
    - Is the student stuck on a concept? (might need to add a simpler step or suggestion)
@@ -302,19 +323,14 @@ Based on these observations, decide:
    - Are there unexpected gaps that the plan doesn't address?
    - Is the current step completed or should we stay on it?
 
-2. Should the session PAUSE for a break?
-   - Is the student overwhelmed, frustrated, or showing signs of fatigue?
-   - Would stepping away help them process what they've learned?
-   - Are they spinning in circles without making progress?
-
-3. What is the NEXT REQUEST to give the student?
-   - This could be the next step in the plan, a modified version, or something adaptive
+2. What is the NEXT REQUEST to give the student?
+   - This MUST be directly about the current step's specific topic — no abstract or meta questions
    - Match the type (question/task/suggestion/checkpoint/feedback) to what the student needs right now
-   - Use "feedback" type when giving encouragement, acknowledging progress, or suggesting a break
    - If at probe cap (5) and cannot archive any, set next_request to null
    - For "task" type requests, consider which ILE tools would help and include 1-2 suggested_tools
+   - The question should push them to the next concrete insight within the current step
 
-4. Should any probes be auto-archived?
+3. Should any probes be auto-archived?
    - Check if focused probes have been addressed (evidence in transcript, whiteboard, or actions)
    - Check if any non-focused probes are clearly resolved
    - Only archive if there's clear evidence the student has engaged with and addressed the probe
@@ -322,8 +338,7 @@ Based on these observations, decide:
 Return ONLY valid JSON:
 {
   "plan_changed": true/false,
-  "should_pause": true/false,
-  "pause_reason": "Brief explanation if should_pause is true",
+  "should_pause": false,
   "updated_steps": [...],
   "current_step_index": <number>,
   "next_request": {
@@ -337,10 +352,9 @@ Return ONLY valid JSON:
 }
 
 If plan_changed is false, updated_steps can be omitted or be the same as current steps.
-If should_pause is false, pause_reason can be omitted.
 If no probes should be archived, probes_to_archive should be an empty array.
 Set can_generate_probe to false if at probe cap (5) and cannot archive any.
-The next_request should be ready to display directly to the student - make it engaging and clear.
+The next_request should be ready to display directly to the student - make it specific, concrete, and directly about the current step's topic.
 suggested_tools is optional - only include it for "task" or "suggestion" types where specific tools would help. Use tool IDs from the list above (chat, canvas, notebook, grokipedia).`,
 
   // ============================================
@@ -1136,18 +1150,28 @@ export async function createSessionPlanLLM(options: {
     return { success: false, error: response.error || "No plan generated" };
   }
 
-  // Normalize the plan
+  // Normalize the plan and filter out steps with empty descriptions
+  const allSteps = (response.data.steps || []).map((step: SessionPlanStep, idx: number) => ({
+    id: `step_${idx + 1}_${Date.now()}`,
+    type: step.type || "question",
+    description: step.description || "",
+    order: step.order || idx + 1,
+    status: "pending" as const,
+  }));
+
+  const validSteps = allSteps.filter((s: SessionPlanStep) => s.description.trim().length > 0);
+  if (validSteps.length === 0) {
+    return { success: false, error: "LLM generated plan with no valid steps (all descriptions empty)" };
+  }
+
+  // Re-number orders after filtering
+  const numberedSteps = validSteps.map((s: SessionPlanStep, idx: number) => ({ ...s, order: idx + 1 }));
+
   const plan: CreateSessionPlanResult = {
     goal: response.data.goal || "Understand the topic deeply",
     strategy: response.data.strategy || "Guide through Socratic questioning",
     description: response.data.description,
-    steps: (response.data.steps || []).map((step: SessionPlanStep, idx: number) => ({
-      id: `step_${idx + 1}_${Date.now()}`,
-      type: step.type || "question",
-      description: step.description || "",
-      order: step.order || idx + 1,
-      status: "pending" as const,
-    })),
+    steps: numberedSteps,
   };
 
   return { success: true, plan };
@@ -1243,17 +1267,36 @@ export async function updateSessionPlanLLM(options: {
   }
 
   const parsed = response.data;
+
+  // Filter out steps with empty descriptions from LLM response.
+  // If all steps end up empty, treat as if plan didn't change (don't overwrite good data).
+  let updatedSteps: SessionPlanStep[] | undefined = parsed.updated_steps?.map((step: SessionPlanStep, idx: number) => ({
+    id: step.id || `step_${idx + 1}_${Date.now()}`,
+    type: step.type || "question",
+    description: step.description || "",
+    order: step.order || idx + 1,
+    status: step.status || "pending",
+  }));
+
+  let planChanged = parsed.plan_changed || false;
+  if (updatedSteps) {
+    updatedSteps = updatedSteps.filter((s: SessionPlanStep) => s.description.trim().length > 0);
+    if (updatedSteps.length === 0) {
+      // LLM returned only empty steps — discard the update to protect existing plan
+      console.warn('[updateSessionPlanLLM] LLM returned updated_steps with all empty descriptions, discarding step changes');
+      updatedSteps = undefined;
+      planChanged = false;
+    } else {
+      // Re-number orders after filtering
+      updatedSteps = updatedSteps.map((s: SessionPlanStep, idx: number) => ({ ...s, order: idx + 1 }));
+    }
+  }
+
   const result: SessionPlanUpdateResult = {
-    planChanged: parsed.plan_changed || false,
+    planChanged,
     shouldPause: parsed.should_pause || false,
     pauseReason: parsed.pause_reason,
-    updatedSteps: parsed.updated_steps?.map((step: SessionPlanStep, idx: number) => ({
-      id: step.id || `step_${idx + 1}_${Date.now()}`,
-      type: step.type || "question",
-      description: step.description || "",
-      order: step.order || idx + 1,
-      status: step.status || "pending",
-    })),
+    updatedSteps,
     currentStepIndex: parsed.current_step_index ?? options.currentStepIndex,
     nextRequest: parsed.next_request === null ? null : {
       type: (parsed.next_request?.type as SessionPlanUpdateRequest["type"]) || "question",

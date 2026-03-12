@@ -12,6 +12,7 @@ interface PlanNode {
   next_node_ids: string[];
   status: string;
   planning_prompt?: string;
+  session_id?: string;
 }
 
 interface SessionItemProps {
@@ -72,7 +73,7 @@ export function SessionItem({
   const nextNodes = (node.next_node_ids || []).map(id => allNodes.find(n => n.id === id)).filter(Boolean) as PlanNode[];
 
   const handleStart = async () => {
-    if (isCompleted || isStarting || isLocked) return;
+    if (isStarting || isLocked) return;
 
     setIsStarting(true);
     try {
@@ -154,7 +155,7 @@ export function SessionItem({
           {/* Status Badge */}
           <span className={`text-xs px-2 py-0.5 rounded font-medium whitespace-nowrap ${config.bg} ${config.text}`}>
             {config.icon && <span className="mr-0.5">{config.icon}</span>}
-            {node.is_start && !isCompleted ? "START" : config.label}
+            {config.label}
           </span>
           
           {/* Title */}
@@ -257,8 +258,8 @@ export function SessionItem({
             </div>
           )}
 
-          {/* Planning Prompt (for owners, non-completed) */}
-          {isOwner && !isCompleted && (
+          {/* Planning Prompt */}
+          {isOwner && (
             <div className="pt-1">
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-medium text-neutral-400">
@@ -280,15 +281,32 @@ export function SessionItem({
           )}
 
           {/* Actions */}
-          {!isCompleted && !isLocked && isOwner && (
+          {!isLocked && isOwner && (
             <div className="flex gap-2 pt-1">
-              <button
-                onClick={handleStart}
-                disabled={isStarting}
-                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 text-white text-sm font-medium rounded-lg transition-colors"
-              >
-                {isStarting ? "Starting..." : "Start Lesson"}
-              </button>
+              {isCompleted ? (
+                <button
+                  onClick={handleStart}
+                  disabled={isStarting}
+                  className="flex-1 px-4 py-2 bg-neutral-700 hover:bg-neutral-600 disabled:bg-neutral-800 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  {isStarting ? "Starting..." : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Run Again
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  onClick={handleStart}
+                  disabled={isStarting}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  {isStarting ? "Starting..." : "Start Lesson"}
+                </button>
+              )}
             </div>
           )}
         </div>

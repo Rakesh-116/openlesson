@@ -49,6 +49,23 @@ export interface SessionPlan {
   updatedAt: string;
 }
 
+/**
+ * Validates that plan steps are safe to persist to the database.
+ * Throws an error if steps are empty or any step has an empty description.
+ * This is the last line of defense — no invalid steps should ever reach the DB.
+ */
+export function validatePlanSteps(steps: SessionPlanStep[]): void {
+  if (!steps || !Array.isArray(steps) || steps.length === 0) {
+    throw new Error("Cannot persist plan with empty steps array");
+  }
+  const emptyDescriptions = steps.filter(s => !s.description || !s.description.trim());
+  if (emptyDescriptions.length > 0) {
+    throw new Error(
+      `Cannot persist plan: ${emptyDescriptions.length}/${steps.length} steps have empty descriptions`
+    );
+  }
+}
+
 export type TrafficLight = "red" | "yellow" | "green";
 
 export type SessionStatus = "active" | "paused" | "completed";
@@ -1438,6 +1455,9 @@ export async function createSessionPlan(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabaseClient?: any
 ): Promise<SessionPlan> {
+  // Validate steps before allowing any DB write
+  validatePlanSteps(plan.steps);
+
   const supabase = supabaseClient || createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
@@ -1489,6 +1509,11 @@ export async function updateSessionPlan(
   supabaseClient?: any
 ): Promise<SessionPlan> {
   const supabase = supabaseClient || createClient();
+
+  // Validate steps before allowing any DB write
+  if (updates.steps !== undefined) {
+    validatePlanSteps(updates.steps);
+  }
 
   const updateData: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
