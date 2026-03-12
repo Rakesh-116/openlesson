@@ -272,6 +272,16 @@ export default function DashboardPage() {
   const [modelSaving, setModelSaving] = useState(false);
   const [modelSaved, setModelSaved] = useState(false);
 
+  // AI Provider info
+  const [providerInfo, setProviderInfo] = useState<{
+    provider: string;
+    label: string;
+    defaultModel: string;
+    chatUrl: string;
+    hasXAIKey: boolean;
+    hasOpenRouterKey: boolean;
+  } | null>(null);
+
   const [userPrompts, setUserPrompts] = useState<UserPrompts>({});
   const [promptsSaving, setPromptsSaving] = useState(false);
   const [promptsSaved, setPromptsSaved] = useState(false);
@@ -332,6 +342,19 @@ export default function DashboardPage() {
         }
         if (profile.metadata?.coder_model) {
           setCoderModel(profile.metadata.coder_model as string);
+        }
+      }
+
+      // Load AI provider info (for admin config tab)
+      if (profile?.is_admin) {
+        try {
+          const provRes = await fetch("/api/ai-provider");
+          if (provRes.ok) {
+            const provData = await provRes.json();
+            setProviderInfo(provData);
+          }
+        } catch (e) {
+          console.error("Failed to fetch AI provider info:", e);
         }
       }
 
@@ -1266,6 +1289,46 @@ export default function DashboardPage() {
         {/* Configuration Tab */}
         {activeTab === "config" && (
           <div className="space-y-8">
+            {/* AI Provider Status */}
+            <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5">
+              <h2 className="text-lg font-semibold mb-3">AI Provider</h2>
+              {providerInfo ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full ${
+                      providerInfo.provider === "xai"
+                        ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                        : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                    }`}>
+                      {providerInfo.provider === "xai" ? (
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M13.982 10.622 20.54 3h-1.554l-5.693 6.618L8.745 3H3.5l6.876 10.007L3.5 21h1.554l6.012-6.989L15.868 21h5.245l-7.131-10.378Zm-2.128 2.474-.697-.997-5.543-7.93H8l4.474 6.4.697.996 5.815 8.318h-2.387l-4.745-6.787Z"/></svg>
+                      ) : (
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                      )}
+                      {providerInfo.label}
+                    </span>
+                    <span className="text-xs text-neutral-500">
+                      Default model: <code className="text-neutral-400">{providerInfo.defaultModel}</code>
+                    </span>
+                  </div>
+                  <div className="flex gap-4 text-xs">
+                    <span className={providerInfo.hasOpenRouterKey ? "text-emerald-500" : "text-red-500"}>
+                      {providerInfo.hasOpenRouterKey ? "OpenRouter key configured" : "OpenRouter key missing"}
+                    </span>
+                    <span className={providerInfo.hasXAIKey ? "text-emerald-500" : "text-neutral-600"}>
+                      {providerInfo.hasXAIKey ? "xAI key configured" : "xAI key not set"}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-neutral-600">
+                    To switch providers, set <code className="text-neutral-500">AI_PROVIDER=xai</code> or <code className="text-neutral-500">AI_PROVIDER=openrouter</code> in your <code className="text-neutral-500">.env.local</code> and restart the server.
+                    {providerInfo.provider === "xai" && " Non-Grok models (Gemini, Claude, GPT) automatically fall back to OpenRouter."}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-neutral-500">Loading provider info...</p>
+              )}
+            </div>
+
             {/* Model Selection - LOCKED */}
             <div>
               <div className="flex items-center gap-3 mb-4">
@@ -1278,63 +1341,37 @@ export default function DashboardPage() {
                 </span>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
-                  <label className="block text-sm font-medium text-neutral-300 mb-1">
-                    Tutor Model
-                  </label>
-                  <p className="text-xs text-neutral-500 mb-3">
-                    The model that observes and guides your lesson
-                  </p>
-                  <div className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300">
-                    Grok 4 <span className="text-neutral-500">(x-ai/grok-4)</span>
+                {[
+                  { label: "Tutor Model", desc: "The model that observes and guides your lesson" },
+                  { label: "Asking Model", desc: "The model that answers direct questions from you" },
+                  { label: "Planner Model", desc: "The model that helps plan and organize your learning sessions" },
+                  { label: "Coder Model", desc: "The model used in the Coding tool sandbox to help write JavaScript code" },
+                ].map((slot) => (
+                  <div key={slot.label} className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
+                    <label className="block text-sm font-medium text-neutral-300 mb-1">
+                      {slot.label}
+                    </label>
+                    <p className="text-xs text-neutral-500 mb-3">{slot.desc}</p>
+                    <div className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300">
+                      {providerInfo?.provider === "xai" ? (
+                        <>Grok 4.20 Beta <span className="text-neutral-500">(grok-4.20-beta-0309-reasoning)</span></>
+                      ) : (
+                        <>Grok 4 <span className="text-neutral-500">(x-ai/grok-4)</span></>
+                      )}
+                    </div>
                   </div>
-                </div>
-
-                <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
-                  <label className="block text-sm font-medium text-neutral-300 mb-1">
-                    Asking Model
-                  </label>
-                  <p className="text-xs text-neutral-500 mb-3">
-                    The model that answers direct questions from you
-                  </p>
-                  <div className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300">
-                    Grok 4 <span className="text-neutral-500">(x-ai/grok-4)</span>
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
-                  <label className="block text-sm font-medium text-neutral-300 mb-1">
-                    Planner Model
-                  </label>
-                  <p className="text-xs text-neutral-500 mb-3">
-                    The model that helps plan and organize your learning sessions
-                  </p>
-                  <div className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300">
-                    Grok 4 <span className="text-neutral-500">(x-ai/grok-4)</span>
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
-                  <label className="block text-sm font-medium text-neutral-300 mb-1">
-                    Coder Model
-                  </label>
-                  <p className="text-xs text-neutral-500 mb-3">
-                    The model used in the Coding tool sandbox to help write JavaScript code
-                  </p>
-                  <div className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300">
-                    Grok 4 <span className="text-neutral-500">(x-ai/grok-4)</span>
-                  </div>
-                </div>
+                ))}
 
                 <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
                   <label className="block text-sm font-medium text-neutral-300 mb-1">
                     Audio/Vision Model
                   </label>
                   <p className="text-xs text-neutral-500 mb-3">
-                    The model used for audio transcription and image analysis (requires multimodal support)
+                    The model used for audio transcription and image analysis (always via OpenRouter)
                   </p>
                   <div className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300">
                     Gemini 2.5 Flash <span className="text-neutral-500">(google/gemini-2.5-flash)</span>
+                    <span className="text-[10px] text-neutral-600 ml-2">via OpenRouter</span>
                   </div>
                 </div>
               </div>

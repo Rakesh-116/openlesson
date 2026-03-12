@@ -50,8 +50,10 @@ export function ChatPanel({ planId, model, onModelChange, onRefresh, onNodesUpda
   const models = [
     { id: "x-ai/grok-4", name: "Grok 4" },
     { id: "x-ai/grok-4-fast", name: "Grok 4 Fast" },
-    { id: "anthropic/claude-3.5-sonnet", name: "Claude 3.5 Sonnet" },
-    { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" },
+    { id: "grok-4.20-beta-0309-reasoning", name: "Grok 4.20 Beta (Reasoning)" },
+    { id: "grok-4.20-beta-0309-non-reasoning", name: "Grok 4.20 Beta (Fast)" },
+    { id: "anthropic/claude-sonnet-4", name: "Claude Sonnet 4" },
+    { id: "openai/gpt-4o", name: "GPT-4o" },
   ];
 
   const currentModel = model || "x-ai/grok-4";

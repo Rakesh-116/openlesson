@@ -1,15 +1,30 @@
 // ============================================
-// SHARED OPENROUTER CLIENT
+// SHARED AI CLIENT (supports OpenRouter + xAI Direct)
 // Centralized client with retry logic, response format handling, and type safety
+// Provider is controlled by AI_PROVIDER env var ("openrouter" | "xai")
 // ============================================
 
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const EMBEDDING_URL = "https://openrouter.ai/api/v1/embeddings";
+import {
+  getProvider,
+  getChatUrl,
+  getEmbeddingUrl,
+  getChatHeaders,
+  getEmbeddingHeaders,
+  getProviderForModel,
+  resolveModelId,
+  getDefaultModel,
+  getDefaultAudioModel,
+  getDefaultVideoModel,
+  getDefaultEmbeddingModel,
+  type AIProvider,
+} from "./ai-provider";
 
-export const DEFAULT_MODEL = "x-ai/grok-4";
-export const AUDIO_MODEL = "google/gemini-2.5-flash"; // For audio input (Grok doesn't support audio)
-export const VIDEO_MODEL = "google/gemini-2.5-flash"; // For YouTube video processing (native URL support)
-export const EMBEDDING_MODEL = "google/gemini-embedding-001";
+// Re-export defaults as computed values for backward compatibility
+// Callers that import DEFAULT_MODEL will get the provider-appropriate model
+export const DEFAULT_MODEL = getDefaultModel();
+export const AUDIO_MODEL = getDefaultAudioModel();
+export const VIDEO_MODEL = getDefaultVideoModel();
+export const EMBEDDING_MODEL = getDefaultEmbeddingModel();
 
 // ============================================
 // TYPES
@@ -92,21 +107,11 @@ async function sleep(ms: number): Promise<void> {
 }
 
 // ============================================
-// HEADERS
+// HEADERS (delegated to ai-provider.ts)
 // ============================================
 
-function getHeaders(): Record<string, string> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY not configured");
-  }
-
-  return {
-    Authorization: `Bearer ${apiKey}`,
-    "Content-Type": "application/json",
-    "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-    "X-Title": "openLesson",
-  };
+function getHeaders(provider?: AIProvider): Record<string, string> {
+  return getChatHeaders(provider);
 }
 
 // ============================================
@@ -122,9 +127,11 @@ interface RequestBody {
   stop?: string | string[];
 }
 
-function buildRequestBody(messages: Message[], config: OpenRouterConfig): RequestBody {
+function buildRequestBody(messages: Message[], config: OpenRouterConfig, provider?: AIProvider): RequestBody {
+  const modelId = config.model || DEFAULT_MODEL;
+  const effectiveProvider = provider ?? getProviderForModel(modelId);
   const body: RequestBody = {
-    model: config.model || DEFAULT_MODEL,
+    model: resolveModelId(modelId, effectiveProvider),
     messages,
     max_tokens: config.maxTokens,
     temperature: config.temperature,
@@ -153,7 +160,9 @@ function buildRequestBody(messages: Message[], config: OpenRouterConfig): Reques
 // ============================================
 
 /**
- * Make a request to OpenRouter with retry logic and response format handling
+ * Make a request to the active AI provider with retry logic and response format handling.
+ * Routes to xAI Direct or OpenRouter based on AI_PROVIDER env var and model type.
+ * Non-xAI models (Google, Anthropic, OpenAI) always fall back to OpenRouter.
  */
 export async function callOpenRouter<T = string>(
   messages: Message[],
@@ -162,12 +171,17 @@ export async function callOpenRouter<T = string>(
   const maxRetries = config.retries ?? 3;
   const baseDelay = config.retryDelay ?? 1000;
 
+  // Determine which provider handles this model
+  const modelId = config.model || DEFAULT_MODEL;
+  const effectiveProvider = getProviderForModel(modelId);
+  const apiUrl = getChatUrl(effectiveProvider);
+
   let lastError: string | undefined;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      const headers = getHeaders();
-      const body = buildRequestBody(messages, config);
+      const headers = getHeaders(effectiveProvider);
+      const body = buildRequestBody(messages, config, effectiveProvider);
 
       const fetchOptions: RequestInit = {
         method: "POST",
@@ -180,11 +194,12 @@ export async function callOpenRouter<T = string>(
         fetchOptions.signal = AbortSignal.timeout(config.fetchTimeout);
       }
 
-      const response = await fetch(OPENROUTER_API_URL, fetchOptions);
+      const providerLabel = effectiveProvider === "xai" ? "xAI" : "OpenRouter";
+      const response = await fetch(apiUrl, fetchOptions);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`OpenRouter API error (attempt ${attempt + 1}):`, response.status, errorText);
+        console.error(`${providerLabel} API error (attempt ${attempt + 1}):`, response.status, errorText);
 
         if (isRetryableError(response.status) && attempt < maxRetries - 1) {
           const delay = baseDelay * Math.pow(2, attempt);
@@ -356,16 +371,17 @@ export interface EmbeddingResponse {
 }
 
 /**
- * Generate embeddings using OpenRouter
+ * Generate embeddings. Always uses OpenRouter regardless of AI_PROVIDER setting
+ * because xAI does not offer embedding models.
  */
 export async function generateEmbeddings(
   texts: string[],
   model: string = EMBEDDING_MODEL
 ): Promise<EmbeddingResponse> {
   try {
-    const headers = getHeaders();
+    const headers = getEmbeddingHeaders();
 
-    const response = await fetch(EMBEDDING_URL, {
+    const response = await fetch(getEmbeddingUrl(), {
       method: "POST",
       headers,
       body: JSON.stringify({

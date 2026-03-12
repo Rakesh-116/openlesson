@@ -884,10 +884,12 @@ ${options.content}`;
 // ============================================
 
 export const AVAILABLE_MODELS = [
-  { id: "x-ai/grok-4", label: "Grok 4", description: "Most capable xAI model" },
+  { id: "x-ai/grok-4", label: "Grok 4", description: "Most capable xAI model (stable)" },
   { id: "x-ai/grok-4-fast", label: "Grok 4 Fast", description: "Fast xAI model" },
-  { id: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4", description: "Balanced Anthropic model" },
-  { id: "openai/gpt-4o", label: "GPT-4o", description: "OpenAI flagship" },
+  { id: "grok-4.20-beta-0309-reasoning", label: "Grok 4.20 Beta (Reasoning)", description: "Newest flagship with reasoning. xAI Direct only." },
+  { id: "grok-4.20-beta-0309-non-reasoning", label: "Grok 4.20 Beta (Fast)", description: "Newest flagship, no reasoning. xAI Direct only." },
+  { id: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4", description: "Balanced Anthropic model. OpenRouter only." },
+  { id: "openai/gpt-4o", label: "GPT-4o", description: "OpenAI flagship. OpenRouter only." },
 ] as const;
 
 export type ModelId = (typeof AVAILABLE_MODELS)[number]["id"] | string;

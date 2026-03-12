@@ -138,25 +138,20 @@ export async function POST(request: NextRequest) {
 
     console.log("[transcribe-chunk] Audio info:", { mimeType, ext, bufferSize: buffer.length });
 
-    const openrouterKey = process.env.OPENROUTER_API_KEY;
-    if (!openrouterKey) {
-      return NextResponse.json({ error: "OPENROUTER_API_KEY not configured for transcription" }, { status: 500 });
-    }
+    // Audio transcription always goes through OpenRouter (Google Gemini model)
+    const { getChatUrl, getChatHeaders, getProviderForModel } = await import("@/lib/ai-provider");
+    const audioModel = "google/gemini-2.5-flash"; // Must use audio-capable model
+    const audioProvider = getProviderForModel(audioModel); // Always resolves to "openrouter"
 
     const prompt = "Transcribe this audio. Output ONLY the transcript text, nothing else. Include filler words like um, uh. If the audio is silent, empty, or contains no speech, respond with exactly: [NO_SPEECH]";
 
-    console.log("[transcribe-chunk] Calling OpenRouter transcription API");
+    console.log("[transcribe-chunk] Calling transcription API via", audioProvider);
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch(getChatUrl(audioProvider), {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${openrouterKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "openLesson",
-      },
+      headers: getChatHeaders(audioProvider),
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash", // Must use audio-capable model
+        model: audioModel,
         messages: [
           {
             role: "user",
