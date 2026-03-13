@@ -9,17 +9,12 @@ interface SessionPlanViewerProps {
   error?: string | null;
   onAdvanceStep?: () => Promise<void>;
   onRollbackToStep?: (stepIndex: number) => Promise<void>;
-  originalPrompt?: string;
 }
 
-export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollbackToStep, originalPrompt }: SessionPlanViewerProps) {
+export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollbackToStep }: SessionPlanViewerProps) {
   const [advancing, setAdvancing] = useState(false);
   const [rollingBack, setRollingBack] = useState(false);
   const [rollbackTargetIdx, setRollbackTargetIdx] = useState<number | null>(null);
-  const [promptExpanded, setPromptExpanded] = useState(false);
-  const [goalExpanded, setGoalExpanded] = useState(false);
-  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
-  const [strategyExpanded, setStrategyExpanded] = useState(false);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
 
   const toggleStep = (stepId: string) => {
@@ -172,112 +167,6 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
 
   return (
     <div className="h-full w-full flex flex-col p-4 overflow-hidden">
-      {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold text-white mb-1">Session Plan</h2>
-        <p className="text-xs text-neutral-500">
-          Your learning roadmap for this session
-        </p>
-      </div>
-
-      {/* Original Prompt - Collapsible */}
-      {originalPrompt && (
-        <div className="mb-4">
-          <button
-            onClick={() => setPromptExpanded(!promptExpanded)}
-            className="flex items-center gap-2 w-full text-left text-xs text-neutral-500 hover:text-neutral-400 transition-colors"
-          >
-            <svg
-              className={`w-3 h-3 transition-transform ${promptExpanded ? "rotate-90" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            <span className="font-medium uppercase tracking-wider">Original Prompt</span>
-          </button>
-          {promptExpanded && (
-            <div className="mt-2 ml-5 p-3 rounded-lg bg-neutral-800/30 border border-neutral-700/30">
-              <p className="text-xs text-neutral-400 leading-relaxed whitespace-pre-wrap">{originalPrompt}</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Goal - Collapsible */}
-      <div className="mb-4">
-        <button
-          onClick={() => setGoalExpanded(!goalExpanded)}
-          className="flex items-center gap-2 w-full text-left text-xs text-neutral-500 hover:text-neutral-400 transition-colors"
-        >
-          <svg
-            className={`w-3 h-3 transition-transform ${goalExpanded ? "rotate-90" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-          <span className="font-medium uppercase tracking-wider">Goal</span>
-        </button>
-        {goalExpanded && (
-          <div className="mt-2 ml-5 p-3 rounded-lg bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20">
-            <p className="text-sm text-white leading-relaxed">{plan.goal}</p>
-          </div>
-        )}
-      </div>
-
-      {/* Description - Collapsible (if available) */}
-      {plan.description && (
-        <div className="mb-4">
-          <button
-            onClick={() => setDescriptionExpanded(!descriptionExpanded)}
-            className="flex items-center gap-2 w-full text-left text-xs text-neutral-500 hover:text-neutral-400 transition-colors"
-          >
-            <svg
-              className={`w-3 h-3 transition-transform ${descriptionExpanded ? "rotate-90" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            <span className="font-medium uppercase tracking-wider">Description</span>
-          </button>
-          {descriptionExpanded && (
-            <div className="mt-2 ml-5 p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/50">
-              <p className="text-sm text-neutral-300 leading-relaxed">{plan.description}</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Strategy - Collapsible */}
-      {plan.strategy && (
-        <div className="mb-4">
-          <button
-            onClick={() => setStrategyExpanded(!strategyExpanded)}
-            className="flex items-center gap-2 w-full text-left text-xs text-neutral-500 hover:text-neutral-400 transition-colors"
-          >
-            <svg
-              className={`w-3 h-3 transition-transform ${strategyExpanded ? "rotate-90" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            <span className="font-medium uppercase tracking-wider">Strategy</span>
-          </button>
-          {strategyExpanded && (
-            <div className="mt-2 ml-5 p-3 rounded-lg bg-neutral-800/30 border border-neutral-700/30">
-              <p className="text-xs text-neutral-400 leading-relaxed">{plan.strategy}</p>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Progress bar */}
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">
@@ -477,12 +366,6 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
         })}
       </div>
 
-      {/* Footer */}
-      <div className="mt-4 pt-3 border-t border-neutral-800">
-        <p className="text-[10px] text-neutral-600 text-center">
-          Steps advance automatically or mark them complete manually
-        </p>
-      </div>
     </div>
   );
 }

@@ -29,7 +29,6 @@ export default function MonitorPopOutPage() {
   const [archivingProbeId, setArchivingProbeId] = useState<string | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
-  const [originalPrompt, setOriginalPrompt] = useState("");
   const [objectives, setObjectives] = useState<string[]>([]);
   const [objectiveStatuses, setObjectiveStatuses] = useState<("red" | "yellow" | "green" | "blue")[]>([]);
 
@@ -59,7 +58,6 @@ export default function MonitorPopOutPage() {
     if (state.archivingProbeId !== undefined) setArchivingProbeId(state.archivingProbeId);
     if (state.planLoading !== undefined) setPlanLoading(state.planLoading);
     if (state.planError !== undefined) setPlanError(state.planError);
-    if (state.originalPrompt !== undefined) setOriginalPrompt(state.originalPrompt);
     if (state.objectives !== undefined) setObjectives(state.objectives);
     if (state.objectiveStatuses !== undefined) setObjectiveStatuses(state.objectiveStatuses);
   }, []);
@@ -360,7 +358,6 @@ export default function MonitorPopOutPage() {
             planError={planError}
             onAdvanceStep={handleAdvanceStep}
             onRollbackToStep={handleRollbackToStep}
-            originalPrompt={originalPrompt}
             showControls={true}
           />
         )}

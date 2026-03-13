@@ -57,14 +57,8 @@ export function MobileProbesTab({
 
   return (
     <div className="flex flex-col h-full bg-[#0a0a0a]">
-      {/* Header */}
-      <div className="shrink-0 px-4 pt-4 pb-3">
-        <h2 className="text-lg font-semibold text-white mb-1">Guiding Tasks</h2>
-        <p className="text-xs text-neutral-500">Questions and suggestions to guide your learning</p>
-      </div>
-
       {/* Toggle tabs */}
-      <div className="shrink-0 px-4 pb-3">
+      <div className="shrink-0 px-4 pt-3 pb-3">
         <div className="flex rounded-lg overflow-hidden border border-neutral-800 bg-neutral-900/50">
           <button
             onClick={() => setViewMode("active")}

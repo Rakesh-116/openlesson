@@ -9,7 +9,6 @@ interface MobilePlanTabProps {
   error?: string | null;
   onAdvanceStep?: () => Promise<void>;
   onRollbackToStep?: (stepIndex: number) => Promise<void>;
-  originalPrompt?: string;
 }
 
 export function MobilePlanTab({
@@ -18,25 +17,11 @@ export function MobilePlanTab({
   error,
   onAdvanceStep,
   onRollbackToStep,
-  originalPrompt,
 }: MobilePlanTabProps) {
   const [advancing, setAdvancing] = useState(false);
   const [rollingBack, setRollingBack] = useState(false);
   const [rollbackTargetIdx, setRollbackTargetIdx] = useState<number | null>(null);
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["goal"]));
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
-
-  const toggleSection = (section: string) => {
-    setExpandedSections(prev => {
-      const next = new Set(prev);
-      if (next.has(section)) {
-        next.delete(section);
-      } else {
-        next.add(section);
-      }
-      return next;
-    });
-  };
 
   const toggleStep = (stepId: string) => {
     setExpandedSteps(prev => {
@@ -145,14 +130,8 @@ export function MobilePlanTab({
 
   return (
     <div className="flex flex-col h-full bg-[#0a0a0a]">
-      {/* Header */}
-      <div className="shrink-0 px-4 pt-4 pb-3">
-        <h2 className="text-lg font-semibold text-white mb-1">Session Plan</h2>
-        <p className="text-xs text-neutral-500">Your learning roadmap for this session</p>
-      </div>
-
       {/* Progress bar */}
-      <div className="shrink-0 px-4 pb-4">
+      <div className="shrink-0 px-4 pt-3 pb-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs text-neutral-500">Progress</span>
           <span className="text-xs font-medium text-white">{completedSteps}/{totalSteps} steps</span>
@@ -167,56 +146,6 @@ export function MobilePlanTab({
 
       {/* Scrollable content */}
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 space-y-3">
-        {/* Goal section */}
-        <div className="rounded-xl border border-neutral-800 overflow-hidden">
-          <button
-            onClick={() => toggleSection("goal")}
-            className="w-full flex items-center justify-between px-4 py-3 bg-neutral-900/50"
-          >
-            <span className="text-xs font-medium text-neutral-400 uppercase tracking-wider">Goal</span>
-            <svg
-              className={`w-4 h-4 text-neutral-500 transition-transform ${expandedSections.has("goal") ? "rotate-180" : ""}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          {expandedSections.has("goal") && (
-            <div className="px-4 py-3 bg-gradient-to-br from-cyan-500/5 to-blue-500/5">
-              <p className="text-sm text-white leading-relaxed">{plan.goal}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Strategy section */}
-        {plan.strategy && (
-          <div className="rounded-xl border border-neutral-800 overflow-hidden">
-            <button
-              onClick={() => toggleSection("strategy")}
-              className="w-full flex items-center justify-between px-4 py-3 bg-neutral-900/50"
-            >
-              <span className="text-xs font-medium text-neutral-400 uppercase tracking-wider">Strategy</span>
-              <svg
-                className={`w-4 h-4 text-neutral-500 transition-transform ${expandedSections.has("strategy") ? "rotate-180" : ""}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {expandedSections.has("strategy") && (
-              <div className="px-4 py-3">
-                <p className="text-sm text-neutral-300 leading-relaxed">{plan.strategy}</p>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Steps */}
         <div className="space-y-2">
           <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider px-1">Steps</h3>
@@ -227,10 +156,10 @@ export function MobilePlanTab({
             const isExpanded = expandedSteps.has(step.id) || isActive;
 
             return (
-              <button
+              <div
                 key={step.id}
                 onClick={() => toggleStep(step.id)}
-                className={`w-full text-left rounded-xl border transition-all ${
+                className={`w-full text-left rounded-xl border transition-all cursor-pointer ${
                   isActive
                     ? "bg-cyan-500/10 border-cyan-500/30"
                     : isCompleted
@@ -318,17 +247,11 @@ export function MobilePlanTab({
                     </button>
                   )}
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
 
-        {/* Footer hint */}
-        <div className="pt-2">
-          <p className="text-[10px] text-neutral-600 text-center">
-            Steps advance automatically or mark them complete manually
-          </p>
-        </div>
       </div>
     </div>
   );

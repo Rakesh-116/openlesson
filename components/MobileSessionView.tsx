@@ -389,7 +389,7 @@ export function MobileSessionView({
   const tabs = [
     {
       id: "probes",
-      label: "Probes",
+      label: "Questions",
       content: (
         <MobileProbesTab
           probes={probes}
@@ -410,7 +410,6 @@ export function MobileSessionView({
           error={planError}
           onAdvanceStep={handleAdvanceStep}
           onRollbackToStep={handleRollbackToStep}
-          originalPrompt={session.problem}
         />
       ),
     },
@@ -418,7 +417,7 @@ export function MobileSessionView({
 
   return (
     <div 
-      className="min-h-screen bg-[#0a0a0a] flex flex-col"
+      className="h-screen bg-[#0a0a0a] flex flex-col overflow-hidden"
       style={{ 
         paddingTop: "env(safe-area-inset-top)",
         paddingBottom: "env(safe-area-inset-bottom)",
@@ -427,18 +426,11 @@ export function MobileSessionView({
       {/* Header */}
       <header className="shrink-0 px-4 py-3 border-b border-neutral-800 bg-[#0a0a0a]">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-sm font-semibold text-white">Mobile Session</h1>
-              <p className="text-[10px] text-neutral-500 truncate max-w-[180px]">
-                {session.problem || "Learning Session"}
-              </p>
-            </div>
+          <div className="flex items-center gap-2 min-w-0">
+            <h1 className="text-sm font-semibold text-white shrink-0">Session</h1>
+            <p className="text-[10px] text-neutral-500 truncate">
+              {session.problem || "Learning Session"}
+            </p>
           </div>
 
           {/* Timer */}

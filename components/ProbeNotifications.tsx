@@ -50,7 +50,6 @@ interface ProbeNotificationsProps {
   planError?: string | null;
   onAdvanceStep?: () => Promise<void>;
   onRollbackToStep?: (stepIndex: number) => Promise<void>;
-  originalPrompt?: string;
   // Pop-out window support
   onPopOut?: () => void;
   isPopOutActive?: boolean;
@@ -107,7 +106,6 @@ export function ProbeNotifications({
   planError,
   onAdvanceStep,
   onRollbackToStep,
-  originalPrompt,
   onPopOut,
   isPopOutActive = false,
   isInitializing = false,
@@ -117,6 +115,20 @@ export function ProbeNotifications({
   const [viewMode, setViewMode] = useState<"active" | "archived">("active");
   const [searchQuery, setSearchQuery] = useState("");
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showSessionMenu, setShowSessionMenu] = useState(false);
+  const sessionMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close session menu on outside click
+  useEffect(() => {
+    if (!showSessionMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (sessionMenuRef.current && !sessionMenuRef.current.contains(e.target as Node)) {
+        setShowSessionMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showSessionMenu]);
 
   // Calculate active (non-archived) probes
   const activeProbes = useMemo(() => probes.filter(p => !p.archived), [probes]);
@@ -237,44 +249,128 @@ export function ProbeNotifications({
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* Open on Smartphone button */}
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Smartphone */}
             <button
               onClick={() => setShowQRModal(true)}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-md border bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700 hover:border-neutral-600 hover:text-neutral-300 text-[10px] font-medium transition-colors"
+              className="p-1.5 rounded-md text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800 transition-colors"
               title="Open on smartphone"
             >
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
               </svg>
-              <span className="hidden sm:inline">Smartphone</span>
             </button>
 
-            {/* Pop-out button */}
+            {/* Pop-out */}
             {onPopOut && (
               <button
                 onClick={onPopOut}
-                className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-medium transition-colors ${
+                className={`p-1.5 rounded-md transition-colors ${
                   isPopOutActive
-                    ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400"
-                    : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700 hover:border-neutral-600 hover:text-neutral-300"
+                    ? "text-cyan-400 bg-cyan-500/10"
+                    : "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800"
                 }`}
                 title={isPopOutActive ? "Pop-out window active" : "Open in separate window"}
               >
                 {isPopOutActive ? (
-                  <>
-                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
-                    <span>Pop-out Active</span>
-                  </>
+                  <div className="w-3.5 h-3.5 flex items-center justify-center">
+                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  </div>
                 ) : (
-                  <>
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                    <span>Pop Out</span>
-                  </>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
                 )}
               </button>
+            )}
+
+            {/* Session controls dropdown */}
+            {showControls && (
+              <div className="relative" ref={sessionMenuRef}>
+                <button
+                  onClick={() => setShowSessionMenu(!showSessionMenu)}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-medium transition-colors ${
+                    isRecording && !isPaused
+                      ? "text-red-400 bg-red-500/10"
+                      : isPaused
+                      ? "text-amber-400 bg-amber-500/10"
+                      : "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800"
+                  }`}
+                  title="Session controls"
+                >
+                  {isRecording && !isPaused ? (
+                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  ) : (
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  )}
+                  <span>Session</span>
+                  <svg className={`w-2.5 h-2.5 transition-transform ${showSessionMenu ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Dropdown menu */}
+                {showSessionMenu && (
+                  <div className="absolute right-0 top-full mt-1 w-36 py-1 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl z-50">
+                    {!isRecording && !isPaused && (
+                      <button
+                        onClick={() => { onStartRecording?.(); setShowSessionMenu(false); }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 transition-colors"
+                      >
+                        Start Session
+                      </button>
+                    )}
+                    {isRecording && !isPaused && (
+                      <>
+                        <button
+                          onClick={() => { onPause?.(); setShowSessionMenu(false); }}
+                          className="w-full text-left px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 transition-colors"
+                        >
+                          Pause
+                        </button>
+                        <button
+                          onClick={() => { onStopRecording?.(); setShowSessionMenu(false); }}
+                          className="w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-neutral-700 transition-colors"
+                        >
+                          End Session
+                        </button>
+                      </>
+                    )}
+                    {isPaused && (
+                      <>
+                        <button
+                          onClick={() => { onResume?.(); setShowSessionMenu(false); }}
+                          className="w-full text-left px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 transition-colors"
+                        >
+                          Resume
+                        </button>
+                        <div className="my-1 border-t border-neutral-700" />
+                        <button
+                          onClick={() => { onReset?.(); setShowSessionMenu(false); }}
+                          className="w-full text-left px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 transition-colors"
+                        >
+                          Reset
+                        </button>
+                        <button
+                          onClick={() => { onClose?.(); setShowSessionMenu(false); }}
+                          className="w-full text-left px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 transition-colors"
+                        >
+                          Close
+                        </button>
+                        <button
+                          onClick={() => { onStopRecording?.(); setShowSessionMenu(false); }}
+                          className="w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-neutral-700 transition-colors"
+                        >
+                          End Session
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -320,19 +416,8 @@ export function ProbeNotifications({
         {/* Left side - Probes */}
         <div className="w-1/2 flex flex-col min-w-0 min-h-0 overflow-hidden p-4">
             {/* Section Title */}
-            <div className="mb-4 shrink-0">
-              <h2 className="text-lg font-semibold text-white mb-1">Guiding Tasks</h2>
-              <p className="text-xs text-neutral-500">Questions and suggestions to guide your learning</p>
-              
-              {/* Hint box for tools */}
-              <div className="mt-3 flex items-start gap-2 p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/20">
-                <svg className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-[11px] text-blue-300/80 leading-relaxed">
-                  Use the <span className="font-medium text-blue-300">tools on the left</span> anytime to help you think through problems and complete tasks.
-                </p>
-              </div>
+            <div className="mb-2 shrink-0">
+              <h2 className="text-sm font-semibold text-white">Guiding Tasks</h2>
             </div>
             {/* Active/Archived Toggle */}
             <div className="flex items-center gap-2 mb-2 shrink-0">
@@ -573,71 +658,10 @@ export function ProbeNotifications({
                 error={planError ?? null} 
                 onAdvanceStep={onAdvanceStep}
                 onRollbackToStep={onRollbackToStep}
-                originalPrompt={originalPrompt}
               />
             </div>
           </div>
       </div>
-
-      {/* Session Control Buttons - Fixed at bottom of Student Monitoring */}
-      {showControls && (
-        <div className="shrink-0 border-t border-neutral-800">
-          <div className="p-3">
-              {!isRecording && !isPaused ? (
-                <button onClick={onStartRecording} className="w-full py-3 border border-neutral-600 hover:border-neutral-400 text-white font-medium rounded-xl flex items-center justify-center gap-2">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                  </svg>
-                  Start Session
-                </button>
-              ) : isPaused ? (
-                <div className="flex gap-1.5">
-                  <button onClick={onResume} className="flex-1 py-2 border border-green-500/50 hover:bg-green-500/10 text-green-400 font-medium rounded-lg flex items-center justify-center gap-1 text-xs">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                    </svg>
-                    Resume
-                  </button>
-                  <button onClick={onReset} className="flex-1 py-2 border border-amber-500/50 hover:bg-amber-500/10 text-amber-400 font-medium rounded-lg flex items-center justify-center gap-1 text-xs">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Reset
-                  </button>
-                  <button onClick={onClose} className="flex-1 py-2 border border-neutral-600 hover:border-neutral-400 text-neutral-400 font-medium rounded-lg flex items-center justify-center gap-1 text-xs">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    Close
-                  </button>
-                  <button onClick={onStopRecording} className="flex-1 py-2 border border-red-500/30 hover:bg-red-500/10 text-red-400/80 font-medium rounded-lg flex items-center justify-center gap-1 text-xs">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-                    </svg>
-                    End
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <button onClick={onPause} className="flex-1 py-2.5 border border-neutral-600 hover:border-neutral-400 text-neutral-400 font-medium rounded-xl flex items-center justify-center gap-1.5 text-xs">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Pause
-                  </button>
-                  <button onClick={onStopRecording} className="flex-1 py-2.5 border border-neutral-600 hover:border-neutral-400 text-neutral-400 font-medium rounded-xl flex items-center justify-center gap-1.5 text-xs">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-                    </svg>
-                    End
-                  </button>
-                </div>
-              )}
-          </div>
-        </div>
-      )}
 
       {/* QR Code Modal for mobile access */}
       <QRCodeModal

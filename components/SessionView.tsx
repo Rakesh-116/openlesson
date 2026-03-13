@@ -51,7 +51,7 @@ import { LLMChat, type ChatMessage } from "./LLMChat";
 import { DataInputTool } from "./DataInputTool";
 import { LogsTool, type LogEntry } from "./LogsTool";
 
-import { MobileBlockScreen } from "./MobileBlockScreen";
+
 import { PopOutBanner } from "./PopOutBanner";
 import { 
   useSessionSync, 
@@ -157,8 +157,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // Plan complete modal (shown when all steps are done)
   const [showPlanCompleteModal, setShowPlanCompleteModal] = useState(false);
 
-  // Mobile tabs
-  const [mobileTab, setMobileTab] = useState<"main" | "canvas" | "notes" | "questions" | "prep">("main");
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768 || /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // Error tracking for recording pipeline
   const [pipelineErrors, setPipelineErrors] = useState<{
@@ -174,7 +180,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const shouldBlockTools = session && !showWelcomeModal && (!isRecording || isPaused);
 
   // Mobile detection
-  const [isMobile, setIsMobile] = useState(false);
+
 
   // Session Plan state
   const [sessionPlan, setSessionPlan] = useState<SessionPlan | null>(null);
@@ -548,16 +554,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     };
   }, [isPopOutActive]);
 
-  // Mobile detection
-  useEffect(() => {
-    const checkMobile = () => {
-      const isMobileDevice = window.innerWidth < 768 || /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-      setIsMobile(isMobileDevice);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
+
 
   // Listen for probe events from ProbeNotifications
   useEffect(() => {
@@ -2362,9 +2359,32 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Mobile block - show message instead of session view
-  if (isMobile) {
-    return <MobileBlockScreen />;
+  if (isMobile && sessionId) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0a] px-6 text-center gap-5">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
+          <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-white mb-1">Mobile Device Detected</h2>
+          <p className="text-sm text-neutral-400">This session is optimized for desktop. Use the mobile view for a better experience on this device.</p>
+        </div>
+        <a
+          href={`/session/mobile/${sessionId}`}
+          className="px-6 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-black text-sm font-medium rounded-lg transition-colors"
+        >
+          Open Mobile View
+        </a>
+        <button
+          onClick={() => setIsMobile(false)}
+          className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
+        >
+          Continue to desktop view anyway
+        </button>
+      </div>
+    );
   }
 
   if (!session || isSaving) {
@@ -2446,44 +2466,54 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                 }
                 if (tool === "grokipedia") {
                   setPrepToolContent(null);
-                  setMobileTab("prep");
                 } else if (tool === "exercise" || tool === "reading") {
                   setPrepToolContent(null);
                   loadPrepToolContent(tool);
-                  setMobileTab("prep");
-                } else if (tool === "chat") {
-                  setMobileTab("main");
-                } else if (tool === "canvas") {
-                  setMobileTab("canvas");
-                } else if (tool === "notebook") {
-                  setMobileTab("notes");
-                } else if (tool === "rag") {
-                  // RAG tool - only available on desktop
-                  setMobileTab("main");
                 }
               }} 
               problem={session.problem} 
-              className="hidden md:flex"
               ragNotification={ragHasNotification}
             />
-      {/* Blur overlay on sidebar tools */}
-      {shouldBlockTools && (
-        <div className="hidden md:block absolute left-0 top-0 bottom-0 pointer-events-none" style={{ width: '280px', zIndex: 40 }}>
-          <div className="absolute inset-0 bg-neutral-900/30 backdrop-blur-sm" />
-        </div>
-      )}
+
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header removed */}
         <div className="flex-1 flex min-h-0 overflow-hidden">
-          {/* Desktop: Resizable split view */}
-          <div className="hidden md:flex flex-1 min-h-0 min-w-0 overflow-hidden">
+          {/* Resizable split view */}
+          <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
             <ResizablePane
               defaultLeftWidth={50}
+              leftLabel="Tools"
+              rightLabel="Student Monitoring"
+              storageKey="session-split"
               left={
                 <div className="flex flex-col min-w-0 p-4 overflow-hidden h-full relative">
-                  {shouldBlockTools && (
-                    <div className="absolute inset-0 bg-neutral-900/30 backdrop-blur-sm z-40" />
-                  )}
+                  {shouldBlockTools && !["data-input", "help", "logs", "rag"].includes(activeTool) ? (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-6">
+                      <div className="w-12 h-12 rounded-xl bg-neutral-800 border border-neutral-700 flex items-center justify-center">
+                        <svg className="w-6 h-6 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          {isPaused ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
+                          ) : (
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                          )}
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-neutral-300">
+                          {isPaused ? "Session paused" : "Session not active"}
+                        </p>
+                        <p className="text-xs text-neutral-500 mt-1">
+                          {isPaused ? "Resume monitoring to use the ILE tools" : "Start monitoring to use the ILE tools"}
+                        </p>
+                      </div>
+                      <button
+                        onClick={isPaused ? handleResume : startRecording}
+                        className="mt-2 px-5 py-2 bg-cyan-500 hover:bg-cyan-400 text-black text-sm font-medium rounded-lg transition-colors"
+                      >
+                        {isPaused ? "Resume Session" : "Start Session"}
+                      </button>
+                    </div>
+                  ) : (
                   <div className="flex-1 min-h-0 overflow-hidden relative">
                     {activeTool === "chat" && (
                       <LLMChat 
@@ -2762,6 +2792,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
               }
               right={
@@ -2793,7 +2824,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                    planError={planError}
                    onAdvanceStep={handleAdvanceStep}
                    onRollbackToStep={handleRollbackToStep}
-                   originalPrompt={session.problem}
                    onPopOut={handlePopOut}
                    isPopOutActive={isPopOutActive}
                    isInitializing={planLoading || openingProbeLoading}
@@ -2803,16 +2833,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             />
           </div>
 
-          {/* Floating message at bottom left */}
-          {shouldBlockTools && (
-            <div className="hidden md:block fixed bottom-8 left-8 z-[100]">
-              <div className="bg-neutral-800 px-6 py-4 rounded-xl border border-neutral-700 shadow-xl">
-                <p className="text-base font-semibold text-white">
-                  Start/Resume student monitoring to access the ILE tools
-                </p>
-              </div>
-            </div>
-          )}
+
 
           {/* Pop-out active banner - uses DOM manipulation to avoid re-renders */}
           <PopOutBanner 
@@ -2825,218 +2846,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             }}
           />
 
-          {/* Mobile: Tab-based navigation */}
-          <div className="flex-1 flex flex-col md:hidden min-h-0 h-full">
-            <div className="flex-1 min-h-0 overflow-hidden h-full">
-              {mobileTab === "main" && (
-                <div className="h-full overflow-hidden">
-                  <LLMChat 
-                    problem={session.problem}
-                    messages={chatMessages}
-                    onMessagesChange={setChatMessages}
-                  />
-                </div>
-              )}
-              {mobileTab === "canvas" && (
-                <div className="h-full overflow-hidden">
-                  <WhiteboardCanvas
-                    initialData={whiteboardData || undefined}
-                    onCanvasChange={(dataUrl) => {
-                      setWhiteboardData(dataUrl);
-                      if (sessionRef.current) {
-                        sessionRef.current = { ...sessionRef.current, metadata: { ...sessionRef.current.metadata, whiteboardData: dataUrl } };
-                      }
-                    }}
-                  />
-                </div>
-              )}
-              {mobileTab === "notes" && (
-                <div className="h-full p-4 overflow-hidden">
-                  <div className="h-full rounded-lg border border-neutral-800 bg-neutral-900/50 flex flex-col">
-                    <textarea
-                      value={notebookContent}
-                      onChange={(e) => setNotebookContent(e.target.value)}
-                      placeholder="Jot down your thoughts..."
-                      className="flex-1 w-full bg-transparent border-none resize-none p-4 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-0"
-                    />
-                    <div className="shrink-0 px-3 py-2 border-t border-neutral-800">
-                      <span className="text-[10px] text-neutral-600">{notebookContent.length} characters</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {mobileTab === "questions" && (
-                <ProbeNotifications
-                  sessionId={session.id}
-                  probes={session.probes}
-                  sessionPlan={sessionPlan}
-                  objectives={objectives}
-                  objectiveStatuses={objectiveStatuses}
-                  isRecording={isRecording}
-                  isPaused={isPaused}
-                  stream={stream}
-                  onStartRecording={startRecording}
-                  onStopRecording={stopRecording}
-                  onPause={handlePause}
-                  onResume={handleResume}
-                  onGetFeedback={handleGetFeedback}
-                  feedbackLoading={feedbackLoading}
-                  elapsedSeconds={elapsedSeconds}
-                  cycleProgress={elapsedSeconds % 60}
-                  isAnalyzing={isAnalyzing}
-                  onArchiveProbe={handleArchiveProbe}
-                  onToggleFocus={handleToggleFocus}
-                  onToolSelect={(tool) => {
-                    setActiveTool(tool as Tool);
-                    setMobileTab("main"); // Switch to main tab on mobile to show the tool
-                  }}
-                   onReset={handleReset}
-                   onClose={handleClose}
-                   archivingProbeId={archivingProbeId}
-                   planLoading={planLoading}
-                   planError={planError}
-                   onAdvanceStep={handleAdvanceStep}
-                   onRollbackToStep={handleRollbackToStep}
-                   originalPrompt={session.problem}
-                   onPopOut={handlePopOut}
-                   isPopOutActive={isPopOutActive}
-                   isInitializing={planLoading || openingProbeLoading}
-                   isCelebrating={isCelebrating}
-                />
-              )}
-              {mobileTab === "prep" && (
-                <div className="h-full p-4 overflow-auto">
-                  {!prepToolContent && !prepToolLoading && (
-                    <div className="flex flex-col gap-3">
-                      <button
-                        onClick={() => loadPrepToolContent("reading")}
-                        className="w-full p-4 rounded-xl border border-neutral-800 bg-neutral-900/50 hover:bg-neutral-800 text-left"
-                      >
-                        <div className="flex items-center gap-3">
-                          <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                          </svg>
-                          <div>
-                            <div className="text-sm font-medium text-white">Prep Reading</div>
-                            <div className="text-xs text-neutral-500">Key concepts to review</div>
-                          </div>
-                        </div>
-                      </button>
-                      <button
-                        onClick={() => loadPrepToolContent("exercise")}
-                        className="w-full p-4 rounded-xl border border-neutral-800 bg-neutral-900/50 hover:bg-neutral-800 text-left"
-                      >
-                        <div className="flex items-center gap-3">
-                          <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                          </svg>
-                          <div>
-                            <div className="text-sm font-medium text-white">Exercise Prep</div>
-                            <div className="text-xs text-neutral-500">Practice task before session</div>
-                          </div>
-                        </div>
-                      </button>
-                      {session?.problem && (
-                        <a
-                          href={`https://grokipedia.com/search?q=${encodeURIComponent(session.problem)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-full p-4 rounded-xl border border-neutral-800 bg-neutral-900/50 hover:bg-neutral-800 text-left flex items-center gap-3"
-                        >
-                          <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                          </svg>
-                          <div>
-                            <div className="text-sm font-medium text-white">Grokipedia</div>
-                            <div className="text-xs text-neutral-500">Search external knowledge base</div>
-                          </div>
-                        </a>
-                      )}
-                    </div>
-                  )}
-                  {prepToolLoading && (
-                    <div className="flex flex-col items-center justify-center h-64">
-                      <div className="w-6 h-6 border border-neutral-700 border-t-cyan-500 rounded-full animate-spin mb-3" />
-                      <p className="text-sm text-neutral-500">Loading...</p>
-                    </div>
-                  )}
-                  {prepToolContent && !prepToolLoading && (
-                    <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
-                      <h3 className="text-lg font-medium text-white mb-4">{prepToolContent.title}</h3>
-                      <div className="prose prose-invert prose-sm max-w-none text-neutral-300">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm, remarkMath]}
-                          rehypePlugins={[rehypeKatex]}
-                        >
-                          {prepToolContent.content}
-                        </ReactMarkdown>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            
-            {/* Mobile Tab Bar */}
-            <div className="flex border-t border-neutral-800 bg-[#0a0a0a] shrink-0">
-              <button
-                onClick={() => setMobileTab("main")}
-                className={`flex-1 py-2.5 text-[10px] font-medium transition-colors flex flex-col items-center gap-1 ${
-                  mobileTab === "main" ? "text-white" : "text-neutral-500"
-                }`}
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                </svg>
-                <span className="hidden xs:inline">Chat</span>
-              </button>
-              <button
-                onClick={() => setMobileTab("canvas")}
-                className={`flex-1 py-2.5 text-[10px] font-medium transition-colors flex flex-col items-center gap-1 ${
-                  mobileTab === "canvas" ? "text-white" : "text-neutral-500"
-                }`}
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-                <span className="hidden xs:inline">Canvas</span>
-              </button>
-              <button
-                onClick={() => setMobileTab("notes")}
-                className={`flex-1 py-2.5 text-[10px] font-medium transition-colors flex flex-col items-center gap-1 ${
-                  mobileTab === "notes" ? "text-white" : "text-neutral-500"
-                }`}
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                <span className="hidden xs:inline">Notes</span>
-              </button>
-              <button
-                onClick={() => setMobileTab("questions")}
-                className={`flex-1 py-2.5 text-[10px] font-medium transition-colors flex flex-col items-center gap-1 ${
-                  mobileTab === "questions" ? "text-white" : "text-neutral-500"
-                }`}
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="hidden xs:inline">Questions</span>
-              </button>
-              <button
-                onClick={() => { setPrepToolContent(null); setMobileTab("prep"); }}
-                className={`flex-1 py-2.5 text-[10px] font-medium transition-colors flex flex-col items-center gap-1 ${
-                  mobileTab === "prep" ? "text-white" : "text-neutral-500"
-                }`}
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-                <span className="hidden xs:inline">Prep</span>
-              </button>
-            </div>
-          </div>
+
         </div>
       </div>
       {showEndDialog && (

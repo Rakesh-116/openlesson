@@ -118,11 +118,14 @@ export function SwipeableTabs({
   }, [activeTab, tabs.length, setActiveTab]);
 
   // Calculate transform for content
+  // The sliding row is tabs.length * 100% wide, so each pane is (100/tabs.length)% of the row.
+  // translateX percentages are relative to the element's own width, so we divide by tabs.length.
   const getContentTransform = () => {
-    const baseOffset = -activeTab * 100;
+    const stepPercent = 100 / tabs.length;
+    const baseOffset = -activeTab * stepPercent;
     if (isDragging && containerRef.current) {
       const containerWidth = containerRef.current.offsetWidth;
-      const dragPercent = (dragOffset / containerWidth) * 100;
+      const dragPercent = (dragOffset / containerWidth) * stepPercent;
       return `translateX(calc(${baseOffset}% + ${dragPercent}%))`;
     }
     return `translateX(${baseOffset}%)`;
@@ -169,13 +172,13 @@ export function SwipeableTabs({
       {/* Swipeable content area */}
       <div
         ref={containerRef}
-        className="flex-1 min-h-0 overflow-hidden touch-pan-y"
+        className="flex-1 min-h-0 relative overflow-hidden touch-pan-y"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
         <div
-          className="flex h-full"
+          className="absolute top-0 bottom-0 left-0 flex"
           style={{
             transform: getContentTransform(),
             transition: isDragging ? "none" : "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
@@ -185,7 +188,7 @@ export function SwipeableTabs({
           {tabs.map((tab) => (
             <div
               key={tab.id}
-              className="h-full overflow-y-auto overflow-x-hidden"
+              className="h-full overflow-hidden"
               style={{ width: `${100 / tabs.length}%` }}
             >
               {tab.content}
