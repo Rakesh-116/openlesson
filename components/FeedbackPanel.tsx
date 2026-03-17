@@ -1,11 +1,8 @@
 "use client";
 
-import type { TrafficLight } from "@/lib/storage";
-
 interface FeedbackPanelProps {
   objectives: string[];
-  objectiveStatuses?: (TrafficLight | "blue")[];
-  trafficLight: TrafficLight;
+  objectiveStatuses?: ("red" | "yellow" | "green" | "blue")[];
 }
 
 const statusConfig = {
@@ -39,33 +36,7 @@ const statusConfig = {
   },
 };
 
-const trafficLightConfig = {
-  red: {
-    color: "bg-red-500",
-    text: "text-red-400",
-    border: "border-red-500/30",
-    bg: "bg-red-500/10",
-    label: "Struggling",
-  },
-  yellow: {
-    color: "bg-yellow-500",
-    text: "text-yellow-400",
-    border: "border-yellow-500/30",
-    bg: "bg-yellow-500/10",
-    label: "In Progress",
-  },
-  green: {
-    color: "bg-green-500",
-    text: "text-green-400",
-    border: "border-green-500/30",
-    bg: "bg-green-500/10",
-    label: "On Track",
-  },
-};
-
-export function FeedbackPanel({ objectives, objectiveStatuses, trafficLight }: FeedbackPanelProps) {
-  const config = trafficLightConfig[trafficLight];
-
+export function FeedbackPanel({ objectives, objectiveStatuses }: FeedbackPanelProps) {
   return (
     <div className="w-64 shrink-0 flex flex-col gap-4 p-4 bg-neutral-900/30 border-l border-neutral-800 overflow-y-auto">
       {/* Objectives Section */}
@@ -101,44 +72,6 @@ export function FeedbackPanel({ objectives, objectiveStatuses, trafficLight }: F
               Loading objectives...
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Traffic Light Section */}
-      <div>
-        <div className="text-[10px] uppercase tracking-wider font-medium text-neutral-500 mb-3">
-          Overall Progress
-        </div>
-        <div
-          className={`flex flex-col items-center gap-3 p-4 rounded-xl border ${config.border} ${config.bg}`}
-        >
-          <div className="flex items-center gap-2">
-            <div
-              className={`w-4 h-4 rounded-full ${config.color} ${
-                trafficLight !== "green" ? "animate-pulse" : ""
-              }`}
-            />
-            <span className={`text-sm font-medium ${config.text}`}>
-              {config.label}
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div
-              className={`w-3 h-3 rounded-full ${
-                trafficLight === "red" ? config.color : "bg-neutral-700"
-              }`}
-            />
-            <div
-              className={`w-3 h-3 rounded-full ${
-                trafficLight === "yellow" ? config.color : "bg-neutral-700"
-              }`}
-            />
-            <div
-              className={`w-3 h-3 rounded-full ${
-                trafficLight === "green" ? config.color : "bg-neutral-700"
-              }`}
-            />
-          </div>
         </div>
       </div>
     </div>

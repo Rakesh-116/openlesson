@@ -50,6 +50,8 @@ import { ToolsHelp } from "./ToolsHelp";
 import { LLMChat, type ChatMessage } from "./LLMChat";
 import { DataInputTool } from "./DataInputTool";
 import { LogsTool, type LogEntry } from "./LogsTool";
+import { createScreenCapture } from "@/lib/screen-capture";
+import { saveScreenshot } from "@/lib/storage";
 
 
 import { PopOutBanner } from "./PopOutBanner";
@@ -62,12 +64,8 @@ import { useI18n } from "@/lib/i18n";
 
 
 // Configuration
-const ANALYSIS_INTERVALS: Record<Frequency, number> = {
-  rare: 15000,
-  balanced: 8000,
-  frequent: 4000,
-};
-const COOLDOWN_AFTER_PROBE_MS = 15000;
+const STORAGE_INTERVAL_MS = 5000;
+const ANALYSIS_INTERVAL_MS = 10000;
 const AUTO_PAUSE_TIMEOUT_MS = 4 * 60 * 60 * 1000; // 4 hours
 
 // Feature flags
@@ -126,16 +124,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // Whiteboard
   const [showWhiteboard, setShowWhiteboard] = useState(false);
   const [whiteboardData, setWhiteboardData] = useState<string | null>(null);
-  const [whiteboardAnalyzing, setWhiteboardAnalyzing] = useState(false);
-  const whiteboardAnalysisRef = useRef<NodeJS.Timeout | null>(null);
-  const lastWhiteboardAnalysisRef = useRef(0);
 
   // Notebook
   const [showNotebook, setShowNotebook] = useState(false);
   const [notebookContent, setNotebookContent] = useState("");
-  const [notebookAnalyzing, setNotebookAnalyzing] = useState(false);
-  const notebookAnalysisRef = useRef<NodeJS.Timeout | null>(null);
-  const lastNotebookAnalysisRef = useRef(0);
 
 
 
@@ -147,7 +139,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const prevToolRef = useRef<Tool | null>(null);
   const [objectives, setObjectives] = useState<string[]>([]);
   const [objectiveStatuses, setObjectiveStatuses] = useState<("red" | "yellow" | "green" | "blue")[]>([]);
-  const [trafficLight, setTrafficLight] = useState<"red" | "yellow" | "green">("green");
   const [feedbackLoading, setFeedbackLoading] = useState(false);
 
   // Archive/Focus probe state
@@ -316,11 +307,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const recorderRef = useRef<AudioRecorder | null>(null);
   const sessionRef = useRef<Session | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const analysisRef = useRef<NodeJS.Timeout | null>(null);
-  const eegSaveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const heartbeatSecondRef = useRef(0);
   const autoPauseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastProbeTimeRef = useRef(0);
-  const lastAnalysisTimeRef = useRef(0);
   const isAnalyzingRef = useRef(false);
   const muteTimerRef = useRef<NodeJS.Timeout | null>(null);
   const probeContainerRef = useRef<HTMLDivElement | null>(null);
@@ -335,10 +325,18 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const notebookContentRef = useRef(notebookContent);
   const activeToolRef = useRef(activeTool);
   const objectivesRef = useRef(objectives);
-  const trafficLightRef = useRef(trafficLight);
   const isRecordingRef = useRef(isRecording);
   const museStatusRef = useRef(museStatus);
   const isWebcamEnabledRef = useRef(isWebcamEnabled);
+
+  // Heartbeat state for UI display
+  const [storageBeat, setStorageBeat] = useState(0);
+  const [analysisBeat, setAnalysisBeat] = useState(0);
+
+  // Screen capture
+  const screenCaptureRef = useRef<{ captureNow: () => Promise<Blob | null>; start: () => Promise<boolean>; stop: () => void } | null>(null);
+  const [isScreenCapturing, setIsScreenCapturing] = useState(false);
+  const [screenshotCount, setScreenshotCount] = useState(0);
 
   const handleFacialData = useCallback((data: FacialDataPoint) => {
     setLatestFacialData(data);
@@ -369,7 +367,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   useEffect(() => { notebookContentRef.current = notebookContent; }, [notebookContent]);
   useEffect(() => { activeToolRef.current = activeTool; }, [activeTool]);
   useEffect(() => { objectivesRef.current = objectives; }, [objectives]);
-  useEffect(() => { trafficLightRef.current = trafficLight; }, [trafficLight]);
   useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
   useEffect(() => { museStatusRef.current = museStatus; }, [museStatus]);
   useEffect(() => { isWebcamEnabledRef.current = isWebcamEnabled; }, [isWebcamEnabled]);
@@ -902,37 +899,30 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     setMuseStatus("disconnected");
   };
 
-  // ---- Audio Analysis ----
-  const analyzeAudio = useCallback(async () => {
+  // ---- Analysis Heartbeat (10s) ----
+  const runAnalysisHeartbeat = useCallback(async () => {
     const recorder = recorderRef.current;
     const currentSession = sessionRef.current;
 
-    if (!recorder || !currentSession) return;
+    if (!currentSession) return;
     if (observerModeRef.current === "off") return;
     if (isMutedRef.current) return;
-    if (Date.now() - lastProbeTimeRef.current < COOLDOWN_AFTER_PROBE_MS) return;
     if (isAnalyzingRef.current) return;
-    if (Date.now() - lastAnalysisTimeRef.current < 3000) return;
-
-    const recentAudio = recorder.getRecentAudio(15000);
-    if (!recentAudio || recentAudio.size < 1000) return;
 
     isAnalyzingRef.current = true;
-    lastAnalysisTimeRef.current = Date.now();
     setIsAnalyzing(true);
 
     try {
-      const audioBase64 = await blobToBase64(recentAudio);
-      const audioFormat = recorder.getAudioFormat();
-
+      // Analysis now fetches data from storage (no audio in request)
+      const openProbeCount = currentSession.probes.filter(p => !p.archived).length;
       const gapRes = await fetch("/api/analyze-gap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          audioBase64, 
-          audioFormat, 
+          sessionId: currentSession.id,
           problem: currentSession.problem,
-          whiteboardData: whiteboardDataRef.current,
+          openProbeCount,
+          lastProbeTimestamp: lastProbeTimeRef.current || 0,
         }),
       });
 
@@ -948,11 +938,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       // Check for transcription errors
       if (gapData.error === "transcription_failed") {
         setPipelineErrors(prev => ({ ...prev, transcription: "Transcription failed - audio may be unclear" }));
-      }
-
-      // Update traffic light
-      if (gapData.trafficLight) {
-        setTrafficLight(gapData.trafficLight);
       }
 
       // Update objective statuses based on analysis
@@ -973,8 +958,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         });
       }
 
-      const threshold = observerModeRef.current === "passive" ? 0.7 : 0.5;
-      
       // Update session plan with current observations
       const currentPlan = sessionPlanRef.current;
       let nextRequestText: string | null = null;
@@ -985,7 +968,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       // Calculate open (non-archived) probes and focused probes
       const openProbes = currentSession.probes.filter(p => !p.archived);
       const focusedProbes = openProbes.filter(p => p.focused).map(p => ({ id: p.id, text: p.text }));
-      const openProbeCount = openProbes.length;
       
       if (currentPlan) {
         // Helper to validate plan data
@@ -1007,10 +989,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               gapScore: gapData.gapScore,
               signals: gapData.signals || [],
               transcript: gapData.transcript || "",
-              trafficLight: trafficLightRef.current,
               previousProbes: currentSession.probes.map((p) => p.text),
               focusedProbes,
-              openProbeCount,
+              openProbeCount: openProbes.length,
+              lastProbeTimestamp: lastProbeTimeRef.current || 0,
             }),
           });
           if (!res.ok) return null;
@@ -1133,8 +1115,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               
               // Trigger pause - clear all intervals and stop recording
               if (timerRef.current) clearInterval(timerRef.current);
-              if (analysisRef.current) clearInterval(analysisRef.current);
-              if (eegSaveIntervalRef.current) clearInterval(eegSaveIntervalRef.current);
+              if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
               
               const recorder = recorderRef.current;
               if (recorder) {
@@ -1170,7 +1151,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       
       // Check if we can generate a new probe (respect 5-probe cap)
       const currentOpenProbeCount = (sessionRef.current?.probes || currentSession.probes).filter(p => !p.archived).length;
-      const shouldGenerateProbe = gapData.gapScore >= threshold && canGenerateProbe && currentOpenProbeCount < 5;
+      const shouldGenerateProbe = canGenerateProbe && currentOpenProbeCount < 5;
       
       if (shouldGenerateProbe) {
         // Use plan-provided request or fall back to generating one
@@ -1260,184 +1241,70 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     }
   }, []);
 
-  // ---- Whiteboard Analysis ----
-  const analyzeWhiteboard = useCallback(async () => {
-    const currentWhiteboardData = whiteboardDataRef.current;
+  // ---- Storage Heartbeat (5s) ----
+  const runStorageHeartbeat = useCallback(async () => {
     const currentSession = sessionRef.current;
-    const now = Date.now();
+    const recorder = recorderRef.current;
+    const currentMuseStatus = museStatusRef.current;
+    const currentWebcamEnabled = isWebcamEnabledRef.current;
 
-    if (!currentWhiteboardData || !currentSession) return;
-    if (!isRecording) return;
-    if (now - lastWhiteboardAnalysisRef.current < 5000) return; // 5s cooldown
-    if (Date.now() - lastProbeTimeRef.current < COOLDOWN_AFTER_PROBE_MS) return;
-
-    lastWhiteboardAnalysisRef.current = now;
-    setWhiteboardAnalyzing(true);
+    if (!currentSession || !isRecordingRef.current) return;
 
     try {
-      // Extract base64 data from data URL if needed
-      const base64Data = currentWhiteboardData.replace(/^data:image\/\w+;base64,/, "");
-
-      const res = await fetch("/api/analyze-whiteboard", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: base64Data, problem: currentSession.problem }),
-      });
-
-      if (!res.ok) return;
-      const data = await res.json();
-
-      if (data.shouldProbe && data.gapScore >= 0.5) {
-        const probeRes = await fetch("/api/generate-probe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            problem: currentSession.problem,
-            transcript: `Whiteboard observation: ${data.observation}`,
-            gapScore: data.gapScore,
-            signals: data.signals || ["whiteboard_confusion"],
-            previousProbes: currentSession.probes.map((p) => p.text),
-            archivedProbes: currentSession.probes.filter((p) => p.archived).map((p) => p.text),
-          }),
-        });
-
-        if (probeRes.ok) {
-          const { probe: probeText } = await probeRes.json();
-
-          // Get current step ID
-          const currentPlan = sessionPlanRef.current;
-          const currentStep = currentPlan?.steps?.[currentPlan?.currentStepIndex || 0];
-          
-          const savedProbe = await addProbe(currentSession.id, {
-            timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
-            gapScore: data.gapScore,
-            signals: data.signals || ["whiteboard_confusion"],
-            text: probeText,
-            planStepId: currentStep?.id,
-          });
-          const updatedSession = addProbeToSession(currentSession, savedProbe);
-          setSession(updatedSession);
-          sessionRef.current = updatedSession;
-          setActiveProbe(savedProbe);
-          setViewingProbeIndex(updatedSession.probes.length - 1);
-          lastProbeTimeRef.current = Date.now();
+      // Audio: get recent 5 seconds and save
+      if (recorder) {
+        const recentAudio = recorder.getRecentAudio(5000);
+        if (recentAudio && recentAudio.size > 100) {
+          const idx = chunkIndexRef.current++;
+          try {
+            await saveAudioChunk(currentSession.id, recentAudio, idx, Date.now());
+            transferHealthRef.current.audio.saved++;
+          } catch (err) {
+            transferHealthRef.current.audio.failed++;
+          }
+          setTransferHealth({ ...transferHealthRef.current });
         }
       }
-    } catch (err) {
-      console.error("Whiteboard analysis error:", err);
-    } finally {
-      setWhiteboardAnalyzing(false);
-    }
-  }, []);
 
-  // ---- Notebook Analysis ----
-  const analyzeNotebook = useCallback(async () => {
-    const currentNotebookContent = notebookContentRef.current;
-    const currentSession = sessionRef.current;
-    const now = Date.now();
+      // Tool data: save whiteboard and notebook content
+      if (whiteboardDataRef.current) {
+        await logToolUsage(currentSession.id, 'canvas', 'canvas_draw', Date.now(), { data: whiteboardDataRef.current });
+      }
+      if (notebookContentRef.current && notebookContentRef.current.trim().length > 0) {
+        await logToolUsage(currentSession.id, 'notebook', 'notebook_edit', Date.now(), { data: notebookContentRef.current });
+      }
 
-    if (!currentNotebookContent || currentNotebookContent.trim().length < 20) return;
-    if (!currentSession) return;
-    if (!isRecording) return;
-    if (now - lastNotebookAnalysisRef.current < 5000) return; // 5s cooldown
-    if (Date.now() - lastProbeTimeRef.current < COOLDOWN_AFTER_PROBE_MS) return;
-
-    lastNotebookAnalysisRef.current = now;
-    setNotebookAnalyzing(true);
-
-    try {
-      const res = await fetch("/api/analyze-notebook", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          content: currentNotebookContent, 
-          problem: currentSession.problem,
-        }),
-      });
-
-      if (!res.ok) return;
-      const data = await res.json();
-
-      if (data.shouldProbe && data.gapScore >= 0.5) {
-        const probeRes = await fetch("/api/generate-probe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            problem: currentSession.problem,
-            transcript: `Notebook notes: ${data.observation}`,
-            gapScore: data.gapScore,
-            signals: data.signals || ["notebook_confusion"],
-            previousProbes: currentSession.probes.map((p) => p.text),
-            archivedProbes: currentSession.probes.filter((p) => p.archived).map((p) => p.text),
-          }),
-        });
-
-        if (probeRes.ok) {
-          const { probe: probeText } = await probeRes.json();
-
-          // Get current step ID
-          const currentPlan = sessionPlanRef.current;
-          const currentStep = currentPlan?.steps?.[currentPlan?.currentStepIndex || 0];
-          
-          const savedProbe = await addProbe(currentSession.id, {
-            timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
-            gapScore: data.gapScore,
-            signals: data.signals || ["notebook_confusion"],
-            text: probeText,
-            planStepId: currentStep?.id,
-          });
-          const updatedSession = addProbeToSession(currentSession, savedProbe);
-          setSession(updatedSession);
-          sessionRef.current = updatedSession;
-          setActiveProbe(savedProbe);
-          setViewingProbeIndex(updatedSession.probes.length - 1);
-          lastProbeTimeRef.current = Date.now();
+      // EEG: flush buffer if streaming
+      if (currentSession && currentMuseStatus === "streaming" && eegBufferRef.current.size > 0) {
+        const channels: Record<string, number[]> = {};
+        for (const [ch, samples] of eegBufferRef.current.entries()) {
+          channels[ch] = samples.slice();
         }
+        const eegIdx = eegChunkIndexRef.current++;
+        try {
+          await saveSessionEEG(currentSession.id, { channels, bandPowers }, museClientRef.current?.deviceName, eegIdx, Date.now());
+          transferHealthRef.current.eeg.saved++;
+        } catch (err) {
+          transferHealthRef.current.eeg.failed++;
+        }
+        setTransferHealth({ ...transferHealthRef.current });
+      }
+
+      // Facial: flush buffer if webcam enabled
+      if (currentSession && currentWebcamEnabled && facialBufferRef.current.length > 0) {
+        const facialIdx = facialChunkIndexRef.current++;
+        try {
+          await saveFacialData(currentSession.id, facialBufferRef.current, facialIdx, Date.now());
+          transferHealthRef.current.facial.saved++;
+        } catch (err) {
+          transferHealthRef.current.facial.failed++;
+        }
+        setTransferHealth({ ...transferHealthRef.current });
       }
     } catch (err) {
-      console.error("Notebook analysis error:", err);
-    } finally {
-      setNotebookAnalyzing(false);
+      console.error("Storage heartbeat error:", err);
     }
   }, []);
-
-  // Debounced whiteboard analysis when data changes
-  useEffect(() => {
-    if (!showWhiteboard || !whiteboardData || !isRecording) return;
-
-    if (whiteboardAnalysisRef.current) {
-      clearTimeout(whiteboardAnalysisRef.current);
-    }
-
-    whiteboardAnalysisRef.current = setTimeout(() => {
-      analyzeWhiteboard();
-    }, 2000); // Analyze 2 seconds after user stops drawing
-
-    return () => {
-      if (whiteboardAnalysisRef.current) {
-        clearTimeout(whiteboardAnalysisRef.current);
-      }
-    };
-  }, [whiteboardData, showWhiteboard, isRecording, analyzeWhiteboard]);
-
-  // Debounced notebook analysis when content changes
-  useEffect(() => {
-    if (!showNotebook || !notebookContent || !isRecording) return;
-
-    if (notebookAnalysisRef.current) {
-      clearTimeout(notebookAnalysisRef.current);
-    }
-
-    notebookAnalysisRef.current = setTimeout(() => {
-      analyzeNotebook();
-    }, 3000); // Analyze 3 seconds after user stops typing
-
-    return () => {
-      if (notebookAnalysisRef.current) {
-        clearTimeout(notebookAnalysisRef.current);
-      }
-    };
-  }, [notebookContent, showNotebook, isRecording, analyzeNotebook]);
 
   const checkMicrophone = async () => {
     setMicStatus("checking");
@@ -1539,53 +1406,23 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
       }, 1000);
 
-      analysisRef.current = setInterval(() => {
-        analyzeAudio();
-      }, ANALYSIS_INTERVALS[frequency]);
-
-      eegSaveIntervalRef.current = setInterval(async () => {
-        const currentRecording = isRecordingRef.current;
-        const currentMuseStatus = museStatusRef.current;
-        const currentWebcamEnabled = isWebcamEnabledRef.current;
-        console.log("[EEG/Facial Interval] Tick", { isRecording: currentRecording, museStatus: currentMuseStatus, isWebcamEnabled: currentWebcamEnabled, eegBufferSize: eegBufferRef.current.size, facialBufferSize: facialBufferRef.current.length });
-        if (!currentRecording) {
-          console.log("[EEG/Facial] Skipping - not recording");
-          return;
+      // Start dual heartbeat: storage every 5s, analysis every 10s
+      heartbeatIntervalRef.current = setInterval(() => {
+        const second = heartbeatSecondRef.current;
+        
+        if (second % 5 === 0) {
+          runStorageHeartbeat();
         }
         
-        if (session && currentMuseStatus === "streaming" && eegBufferRef.current.size > 0) {
-          console.log("[EEG] Saving periodic EEG data...");
-          const channels: Record<string, number[]> = {};
-          for (const [ch, samples] of eegBufferRef.current.entries()) {
-            channels[ch] = samples.slice();
-          }
-          const eegIdx = eegChunkIndexRef.current++;
-          transferHealthRef.current.eeg.sent++;
-          setTransferHealth({ ...transferHealthRef.current });
-          try {
-            await saveSessionEEG(session.id, { channels, bandPowers }, museClientRef.current?.deviceName, eegIdx, Date.now());
-            transferHealthRef.current.eeg.saved++;
-            setTransferHealth({ ...transferHealthRef.current });
-          } catch (err) {
-            transferHealthRef.current.eeg.failed++;
-            setTransferHealth({ ...transferHealthRef.current });
-          }
+        if (second % 10 === 0) {
+          runAnalysisHeartbeat();
         }
-        if (session && currentRecording && currentWebcamEnabled && facialBufferRef.current.length > 0) {
-          console.log("[Facial] Saving periodic facial data...", { dataPoints: facialBufferRef.current.length });
-          const facialIdx = facialChunkIndexRef.current++;
-          transferHealthRef.current.facial.sent++;
-          setTransferHealth({ ...transferHealthRef.current });
-          try {
-            await saveFacialData(session.id, facialBufferRef.current, facialIdx, Date.now());
-            transferHealthRef.current.facial.saved++;
-            setTransferHealth({ ...transferHealthRef.current });
-          } catch (err) {
-            transferHealthRef.current.facial.failed++;
-            setTransferHealth({ ...transferHealthRef.current });
-          }
-        }
-      }, 60000);
+        
+        setStorageBeat(second % 5);
+        setAnalysisBeat(second % 10);
+        
+        heartbeatSecondRef.current = (second + 1) % 10;
+      }, 1000);
 
       // Auto-pause after 4 hours to prevent storage errors from very long sessions
       autoPauseTimeoutRef.current = setTimeout(() => {
@@ -1599,8 +1436,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   const stopRecording = async () => {
     if (timerRef.current) clearInterval(timerRef.current);
-    if (analysisRef.current) clearInterval(analysisRef.current);
-    if (eegSaveIntervalRef.current) clearInterval(eegSaveIntervalRef.current);
+    if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
     if (autoPauseTimeoutRef.current) clearTimeout(autoPauseTimeoutRef.current);
 
     const recorder = recorderRef.current;
@@ -1693,10 +1529,34 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     handleDisconnectMuse();
   };
 
+  // ---- Screenshot Handlers ----
+  const handleStartScreenCapture = useCallback(async () => {
+    if (!screenCaptureRef.current) {
+      screenCaptureRef.current = createScreenCapture({
+        onScreenshotCaptured: async (blob: Blob, timestamp: number) => {
+          try {
+            await saveScreenshot(sessionId, blob, timestamp);
+            setScreenshotCount(c => c + 1);
+          } catch (error) {
+            console.error("[Screenshot] Failed to save:", error);
+          }
+        },
+        intervalMs: 5000,
+        onStatusChange: (capturing: boolean) => {
+          setIsScreenCapturing(capturing);
+        },
+      });
+    }
+    await screenCaptureRef.current.start();
+  }, [sessionId]);
+
+  const handleStopScreenCapture = useCallback(() => {
+    screenCaptureRef.current?.stop();
+  }, []);
+
   const handlePause = async () => {
     if (timerRef.current) clearInterval(timerRef.current);
-    if (analysisRef.current) clearInterval(analysisRef.current);
-    if (eegSaveIntervalRef.current) clearInterval(eegSaveIntervalRef.current);
+    if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
     if (autoPauseTimeoutRef.current) clearTimeout(autoPauseTimeoutRef.current);
 
     const recorder = recorderRef.current;
@@ -1785,50 +1645,23 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
       }, 1000);
 
-      analysisRef.current = setInterval(() => {
-        analyzeAudio();
-      }, ANALYSIS_INTERVALS[frequency]);
-
-      eegSaveIntervalRef.current = setInterval(async () => {
-        const currentRecording = isRecordingRef.current;
-        const currentMuseStatus = museStatusRef.current;
-        const currentWebcamEnabled = isWebcamEnabledRef.current;
-        console.log("[EEG/Facial Interval] Tick (resume)", { isRecording: currentRecording, museStatus: currentMuseStatus, isWebcamEnabled: currentWebcamEnabled, eegBufferSize: eegBufferRef.current.size, facialBufferSize: facialBufferRef.current.length });
-        if (!currentRecording) return;
+      // Start dual heartbeat: storage every 5s, analysis every 10s
+      heartbeatIntervalRef.current = setInterval(() => {
+        const second = heartbeatSecondRef.current;
         
-        if (session && currentMuseStatus === "streaming" && eegBufferRef.current.size > 0) {
-          console.log("[EEG] Saving periodic EEG data...");
-          const channels: Record<string, number[]> = {};
-          for (const [ch, samples] of eegBufferRef.current.entries()) {
-            channels[ch] = samples.slice();
-          }
-          const eegIdx = eegChunkIndexRef.current++;
-          transferHealthRef.current.eeg.sent++;
-          setTransferHealth({ ...transferHealthRef.current });
-          try {
-            await saveSessionEEG(session.id, { channels, bandPowers }, museClientRef.current?.deviceName, eegIdx, Date.now());
-            transferHealthRef.current.eeg.saved++;
-            setTransferHealth({ ...transferHealthRef.current });
-          } catch (err) {
-            transferHealthRef.current.eeg.failed++;
-            setTransferHealth({ ...transferHealthRef.current });
-          }
+        if (second % 5 === 0) {
+          runStorageHeartbeat();
         }
-        if (session && currentRecording && currentWebcamEnabled && facialBufferRef.current.length > 0) {
-          console.log("[Facial] Saving periodic facial data...", { dataPoints: facialBufferRef.current.length });
-          const facialIdx = facialChunkIndexRef.current++;
-          transferHealthRef.current.facial.sent++;
-          setTransferHealth({ ...transferHealthRef.current });
-          try {
-            await saveFacialData(session.id, facialBufferRef.current, facialIdx, Date.now());
-            transferHealthRef.current.facial.saved++;
-            setTransferHealth({ ...transferHealthRef.current });
-          } catch (err) {
-            transferHealthRef.current.facial.failed++;
-            setTransferHealth({ ...transferHealthRef.current });
-          }
+        
+        if (second % 10 === 0) {
+          runAnalysisHeartbeat();
         }
-      }, 60000);
+        
+        setStorageBeat(second % 5);
+        setAnalysisBeat(second % 10);
+        
+        heartbeatSecondRef.current = (second + 1) % 10;
+      }, 1000);
 
       // Auto-pause after 4 hours to prevent storage errors from very long sessions
       autoPauseTimeoutRef.current = setTimeout(() => {
@@ -2349,7 +2182,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
-      if (analysisRef.current) clearInterval(analysisRef.current);
+      if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
       if (muteTimerRef.current) clearTimeout(muteTimerRef.current);
       if (autoPauseTimeoutRef.current) clearTimeout(autoPauseTimeoutRef.current);
       if (micStreamRef.current) {
@@ -2692,6 +2525,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                       <div className={activeTool === "data-input" ? "h-full" : "hidden"}>
                       <DataInputTool
                         isRecording={isRecording}
+                        sessionId={session?.id}
                         audioStream={stream}
                         museStatus={museStatus}
                         museError={museError}
@@ -2704,6 +2538,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         latestFacialData={latestFacialData}
                         onFacialData={handleFacialData}
                         onFaceError={handleFaceError}
+                        isScreenCapturing={isScreenCapturing}
+                        onStartScreenCapture={handleStartScreenCapture}
+                        onStopScreenCapture={handleStopScreenCapture}
+                        screenshotCount={screenshotCount}
                       />
                     </div>
                     {activeTool === "logs" && (
@@ -2814,7 +2652,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   onGetFeedback={handleGetFeedback}
                   feedbackLoading={feedbackLoading}
                   elapsedSeconds={elapsedSeconds}
-                  cycleProgress={elapsedSeconds % 60}
+                  storageBeat={storageBeat}
+                  analysisBeat={analysisBeat}
                   isAnalyzing={isAnalyzing}
                   onArchiveProbe={handleArchiveProbe}
                   onToggleFocus={handleToggleFocus}
@@ -2826,8 +2665,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                    planError={planError}
                    onAdvanceStep={handleAdvanceStep}
                    onRollbackToStep={handleRollbackToStep}
-                   onPopOut={handlePopOut}
-                   isPopOutActive={isPopOutActive}
                    isInitializing={planLoading || openingProbeLoading}
                    isCelebrating={isCelebrating}
                 />

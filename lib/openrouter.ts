@@ -32,6 +32,12 @@ export const DEFAULT_PROMPTS = {
 
 Problem being worked on: {problem}
 
+PROBE CONTEXT:
+- Number of open (non-archived) probes: {openProbeCount}
+- Time since last probe was generated: {secondsSinceLastProbe}s ago
+
+INSTRUCTIONS: Consider the probe context when assessing gaps. If there are active probes and it's been only a few seconds since the last one, the student may still be thinking about it - be more patient in your gap assessment. However, if several probes have been open for a long time without progress, be more aggressive in flagging gaps.
+
 Listen for gaps such as:
 - Hesitations, long pauses, trailing off mid-thought
 - Unexamined assumptions taken for granted
@@ -300,12 +306,14 @@ RECENT OBSERVATIONS:
 - Gap Score: {gap_score} (0.0-1.0, higher = more confusion/gaps detected)
 - Signals: {signals}
 - Recent Transcript: {transcript}
-- Traffic Light Status: {traffic_light} (red=struggling, yellow=some difficulty, green=progressing well)
 - Requests/Probes Already Presented: {previous_probes}
 
 PROBE MANAGEMENT:
 - Current Open Probes (not archived): {open_probe_count} / 5 maximum
 - Focused Probes (user is actively working on these): {focused_probes}
+- Time since last probe was generated: {secondsSinceLastProbe}s ago
+
+TIMING GUIDANCE: If a probe was just generated (<30s ago), lean toward NOT generating another probe unless the gap score is severe (>0.7). The student may still be processing the previous probe. Only override this if there are multiple high-priority unresolved gaps.
 
 AVAILABLE ILE TOOLS (for tool suggestions):
 - chat: Teaching Assistant - Get Socratic guidance from the AI tutor
@@ -483,14 +491,23 @@ export interface AnalyzeGapOptions {
   audioBase64: string;
   audioFormat: string;
   problem: string;
+  openProbeCount?: number;
+  lastProbeTimestamp?: number;
   promptOverrides?: UserPrompts;
 }
 
 export async function analyzeGap(
   options: AnalyzeGapOptions
 ): Promise<{ success: boolean; result?: GapAnalysisResult; error?: string }> {
+  const secondsSinceLastProbe = options.lastProbeTimestamp 
+    ? Math.floor((Date.now() - options.lastProbeTimestamp) / 1000)
+    : 0;
+  const openProbeCount = options.openProbeCount ?? 0;
+
   const prompt = getPrompt("gap_detection", options.promptOverrides)
-    .replace("{problem}", options.problem);
+    .replace("{problem}", options.problem)
+    .replace("{openProbeCount}", openProbeCount.toString())
+    .replace("{secondsSinceLastProbe}", secondsSinceLastProbe.toString());
 
   const response = await callOpenRouterWithAudio<GapAnalysisResult>(
     prompt,
@@ -1222,10 +1239,10 @@ export async function updateSessionPlanLLM(options: {
   gapScore: number;
   signals: string[];
   transcript?: string;
-  trafficLight: "red" | "yellow" | "green";
   previousProbes: string[];
   focusedProbes?: FocusedProbeInfo[];
   openProbeCount?: number;
+  lastProbeTimestamp?: number;
   promptOverrides?: UserPrompts;
 }): Promise<{ success: boolean; result?: SessionPlanUpdateResult; error?: string }> {
   const stepsText = options.steps.map((s, i) => 
@@ -1237,6 +1254,10 @@ export async function updateSessionPlanLLM(options: {
     ? options.focusedProbes.map(p => `- [${p.id}]: "${p.text}"`).join("\n")
     : "None";
 
+  const secondsSinceLastProbe = options.lastProbeTimestamp 
+    ? Math.floor((Date.now() - options.lastProbeTimestamp) / 1000)
+    : 0;
+
   const prompt = getPrompt("session_plan_update", options.promptOverrides)
     .replace("{goal}", options.goal)
     .replace("{strategy}", options.strategy)
@@ -1245,12 +1266,12 @@ export async function updateSessionPlanLLM(options: {
     .replace("{gap_score}", options.gapScore.toFixed(2))
     .replace("{signals}", options.signals.join(", ") || "none detected")
     .replace("{transcript}", options.transcript || "No recent transcript available")
-    .replace("{traffic_light}", options.trafficLight)
     .replace("{previous_probes}", options.previousProbes.length > 0
       ? options.previousProbes.map((p, i) => `${i + 1}. ${p}`).join("\n")
       : "None yet")
     .replace("{open_probe_count}", (options.openProbeCount ?? 0).toString())
-    .replace("{focused_probes}", focusedProbesText);
+    .replace("{focused_probes}", focusedProbesText)
+    .replace("{secondsSinceLastProbe}", secondsSinceLastProbe.toString());
 
   interface RawPlanUpdate {
     plan_changed?: boolean;

@@ -66,8 +66,6 @@ export function validatePlanSteps(steps: SessionPlanStep[]): void {
   }
 }
 
-export type TrafficLight = "red" | "yellow" | "green";
-
 export type SessionStatus = "active" | "paused" | "completed";
 export type ObserverMode = "off" | "passive" | "active";
 export type Frequency = "rare" | "balanced" | "frequent";
@@ -94,8 +92,6 @@ export interface Session {
     eegSummary?: Record<string, number> | null;
     whiteboardData?: string | null;
     notebookData?: string | null;
-    trafficLight?: TrafficLight;
-
   };
 }
 
@@ -844,6 +840,171 @@ export async function getScreenshotUrl(storagePath: string): Promise<string | nu
     .createSignedUrl(storagePath, 3600); // 1 hour expiry
 
   return data?.signedUrl || null;
+}
+
+// ---- Recent Data Fetching for Analysis ----
+
+export interface RecentAudioChunk {
+  id: string;
+  sessionId: string;
+  timestamp: number;
+  storagePath: string;
+  chunkIndex: number;
+}
+
+export async function getRecentAudioChunks(sessionId: string, ms: number): Promise<RecentAudioChunk[]> {
+  const supabase = createClient();
+  const cutoffTime = Date.now() - ms;
+  
+  const { data, error } = await supabase
+    .from("session_audio")
+    .select("*")
+    .eq("session_id", sessionId)
+    .gte("timestamp_ms", cutoffTime)
+    .order("timestamp_ms", { ascending: true });
+
+  if (error || !data) {
+    console.error("[getRecentAudioChunks] Error:", error);
+    return [];
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return data.map((row: any) => ({
+    id: row.id,
+    sessionId: row.session_id,
+    timestamp: row.timestamp_ms,
+    storagePath: row.storage_path,
+    chunkIndex: row.chunk_index,
+  }));
+}
+
+export interface RecentToolEvent {
+  id: string;
+  sessionId: string;
+  timestamp: number;
+  toolName: string;
+  toolAction: string;
+  storagePath: string;
+}
+
+export async function getRecentToolEvents(sessionId: string, ms: number): Promise<RecentToolEvent[]> {
+  const supabase = createClient();
+  const cutoffTime = Date.now() - ms;
+  
+  const { data, error } = await supabase
+    .from("session_tool")
+    .select("*")
+    .eq("session_id", sessionId)
+    .gte("timestamp_ms", cutoffTime)
+    .order("timestamp_ms", { ascending: true });
+
+  if (error || !data) {
+    console.error("[getRecentToolEvents] Error:", error);
+    return [];
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return data.map((row: any) => ({
+    id: row.id,
+    sessionId: row.session_id,
+    timestamp: row.timestamp_ms,
+    toolName: row.tool_name,
+    toolAction: row.tool_action,
+    storagePath: row.storage_path,
+  }));
+}
+
+export interface RecentFacialData {
+  id: string;
+  sessionId: string;
+  timestamp: number;
+  storagePath: string;
+}
+
+export async function getRecentFacialData(sessionId: string, ms: number): Promise<RecentFacialData[]> {
+  const supabase = createClient();
+  const cutoffTime = Date.now() - ms;
+  
+  const { data, error } = await supabase
+    .from("session_facial")
+    .select("*")
+    .eq("session_id", sessionId)
+    .gte("timestamp_ms", cutoffTime)
+    .order("timestamp_ms", { ascending: true });
+
+  if (error || !data) {
+    console.error("[getRecentFacialData] Error:", error);
+    return [];
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return data.map((row: any) => ({
+    id: row.id,
+    sessionId: row.session_id,
+    timestamp: row.timestamp_ms,
+    storagePath: row.storage_path,
+  }));
+}
+
+export interface RecentEEGData {
+  id: string;
+  sessionId: string;
+  timestamp: number;
+  storagePath: string;
+  chunkIndex: number;
+}
+
+export async function getRecentEEGData(sessionId: string, ms: number): Promise<RecentEEGData[]> {
+  const supabase = createClient();
+  const cutoffTime = Date.now() - ms;
+  
+  const { data, error } = await supabase
+    .from("session_eeg")
+    .select("*")
+    .eq("session_id", sessionId)
+    .gte("timestamp_ms", cutoffTime)
+    .order("timestamp_ms", { ascending: true });
+
+  if (error || !data) {
+    console.error("[getRecentEEGData] Error:", error);
+    return [];
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return data.map((row: any) => ({
+    id: row.id,
+    sessionId: row.session_id,
+    timestamp: row.timestamp_ms,
+    storagePath: row.storage_path,
+    chunkIndex: row.chunk_index,
+  }));
+}
+
+export async function getRecentScreenshots(sessionId: string, ms: number): Promise<SessionScreenshot[]> {
+  const supabase = createClient();
+  const cutoffTime = Date.now() - ms;
+  
+  const { data, error } = await supabase
+    .from("session_screenshots")
+    .select("*")
+    .eq("session_id", sessionId)
+    .gte("timestamp_ms", cutoffTime)
+    .order("timestamp_ms", { ascending: true });
+
+  if (error || !data) {
+    console.error("[getRecentScreenshots] Error:", error);
+    return [];
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return data.map((row: any) => ({
+    id: row.id,
+    sessionId: row.session_id,
+    userId: row.user_id,
+    timestamp: row.timestamp_ms,
+    storagePath: row.storage_path,
+    createdAt: row.created_at,
+  }));
 }
 
 export async function deleteSessionScreenshots(sessionId: string): Promise<void> {

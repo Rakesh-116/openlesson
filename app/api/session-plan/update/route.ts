@@ -15,10 +15,10 @@ export async function POST(request: NextRequest) {
       gapScore, 
       signals, 
       transcript, 
-      trafficLight, 
       previousProbes,
       focusedProbes,
       openProbeCount,
+      lastProbeTimestamp,
     } = body;
 
     if (!sessionId) {
@@ -58,10 +58,10 @@ export async function POST(request: NextRequest) {
       gapScore: gapScore ?? 0.5,
       signals: signals || [],
       transcript: transcript || "",
-      trafficLight: trafficLight || "yellow",
       previousProbes: previousProbes || [],
       focusedProbes: focusedProbes || [],
       openProbeCount: openProbeCount ?? 0,
+      lastProbeTimestamp: lastProbeTimestamp ?? 0,
       promptOverrides,
     });
 
