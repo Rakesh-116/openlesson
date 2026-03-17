@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { type SessionPlan } from "@/lib/storage";
+import { useI18n } from "@/lib/i18n";
 
 interface MobilePlanTabProps {
   plan: SessionPlan | null;
@@ -18,6 +19,7 @@ export function MobilePlanTab({
   onAdvanceStep,
   onRollbackToStep,
 }: MobilePlanTabProps) {
+  const { t } = useI18n();
   const [advancing, setAdvancing] = useState(false);
   const [rollingBack, setRollingBack] = useState(false);
   const [rollbackTargetIdx, setRollbackTargetIdx] = useState<number | null>(null);
@@ -133,8 +135,8 @@ export function MobilePlanTab({
       {/* Progress bar */}
       <div className="shrink-0 px-4 pt-3 pb-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-neutral-500">Progress</span>
-          <span className="text-xs font-medium text-white">{completedSteps}/{totalSteps} steps</span>
+          <span className="text-xs text-neutral-500">{t('sessionPlan.progress')}</span>
+          <span className="text-xs font-medium text-white">{completedSteps}/{totalSteps} {t('sessionPlan.steps')}</span>
         </div>
         <div className="h-2.5 bg-neutral-800 rounded-full overflow-hidden">
           <div
@@ -148,7 +150,7 @@ export function MobilePlanTab({
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 space-y-3">
         {/* Steps */}
         <div className="space-y-2">
-          <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider px-1">Steps</h3>
+          <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider px-1">{t('sessionPlan.steps')}</h3>
           {plan.steps.map((step, idx) => {
             const isActive = step.status === "in_progress";
             const isCompleted = step.status === "completed";

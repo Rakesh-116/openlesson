@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { type SessionPlan } from "@/lib/storage";
+import { useI18n } from "@/lib/i18n";
 
 interface SessionPlanViewerProps {
   plan: SessionPlan | null;
@@ -12,6 +13,7 @@ interface SessionPlanViewerProps {
 }
 
 export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollbackToStep }: SessionPlanViewerProps) {
+  const { t } = useI18n();
   const [advancing, setAdvancing] = useState(false);
   const [rollingBack, setRollingBack] = useState(false);
   const [rollbackTargetIdx, setRollbackTargetIdx] = useState<number | null>(null);
@@ -170,9 +172,9 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
       {/* Progress bar */}
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-neutral-500">Progress</span>
+          <span className="text-xs text-neutral-500">{t('sessionPlan.progress')}</span>
           <span className="text-xs font-medium text-white">
-            {completedSteps}/{totalSteps} steps
+            {completedSteps}/{totalSteps} {t('sessionPlan.steps')}
           </span>
         </div>
         <div className="h-2 bg-neutral-800 rounded-full overflow-hidden">

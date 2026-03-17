@@ -4,21 +4,25 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { type Probe, type SessionPlan, type RequestType, type ToolName } from "@/lib/storage";
 import { SessionPlanViewer } from "./SessionPlanViewer";
 import { QRCodeModal } from "./QRCodeModal";
+import { useI18n } from "@/lib/i18n";
 
 const MAX_OPEN_PROBES = 5;
 
-// Tool labels for display
-const TOOL_LABELS: Record<string, string> = {
-  chat: "Teaching Assistant",
-  canvas: "Canvas",
-  notebook: "Notebook",
-  grokipedia: "Grokipedia",
-  plan: "Session Plan",
-  rag: "RAG Matches",
-  exercise: "Practice",
-  reading: "Theory",
-  help: "Help",
-};
+// Tool labels for display - using translation function
+function getToolLabel(tool: string, t: (key: string) => string): string {
+  const labels: Record<string, string> = {
+    chat: t('tools.teachingAssistant'),
+    canvas: t('tools.canvas'),
+    notebook: t('tools.notebook'),
+    grokipedia: t('tools.grokipedia'),
+    plan: t('probes.session'),
+    rag: t('tools.ragMatches'),
+    exercise: t('tools.practice'),
+    reading: t('tools.theory'),
+    help: t('tools.help'),
+  };
+  return labels[tool] || tool;
+}
 
 interface ProbeNotificationsProps {
   sessionId: string;
@@ -111,6 +115,7 @@ export function ProbeNotifications({
   isInitializing = false,
   isCelebrating = false,
 }: ProbeNotificationsProps) {
+  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<"active" | "archived">("active");
   const [searchQuery, setSearchQuery] = useState("");
@@ -240,11 +245,11 @@ export function ProbeNotifications({
         <div className="flex items-start justify-between gap-2">
           <div>
             <h2 className="text-xs font-medium text-white uppercase tracking-wider mb-1">
-              Student Monitoring
-              {isCelebrating && <span className="ml-2 text-amber-400">Step Complete!</span>}
+              {t('tools.studentMonitoring')}
+              {isCelebrating && <span className="ml-2 text-amber-400">{t('probes.stepComplete')}</span>}
             </h2>
             <p className="text-[10px] text-neutral-500">
-              Questions and feedback from an AI that monitors your thinking and actions in the ILE
+              {t('tools.guidingTasksDesc')}
             </p>
           </div>
 
@@ -254,7 +259,7 @@ export function ProbeNotifications({
             <button
               onClick={() => setShowQRModal(true)}
               className="p-1.5 rounded-md text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800 transition-colors"
-              title="Open on smartphone"
+              title={t('session.openOnSmartphone')}
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -270,7 +275,7 @@ export function ProbeNotifications({
                     ? "text-cyan-400 bg-cyan-500/10"
                     : "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800"
                 }`}
-                title={isPopOutActive ? "Pop-out window active" : "Open in separate window"}
+                title={isPopOutActive ? t('session.popOutWindowActive') : t('session.openInSeparateWindow')}
               >
                 {isPopOutActive ? (
                   <div className="w-3.5 h-3.5 flex items-center justify-center">
@@ -296,7 +301,7 @@ export function ProbeNotifications({
                       ? "text-amber-400 bg-amber-500/10"
                       : "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800"
                   }`}
-                  title="Session controls"
+                  title={t('session.sessionControls')}
                 >
                   {isRecording && !isPaused ? (
                     <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
@@ -320,7 +325,7 @@ export function ProbeNotifications({
                         onClick={() => { onStartRecording?.(); setShowSessionMenu(false); }}
                         className="w-full text-left px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 transition-colors"
                       >
-                        Start Session
+                        {t('tools.startSession')}
                       </button>
                     )}
                     {isRecording && !isPaused && (
@@ -329,13 +334,13 @@ export function ProbeNotifications({
                           onClick={() => { onPause?.(); setShowSessionMenu(false); }}
                           className="w-full text-left px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 transition-colors"
                         >
-                          Pause
+                          {t('tools.pause')}
                         </button>
                         <button
                           onClick={() => { onStopRecording?.(); setShowSessionMenu(false); }}
                           className="w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-neutral-700 transition-colors"
                         >
-                          End Session
+                          {t('sessionEnd.endSession')}
                         </button>
                       </>
                     )}
@@ -345,26 +350,26 @@ export function ProbeNotifications({
                           onClick={() => { onResume?.(); setShowSessionMenu(false); }}
                           className="w-full text-left px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 transition-colors"
                         >
-                          Resume
+                          {t('session.resume')}
                         </button>
                         <div className="my-1 border-t border-neutral-700" />
                         <button
                           onClick={() => { onReset?.(); setShowSessionMenu(false); }}
                           className="w-full text-left px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 transition-colors"
                         >
-                          Reset
+                          {t('tools.reset')}
                         </button>
                         <button
                           onClick={() => { onClose?.(); setShowSessionMenu(false); }}
                           className="w-full text-left px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 transition-colors"
                         >
-                          Close
+                          {t('tools.close')}
                         </button>
                         <button
                           onClick={() => { onStopRecording?.(); setShowSessionMenu(false); }}
                           className="w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-neutral-700 transition-colors"
                         >
-                          End Session
+                          {t('sessionEnd.endSession')}
                         </button>
                       </>
                     )}
@@ -394,7 +399,7 @@ export function ProbeNotifications({
                     }
                     ${isAtProbeCap && isFilled ? "animate-pulse" : ""}
                   `}
-                  title={probe ? probe.text.slice(0, 50) + "..." : "Empty slot"}
+                  title={probe ? probe.text.slice(0, 50) + "..." : t('session.emptySlot')}
                 >
                   {isFilled && (
                     <span className="text-[9px] font-bold text-cyan-400">{i + 1}</span>
@@ -417,7 +422,7 @@ export function ProbeNotifications({
         <div className="w-1/2 flex flex-col min-w-0 min-h-0 overflow-hidden p-4">
             {/* Section Title */}
             <div className="mb-2 shrink-0">
-              <h2 className="text-sm font-semibold text-white">Guiding Tasks</h2>
+              <h2 className="text-sm font-semibold text-white">{t('probes.guidingTasks')}</h2>
             </div>
             {/* Active/Archived Toggle */}
             <div className="flex items-center gap-2 mb-2 shrink-0">
@@ -430,7 +435,7 @@ export function ProbeNotifications({
                       : "bg-transparent text-neutral-500 hover:text-neutral-400"
                   }`}
                 >
-                  Active ({activeProbes.length})
+                  {t('probes.active')} ({activeProbes.length})
                 </button>
                 <button
                   onClick={() => setViewMode("archived")}
@@ -440,7 +445,7 @@ export function ProbeNotifications({
                       : "bg-transparent text-neutral-500 hover:text-neutral-400"
                   }`}
                 >
-                  Archived ({archivedProbes.length})
+                  {t('probes.archived')} ({archivedProbes.length})
                 </button>
               </div>
 
@@ -449,7 +454,7 @@ export function ProbeNotifications({
                 <div className="flex-1 relative">
                   <input
                     type="text"
-                    placeholder="Search archived..."
+                    placeholder={t('probes.searchArchived')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full h-6 px-2 pr-6 text-[10px] bg-neutral-800 border border-neutral-700 rounded text-neutral-300 placeholder-neutral-500 focus:outline-none focus:border-neutral-600"
@@ -475,7 +480,7 @@ export function ProbeNotifications({
                   {isAnalyzing && (
                     <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                   )}
-                  <span className="text-[11px] text-blue-400">{isAnalyzing ? "Observing" : "Monitoring"}</span>
+                  <span className="text-[11px] text-blue-400">{isAnalyzing ? t('tools.observing') : t('tools.monitoring')}</span>
                 </div>
                 <div className="text-xs font-mono text-neutral-300 tabular-nums">
                   {formatTime(elapsedSeconds)}
@@ -495,15 +500,15 @@ export function ProbeNotifications({
           isInitializing && viewMode === "active" ? (
             <div className="flex flex-col items-center justify-center py-8 gap-3">
               <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
-              <p className="text-xs text-neutral-500">Preparing your session...</p>
+              <p className="text-xs text-neutral-500">{t('probes.preparing')}</p>
             </div>
           ) : (
             <p className="text-xs text-neutral-600 text-center py-4">
               {searchQuery 
-                ? "No matching questions or feedback" 
+                ? t('probes.noMatchingProbes') 
                 : viewMode === "archived" 
-                  ? "No archived probes yet" 
-                  : "No questions yet"
+                  ? t('probes.noArchivedProbes')
+                  : t('probes.noActiveProbes')
               }
             </p>
           )
@@ -556,7 +561,7 @@ export function ProbeNotifications({
                         }}
                         disabled={isArchiving}
                         className="flex items-center gap-1 px-2 py-1 rounded text-neutral-500 hover:text-green-400 hover:bg-green-500/10 transition-colors disabled:opacity-50 text-xs"
-                        title="Mark as done"
+                          title={t('session.markAsDone')}
                       >
                         {isArchiving ? (
                           <>
@@ -603,7 +608,7 @@ export function ProbeNotifications({
                         }}
                         className="px-2 py-0.5 text-[10px] font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-full hover:bg-cyan-500/20 hover:border-cyan-500/40 transition-colors"
                       >
-                        {TOOL_LABELS[tool] || tool}
+                        {getToolLabel(tool, t)}
                       </button>
                     ))}
                   </div>

@@ -17,6 +17,7 @@ import {
 } from "@/lib/storage";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import { useI18n } from "@/lib/i18n";
 
 interface MobileSessionViewProps {
   sessionId: string;
@@ -29,6 +30,7 @@ export function MobileSessionView({
   initialSession,
   initialPlan,
 }: MobileSessionViewProps) {
+  const { t } = useI18n();
   // Session state
   const [session, setSession] = useState<Session | null>(initialSession ?? null);
   const [sessionPlan, setSessionPlan] = useState<SessionPlan | null>(initialPlan ?? null);
@@ -358,7 +360,7 @@ export function MobileSessionView({
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-6">
         <div className="w-10 h-10 border-2 border-neutral-700 border-t-cyan-500 rounded-full animate-spin mb-4" />
-        <p className="text-sm text-neutral-500">Loading session...</p>
+        <p className="text-sm text-neutral-500">{t('session.loadingSession')}</p>
       </div>
     );
   }
@@ -372,15 +374,15 @@ export function MobileSessionView({
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
         </div>
-        <h1 className="text-lg font-semibold text-white mb-2">Session Not Found</h1>
+        <h1 className="text-lg font-semibold text-white mb-2">{t('session.sessionNotFound')}</h1>
         <p className="text-sm text-neutral-500 mb-6">
-          This session doesn't exist or you don't have access to it.
+          {t('session.sessionNotFoundDesc')}
         </p>
         <Link
           href="/dashboard"
           className="px-5 py-2.5 bg-neutral-800 border border-neutral-700 rounded-xl text-sm text-white hover:bg-neutral-700 transition-colors"
         >
-          Go to Dashboard
+          {t('session.goToDashboard')}
         </Link>
       </div>
     );
@@ -389,7 +391,7 @@ export function MobileSessionView({
   const tabs = [
     {
       id: "probes",
-      label: "Questions",
+      label: t('session.questions'),
       content: (
         <MobileProbesTab
           probes={probes}
@@ -402,7 +404,7 @@ export function MobileSessionView({
     },
     {
       id: "plan",
-      label: "Plan",
+      label: t('session.plan'),
       content: (
         <MobilePlanTab
           plan={sessionPlan}
@@ -427,9 +429,9 @@ export function MobileSessionView({
       <header className="shrink-0 px-4 py-3 border-b border-neutral-800 bg-[#0a0a0a]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
-            <h1 className="text-sm font-semibold text-white shrink-0">Session</h1>
+            <h1 className="text-sm font-semibold text-white shrink-0">{t('session.session')}</h1>
             <p className="text-[10px] text-neutral-500 truncate">
-              {session.problem || "Learning Session"}
+              {session.problem || t('session.session')}
             </p>
           </div>
 
@@ -466,14 +468,14 @@ export function MobileSessionView({
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
             </svg>
-            Check Microphone
+            {t('session.checkMicrophone')}
           </button>
         )}
 
         {micStatus === "checking" && (
           <div className="w-full py-3.5 bg-neutral-800 border border-neutral-700 rounded-xl flex items-center justify-center gap-2">
             <div className="w-5 h-5 border-2 border-neutral-600 border-t-cyan-500 rounded-full animate-spin" />
-            <span className="text-sm text-neutral-400">Checking microphone...</span>
+            <span className="text-sm text-neutral-400">{t('session.checkingMic')}</span>
           </div>
         )}
 
@@ -486,7 +488,7 @@ export function MobileSessionView({
               <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Start Session
+            {t('session.startSession')}
           </button>
         )}
 
@@ -498,7 +500,7 @@ export function MobileSessionView({
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
             </svg>
-            Retry Microphone Access
+            {t('session.retryMicrophoneAccess')}
           </button>
         )}
 
@@ -513,7 +515,7 @@ export function MobileSessionView({
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                   </svg>
-                  Resume
+                  {t('session.resume')}
                 </button>
                 <button
                   onClick={stopRecording}
@@ -523,7 +525,7 @@ export function MobileSessionView({
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
                   </svg>
-                  End
+                  {t('session.end')}
                 </button>
               </>
             ) : (
@@ -535,7 +537,7 @@ export function MobileSessionView({
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  Pause
+                  {t('session.pause')}
                 </button>
                 <button
                   onClick={stopRecording}
@@ -545,7 +547,7 @@ export function MobileSessionView({
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
                   </svg>
-                  End
+                  {t('session.end')}
                 </button>
               </>
             )}

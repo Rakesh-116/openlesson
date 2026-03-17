@@ -58,6 +58,7 @@ import {
   openPopOutWindow, 
   type SessionAction 
 } from "@/lib/broadcast-sync";
+import { useI18n } from "@/lib/i18n";
 
 
 // Configuration
@@ -74,6 +75,7 @@ const ENABLE_AUTO_PAUSE = false; // Disable LLM-triggered auto-pause
 
 export function SessionView({ sessionId }: { sessionId: string }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [session, setSession] = useState<Session | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -2368,20 +2370,20 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           </svg>
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-white mb-1">Mobile Device Detected</h2>
-          <p className="text-sm text-neutral-400">This session is optimized for desktop. Use the mobile view for a better experience on this device.</p>
+          <h2 className="text-lg font-semibold text-white mb-1">{t('session.mobileDetected')}</h2>
+          <p className="text-sm text-neutral-400">{t('session.mobileDetectedDesc')}</p>
         </div>
         <a
           href={`/session/mobile/${sessionId}`}
           className="px-6 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-black text-sm font-medium rounded-lg transition-colors"
         >
-          Open Mobile View
+          {t('session.openMobileView')}
         </a>
         <button
           onClick={() => setIsMobile(false)}
           className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
         >
-          Continue to desktop view anyway
+          {t('session.continueDesktopAnyway')}
         </button>
       </div>
     );
@@ -2392,7 +2394,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0a] gap-4">
         <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
         {isSaving && (
-          <p className="text-sm text-neutral-500 animate-pulse">Saving session...</p>
+          <p className="text-sm text-neutral-500 animate-pulse">{t('session.savingSession')}</p>
         )}
       </div>
     );
@@ -2404,25 +2406,25 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div className="relative z-10 w-[90vw] max-w-lg p-6 bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl">
-            <h2 className="text-xl font-semibold text-white mb-2">Welcome to Your Session</h2>
-            <p className="text-neutral-400 text-sm mb-5">Your tutor has prepared a personalized plan. Think out loud as you work through each step.</p>
+            <h2 className="text-xl font-semibold text-white mb-2">{t('session.welcomeTitle')}</h2>
+            <p className="text-neutral-400 text-sm mb-5">{t('session.welcomeMessage')}</p>
             
             <div className="space-y-3 mb-5">
               <div className="flex items-start gap-3">
                 <span className="flex-shrink-0 w-6 h-6 bg-neutral-800 border border-neutral-700 rounded-full flex items-center justify-center text-neutral-300 text-xs font-medium">1</span>
-                <p className="text-neutral-300 text-sm pt-0.5">Press <span className="text-white font-medium">Start Session</span> to begin</p>
+                <p className="text-neutral-300 text-sm pt-0.5">{t('session.pressStart')}</p>
               </div>
               <div className="flex items-start gap-3">
                 <span className="flex-shrink-0 w-6 h-6 bg-neutral-800 border border-neutral-700 rounded-full flex items-center justify-center text-neutral-300 text-xs font-medium">2</span>
-                <p className="text-neutral-300 text-sm pt-0.5">Follow the session plan and use our guiding questions to advance</p>
+                <p className="text-neutral-300 text-sm pt-0.5">{t('session.followPlan')}</p>
               </div>
               <div className="flex items-start gap-3">
                 <span className="flex-shrink-0 w-6 h-6 bg-neutral-800 border border-neutral-700 rounded-full flex items-center justify-center text-neutral-300 text-xs font-medium">3</span>
-                <p className="text-neutral-300 text-sm pt-0.5">Use the sidebar for chat, canvas, and notes</p>
+                <p className="text-neutral-300 text-sm pt-0.5">{t('session.useSidebar')}</p>
               </div>
             </div>
 
-            <p className="text-xs text-neutral-500 mb-5">Your tutor adapts to your progress in real-time. Don't worry about sounding perfect.</p>
+            <p className="text-xs text-neutral-500 mb-5">{t('session.encouragement')}</p>
 
             {(() => {
               const isSessionReady = sessionPlan && !planLoading && !openingProbeLoading && session?.probes && session.probes.length > 0;
@@ -2431,7 +2433,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   {!isSessionReady && (
                     <div className="flex items-center gap-3 mb-4 p-3 bg-neutral-800/50 rounded-lg">
                       <div className="w-4 h-4 border-2 border-neutral-600 border-t-white rounded-full animate-spin" />
-                      <span className="text-sm text-neutral-400">Preparing your session...</span>
+                      <span className="text-sm text-neutral-400">{t('session.preparing')}</span>
                     </div>
                   )}
 
@@ -2446,7 +2448,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         : 'bg-white hover:bg-neutral-100 text-neutral-900'
                     }`}
                   >
-                    {!isSessionReady ? 'Please wait...' : 'Get Started'}
+                    {!isSessionReady ? t('session.pleaseWait') : t('session.getStarted')}
                   </button>
                 </>
               );
@@ -2482,8 +2484,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
             <ResizablePane
               defaultLeftWidth={50}
-              leftLabel="Tools"
-              rightLabel="Student Monitoring"
+              leftLabel={t('session.tools')}
+              rightLabel={t('session.studentMonitoring')}
               storageKey="session-split"
               left={
                 <div className="flex flex-col min-w-0 p-4 overflow-hidden h-full relative">
@@ -2500,17 +2502,17 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-neutral-300">
-                          {isPaused ? "Session paused" : "Session not active"}
+                          {isPaused ? t('session.sessionPaused') : t('session.sessionNotActive')}
                         </p>
                         <p className="text-xs text-neutral-500 mt-1">
-                          {isPaused ? "Resume monitoring to use the ILE tools" : "Start monitoring to use the ILE tools"}
+                          {isPaused ? t('session.resumeMonitoringToUse') : t('session.startMonitoringToUse')}
                         </p>
                       </div>
                       <button
                         onClick={isPaused ? handleResume : startRecording}
                         className="mt-2 px-5 py-2 bg-cyan-500 hover:bg-cyan-400 text-black text-sm font-medium rounded-lg transition-colors"
                       >
-                        {isPaused ? "Resume Session" : "Start Session"}
+                        {isPaused ? t('session.resumeSession') : t('session.startSession')}
                       </button>
                     </div>
                   ) : (
@@ -2539,11 +2541,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         <textarea
                           value={notebookContent}
                           onChange={(e) => setNotebookContent(e.target.value)}
-                          placeholder="Jot down your thoughts..."
+                          placeholder={t('session.notebookPlaceholder')}
                           className="flex-1 w-full bg-transparent border-none resize-none p-4 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-0"
                         />
                         <div className="shrink-0 px-3 py-2 border-t border-neutral-800">
-                          <span className="text-[10px] text-neutral-600">{notebookContent.length} characters</span>
+                          <span className="text-[10px] text-neutral-600">{t('session.characters', { count: notebookContent.length })}</span>
                         </div>
                       </div>
                     )}
@@ -2553,25 +2555,25 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         {ragLoading && (
                           <div className="flex flex-col items-center justify-center h-64">
                             <div className="w-6 h-6 border border-neutral-700 border-t-cyan-500 rounded-full animate-spin mb-3" />
-                            <p className="text-sm text-neutral-500">Finding relevant chunks...</p>
+                            <p className="text-sm text-neutral-500">{t('session.findingChunks')}</p>
                           </div>
                         )}
                         {!ragLoading && ragChunks.length === 0 && (
                           <div className="flex flex-col items-center justify-center h-64 gap-4">
-                            <p className="text-sm text-neutral-500">No matching chunks found</p>
+                            <p className="text-sm text-neutral-500">{t('session.noChunksFound')}</p>
                             <button
                               onClick={() => runRagMatching()}
                               className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-medium rounded-lg transition-all"
                             >
-                              Retry Matching
+                              {t('common.retry')}
                             </button>
                           </div>
                         )}
                         {!ragLoading && ragChunks.length > 0 && (
                           <div className="space-y-4">
                             <div className="flex items-center justify-between">
-                              <h3 className="text-sm font-medium text-white">Matching Chunks</h3>
-                              <span className="text-xs text-neutral-500">{ragChunks.length} found</span>
+                              <h3 className="text-sm font-medium text-white">{t('session.matchingChunks')}</h3>
+                              <span className="text-xs text-neutral-500">{t('session.chunksFound', { count: ragChunks.length })}</span>
                             </div>
                             
                             {/* Modifier input */}
@@ -2580,7 +2582,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                                 type="text"
                                 value={ragModifier}
                                 onChange={(e) => setRagModifier(e.target.value)}
-                                placeholder="Add modifier (e.g., 'focus on proofs')"
+                                placeholder={t('session.addModifier')}
                                 className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-cyan-500"
                               />
                               <button
@@ -2588,7 +2590,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                                 disabled={ragLoading || !ragModifier.trim()}
                                 className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-500/50 disabled:cursor-not-allowed text-black font-medium rounded-lg transition-all"
                               >
-                                Retry
+                                {t('common.retry')}
                               </button>
                             </div>
 
@@ -2637,17 +2639,17 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                                       />
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
-                                          <span className="text-xs font-medium text-white">Chunk {idx + 1}</span>
+                                          <span className="text-xs font-medium text-white">{t('session.chunk', { idx: idx + 1 })}</span>
                                           <span className={`text-[10px] px-1.5 py-0.5 rounded ${
                                             similarityPct > 50 
                                               ? "bg-cyan-500/20 text-cyan-400" 
                                               : "bg-neutral-700 text-neutral-400"
                                           }`}>
-                                            {similarityPct}% match
+                                            {t('session.match', { percent: similarityPct })}
                                           </span>
                                           {chunk.topic && (
                                             <span className="text-[10px] text-neutral-500">
-                                              from: {chunk.topic}
+                                              {t('session.from', { topic: chunk.topic })}
                                             </span>
                                           )}
                                         </div>
@@ -2677,7 +2679,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                             {/* Summary */}
                             <div className="pt-3 border-t border-neutral-800">
                               <p className="text-xs text-neutral-500">
-                                {ragSelectedChunks.size} of {ragChunks.length} chunks selected for observation prompts
+                                {t('session.chunksSelected', { selected: ragSelectedChunks.size, total: ragChunks.length })}
                               </p>
                             </div>
                           </div>
@@ -2720,8 +2722,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         {activeTool === "grokipedia" && showGrokipediaOnly && session?.problem && (
                           <div className="flex flex-col items-center justify-center h-full gap-6">
                             <div className="text-center">
-                              <h3 className="text-lg font-medium text-white mb-2">Grokipedia</h3>
-                              <p className="text-sm text-neutral-400">Search for information about your topic</p>
+                              <h3 className="text-lg font-medium text-white mb-2">{t('session.grokipedia')}</h3>
+                              <p className="text-sm text-neutral-400">{t('session.grokipediaDesc')}</p>
                             </div>
                             <a
                               href={`https://grokipedia.com/search?q=${encodeURIComponent(session.problem)}`}
@@ -2733,7 +2735,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                                 <circle cx="12" cy="12" r="10" />
                                 <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
                               </svg>
-                              Open Grokipedia
+                              {t('session.openGrokipedia')}
                             </a>
                           </div>
                         )}
@@ -2743,14 +2745,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                               onClick={() => loadPrepToolContent(activeTool)}
                               className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-medium rounded-xl transition-all"
                             >
-                              Load {activeTool === "exercise" ? "Practice" : "Theory"}
+                              {activeTool === "exercise" ? t('session.loadPractice') : t('session.loadTheory')}
                             </button>
                           </div>
                         )}
                         {prepToolLoading && (
                           <div className="flex flex-col items-center justify-center h-full">
                             <div className="w-6 h-6 border border-neutral-700 border-t-cyan-500 rounded-full animate-spin mb-3" />
-                            <p className="text-sm text-neutral-500">Loading...</p>
+                            <p className="text-sm text-neutral-500">{t('common.loading')}</p>
                           </div>
                         )}
                         {prepToolContent && !prepToolLoading && (
@@ -2762,7 +2764,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                                   onClick={() => loadPrepToolContent(activeTool)}
                                   className="px-3 py-1.5 text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white rounded-lg transition-colors"
                                 >
-                                  Load another
+                                  {t('session.loadAnother')}
                                 </button>
                               )}
                             </div>
@@ -2781,7 +2783,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                                 rel="noopener noreferrer"
                                 className="mt-4 inline-flex items-center gap-2 text-cyan-400 hover:text-cyan-300 text-sm"
                               >
-                                Open Grokipedia
+                                {t('session.openGrokipedia')}
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                 </svg>
@@ -2852,14 +2854,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       {showEndDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 max-w-md mx-4">
-            <h3 className="text-base font-semibold text-white mb-2">Tutor suggests ending</h3>
+            <h3 className="text-base font-semibold text-white mb-2">{t('session.tutorSuggestsEnd')}</h3>
             <p className="text-neutral-400 mb-5 text-sm leading-relaxed">{endReason}</p>
             <div className="flex gap-2.5">
               <button onClick={() => setShowEndDialog(false)} className="flex-1 py-2.5 text-sm text-neutral-400 border border-neutral-700 hover:border-neutral-500 rounded-xl transition-colors">
-                Keep going
+                {t('common.keepGoing')}
               </button>
               <button onClick={handleConfirmEnd} className="flex-1 py-2.5 text-sm text-white bg-white/10 hover:bg-white/15 rounded-xl transition-colors">
-                End session
+                {t('sessionEnd.endSession')}
               </button>
             </div>
           </div>
@@ -2877,11 +2879,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h2 className="text-xl font-semibold text-white">Session Complete</h2>
+              <h2 className="text-xl font-semibold text-white">{t('session.sessionComplete')}</h2>
             </div>
             
             <p className="text-neutral-400 text-sm mb-6">
-              Congratulations! You've completed all steps in your learning plan. Your session has been paused.
+              {t('session.congratulationsComplete')}
             </p>
 
             <button
@@ -2891,7 +2893,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               }}
               className="w-full py-2.5 px-4 bg-white hover:bg-neutral-100 text-neutral-900 font-medium rounded-lg transition-colors"
             >
-              End Session
+              {t('sessionEnd.endSession')}
             </button>
           </div>
         </div>
