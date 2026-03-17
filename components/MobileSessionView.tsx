@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { SwipeableTabs } from "./SwipeableTabs";
 import { MobileProbesTab } from "./MobileProbesTab";
 import { MobilePlanTab } from "./MobilePlanTab";
+import { WhiteboardCanvas } from "./WhiteboardCanvas";
 import { AudioRecorder } from "@/lib/audio";
 import { 
   type Probe, 
@@ -14,26 +15,24 @@ import {
   saveAudioChunk,
   archiveProbe,
   toggleProbeFocused,
+  logToolUsage,
 } from "@/lib/storage";
-import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
 
 interface MobileSessionViewProps {
   sessionId: string;
   initialSession?: Session | null;
-  initialPlan?: SessionPlan | null;
 }
 
 export function MobileSessionView({ 
   sessionId,
   initialSession,
-  initialPlan,
 }: MobileSessionViewProps) {
   const { t } = useI18n();
   // Session state
   const [session, setSession] = useState<Session | null>(initialSession ?? null);
-  const [sessionPlan, setSessionPlan] = useState<SessionPlan | null>(initialPlan ?? null);
+  const [sessionPlan, setSessionPlan] = useState<SessionPlan | null>(null);
   const [probes, setProbes] = useState<Probe[]>(initialSession?.probes ?? []);
   
   // Recording state
@@ -47,8 +46,7 @@ export function MobileSessionView({
   const [archivingProbeId, setArchivingProbeId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(!initialSession);
-  const [planLoading, setPlanLoading] = useState(false);
-  const [planError, setPlanError] = useState<string | null>(null);
+  const [whiteboardData, setWhiteboardData] = useState<string | null>(null);
 
   // Refs
   const recorderRef = useRef<AudioRecorder | null>(null);
@@ -56,6 +54,8 @@ export function MobileSessionView({
   const analysisRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chunkIndexRef = useRef(0);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const heartbeatSecondRef = useRef(0);
+  const whiteboardDataRef = useRef<string | null>(null);
 
   // Load session data if not provided
   useEffect(() => {
@@ -86,38 +86,12 @@ export function MobileSessionView({
     loadSession();
   }, [sessionId, initialSession]);
 
-  // Poll for updates (probes and plan)
-  useEffect(() => {
-    if (!sessionId) return;
-
-    const pollInterval = setInterval(async () => {
-      try {
-        const [sessionData, planData] = await Promise.all([
-          getSession(sessionId),
-          getSessionPlan(sessionId),
-        ]);
-        
-        if (sessionData) {
-          setProbes(sessionData.probes);
-        }
-        if (planData) {
-          setSessionPlan(planData);
-        }
-      } catch (err) {
-        console.error("Poll error:", err);
-      }
-    }, 5000); // Poll every 5 seconds
-
-    return () => clearInterval(pollInterval);
-  }, [sessionId]);
-
   // Request wake lock when recording
   useEffect(() => {
     const requestWakeLock = async () => {
       if (isRecording && "wakeLock" in navigator) {
         try {
           wakeLockRef.current = await navigator.wakeLock.request("screen");
-          console.log("[MobileSession] Wake lock acquired");
         } catch (err) {
           console.warn("[MobileSession] Wake lock failed:", err);
         }
@@ -128,7 +102,6 @@ export function MobileSessionView({
       if (wakeLockRef.current) {
         wakeLockRef.current.release();
         wakeLockRef.current = null;
-        console.log("[MobileSession] Wake lock released");
       }
     };
 
@@ -179,31 +152,6 @@ export function MobileSessionView({
       const recorder = new AudioRecorder({
         chunkDurationMs: 60000, // 1 minute chunks
         maxBufferDurationMs: 300000, // 5 minute buffer
-        onChunk: async (chunk) => {
-          if (!chunk.blob.size || chunk.blob.size < 100) {
-            console.log("[Mobile] Skipping empty audio chunk");
-            return;
-          }
-
-          try {
-            const idx = chunkIndexRef.current++;
-            await saveAudioChunk(session.id, chunk.blob, idx, chunk.timestamp);
-            
-            // Transcribe the chunk
-            const formData = new FormData();
-            formData.append("audio", chunk.blob);
-            formData.append("session_id", session.id);
-            formData.append("chunk_index", chunk.chunkIndex.toString());
-            formData.append("timestamp_ms", chunk.timestamp.toString());
-            
-            await fetch("/api/transcribe-chunk", {
-              method: "POST",
-              body: formData,
-            });
-          } catch (err) {
-            console.error("[Mobile] Chunk processing error:", err);
-          }
-        },
       });
 
       recorderRef.current = recorder;
@@ -216,18 +164,61 @@ export function MobileSessionView({
         setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
       }, 1000);
 
-      // Set up analysis interval (every 60 seconds)
+      // Dual heartbeat: storage every 5s, analysis every 10s
       analysisRef.current = setInterval(async () => {
-        try {
-          await fetch("/api/analyze-audio", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessionId: session.id }),
-          });
-        } catch (err) {
-          console.error("[Mobile] Analysis error:", err);
+        const second = heartbeatSecondRef.current;
+        const currentSession = session;
+        const recorder = recorderRef.current;
+        
+        if (second % 5 === 0 && currentSession) {
+          // Storage heartbeat - save audio, whiteboard, and transcribe
+          try {
+            // Save audio chunks from recorder buffer
+            if (recorder) {
+              const recentAudio = recorder.getRecentAudio(5000);
+              if (recentAudio && recentAudio.size > 100) {
+                const idx = chunkIndexRef.current++;
+                await saveAudioChunk(currentSession.id, recentAudio, idx, Date.now());
+              }
+            }
+            
+            // Save whiteboard data
+            if (whiteboardDataRef.current) {
+              await logToolUsage(currentSession.id, 'canvas', 'canvas_draw', Date.now(), { data: whiteboardDataRef.current });
+            }
+            
+            // Transcribe missing chunks
+            await fetch("/api/transcribe-chunks", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sessionId: currentSession.id }),
+            });
+          } catch (err) {
+            console.warn("[Mobile] Storage heartbeat error:", err);
+          }
         }
-      }, 60000);
+        
+        if (second % 10 === 0 && currentSession) {
+          // Analysis heartbeat - call analyze-gap
+          try {
+            const openProbeCount = currentSession.probes.filter((p: Probe) => !p.archived).length;
+            await fetch("/api/analyze-gap", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                sessionId: currentSession.id,
+                problem: currentSession.problem,
+                openProbeCount,
+                lastProbeTimestamp: 0,
+              }),
+            });
+          } catch (err) {
+            console.error("[Mobile] Analysis error:", err);
+          }
+        }
+        
+        heartbeatSecondRef.current = (second + 1) % 10;
+      }, 1000);
 
     } catch (err) {
       setError("Could not access microphone. Please grant permission and try again.");
@@ -264,18 +255,57 @@ export function MobileSessionView({
       setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
     }, 1000);
 
+    // Restart dual heartbeat: storage every 5s, analysis every 10s
     if (session) {
       analysisRef.current = setInterval(async () => {
-        try {
-          await fetch("/api/analyze-audio", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessionId: session.id }),
-          });
-        } catch (err) {
-          console.error("[Mobile] Analysis error:", err);
+        const second = heartbeatSecondRef.current;
+        const currentSession = session;
+        const recorder = recorderRef.current;
+        
+        if (second % 5 === 0 && currentSession) {
+          try {
+            if (recorder) {
+              const recentAudio = recorder.getRecentAudio(5000);
+              if (recentAudio && recentAudio.size > 100) {
+                const idx = chunkIndexRef.current++;
+                await saveAudioChunk(currentSession.id, recentAudio, idx, Date.now());
+              }
+            }
+            
+            if (whiteboardDataRef.current) {
+              await logToolUsage(currentSession.id, 'canvas', 'canvas_draw', Date.now(), { data: whiteboardDataRef.current });
+            }
+            
+            await fetch("/api/transcribe-chunks", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sessionId: currentSession.id }),
+            });
+          } catch (err) {
+            console.warn("[Mobile] Storage heartbeat error:", err);
+          }
         }
-      }, 60000);
+        
+        if (second % 10 === 0 && currentSession) {
+          try {
+            const openProbeCount = currentSession.probes.filter((p: Probe) => !p.archived).length;
+            await fetch("/api/analyze-gap", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                sessionId: currentSession.id,
+                problem: currentSession.problem,
+                openProbeCount,
+                lastProbeTimestamp: 0,
+              }),
+            });
+          } catch (err) {
+            console.error("[Mobile] Analysis error:", err);
+          }
+        }
+        
+        heartbeatSecondRef.current = (second + 1) % 10;
+      }, 1000);
     }
   }, [session, elapsedSeconds]);
 
@@ -408,11 +438,24 @@ export function MobileSessionView({
       content: (
         <MobilePlanTab
           plan={sessionPlan}
-          loading={planLoading}
-          error={planError}
           onAdvanceStep={handleAdvanceStep}
           onRollbackToStep={handleRollbackToStep}
         />
+      ),
+    },
+    {
+      id: "canvas",
+      label: t('tools.canvas'),
+      content: (
+        <div className="flex-1 min-h-0">
+          <WhiteboardCanvas
+            initialData={whiteboardData || undefined}
+            onCanvasChange={(dataUrl) => {
+              whiteboardDataRef.current = dataUrl;
+              setWhiteboardData(dataUrl);
+            }}
+          />
+        </div>
       ),
     },
   ];
