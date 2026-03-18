@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionPlan, updateSessionPlan, validatePlanSteps, type SessionPlanStep } from "@/lib/storage";
+import { getSessionPlan, updateSessionPlan, validatePlanSteps, logToolUsage, type SessionPlanStep } from "@/lib/storage";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -77,6 +77,27 @@ export async function POST(request: NextRequest) {
       steps: updatedSteps,
       currentStepIndex: targetStepIndex,
     }, supabase);
+
+    const timestamp = Date.now();
+    await logToolUsage(
+      sessionId,
+      "session_plan",
+      "revert",
+      timestamp,
+      {
+        fromStepIndex: currentStepIndex,
+        toStepIndex: targetStepIndex,
+        stepContent: {
+          revertedToStep: steps[targetStepIndex] ? {
+            id: steps[targetStepIndex].id,
+            description: steps[targetStepIndex].description,
+            type: steps[targetStepIndex].type,
+            status: "in_progress",
+            order: steps[targetStepIndex].order,
+          } : null,
+        },
+      }
+    );
 
     return NextResponse.json({
       plan: updatedPlan,

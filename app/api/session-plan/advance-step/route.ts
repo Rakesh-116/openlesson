@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionPlan, updateSessionPlan, validatePlanSteps, type SessionPlanStep } from "@/lib/storage";
+import { getSessionPlan, updateSessionPlan, validatePlanSteps, logToolUsage, type SessionPlanStep } from "@/lib/storage";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -91,6 +91,34 @@ export async function POST(request: NextRequest) {
       steps: updatedSteps,
       currentStepIndex: nextIndex,
     }, supabase);
+
+    const timestamp = Date.now();
+    await logToolUsage(
+      sessionId,
+      "session_plan",
+      "advance",
+      timestamp,
+      {
+        previousStepIndex: currentStepIndex,
+        newStepIndex: nextIndex,
+        stepContent: {
+          completedStep: steps[currentStepIndex] ? {
+            id: steps[currentStepIndex].id,
+            description: steps[currentStepIndex].description,
+            type: steps[currentStepIndex].type,
+            status: "completed",
+            order: steps[currentStepIndex].order,
+          } : null,
+          nextStep: nextIndex < updatedSteps.length ? {
+            id: updatedSteps[nextIndex].id,
+            description: updatedSteps[nextIndex].description,
+            type: updatedSteps[nextIndex].type,
+            status: updatedSteps[nextIndex].status,
+            order: updatedSteps[nextIndex].order,
+          } : null,
+        },
+      }
+    );
 
     return NextResponse.json({
       plan: updatedPlan,

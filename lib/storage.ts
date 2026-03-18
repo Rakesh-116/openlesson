@@ -140,10 +140,14 @@ function mapDbProbe(p: any): Probe {
 
 // ---- Session CRUD ----
 
-export async function createSession(problem: string, title?: string, planningPrompt?: string): Promise<Session> {
+export async function createSession(problem: string, title?: string, planningPrompt?: string, tutoringLanguage?: string): Promise<Session> {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
+
+  const metadata: Record<string, unknown> = {};
+  if (title) metadata.title = title;
+  if (tutoringLanguage) metadata.tutoringLanguage = tutoringLanguage;
 
   const { data, error } = await supabase
     .from("sessions")
@@ -152,7 +156,7 @@ export async function createSession(problem: string, title?: string, planningPro
       problem, 
       status: "active",
       planning_prompt: planningPrompt || null,
-      metadata: title ? { ...(title ? { title } : {}) } : undefined
+      metadata: Object.keys(metadata).length > 0 ? metadata : undefined
     })
     .select()
     .single();
@@ -296,7 +300,28 @@ export async function addProbe(
     .single();
 
   if (error || !data) throw new Error(error?.message || "Failed to insert probe");
-  return mapDbProbe(data);
+  
+  const savedProbe = mapDbProbe(data);
+  
+  await logToolUsage(
+    sessionId,
+    "probe",
+    "generate",
+    probe.timestamp,
+    {
+      probeId: savedProbe.id,
+      timestamp: probe.timestamp,
+      content: {
+        text: probeText,
+        gapScore: probe.gapScore,
+        signals: probe.signals,
+        requestType: probe.requestType || "question",
+        planStepId: probe.planStepId,
+      },
+    }
+  );
+  
+  return savedProbe;
 }
 
 export async function updateProbeExpanded(probeId: string, expandedText: string): Promise<void> {
@@ -325,10 +350,40 @@ export async function updateProbeRevealed(probeId: string, isRevealed: boolean):
 
 export async function archiveProbe(probeId: string): Promise<void> {
   const supabase = createClient();
+  
+  const { data: probe } = await supabase
+    .from("probes")
+    .select("session_id, timestamp_ms, text, gap_score, signals, request_type, plan_step_id")
+    .eq("id", probeId)
+    .single();
+  
+  if (!probe) return;
+  
+  const archivedAt = Date.now();
+  
   await supabase
     .from("probes")
     .update({ archived: true })
     .eq("id", probeId);
+    
+  await logToolUsage(
+    probe.session_id,
+    "probe",
+    "archive",
+    archivedAt,
+    {
+      probeId,
+      timestamp: probe.timestamp_ms,
+      archivedAt,
+      content: {
+        text: probe.text,
+        gapScore: probe.gap_score,
+        signals: probe.signals,
+        requestType: probe.request_type,
+        planStepId: probe.plan_step_id,
+      },
+    }
+  );
 }
 
 export async function unarchiveProbe(probeId: string): Promise<void> {
@@ -578,7 +633,7 @@ export async function saveFacialData(
 
 // ---- Tool Usage Tracking ----
 
-export type ToolName = "chat" | "canvas" | "notebook" | "grokipedia" | "exercise" | "reading" | "rag" | "help" | "data-input" | "logs" | "goals";
+export type ToolName = "chat" | "canvas" | "notebook" | "grokipedia" | "exercise" | "reading" | "rag" | "help" | "data-input" | "logs" | "goals" | "probe" | "session_plan";
 
 export type ToolAction = 
   | "open" 
@@ -591,7 +646,11 @@ export type ToolAction =
   | "rag_query"
   | "rag_select_chunk"
   | "prep_material_load"
-  | "help_view";
+  | "help_view"
+  | "generate"
+  | "archive"
+  | "advance"
+  | "revert";
 
 export async function logToolUsage(
   sessionId: string,
@@ -901,7 +960,7 @@ export async function getRecentTranscripts(sessionId: string, ms: number): Promi
     return [];
   }
 
-  return data.map((row) => ({
+  return data.map((row: { id: string; session_id: string; content: string; timestamp_ms: number }) => ({
     id: row.id,
     sessionId: row.session_id,
     content: row.content,
