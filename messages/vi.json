@@ -889,6 +889,10 @@
     "searchUsers": "Tìm người dùng...",
     "searchByProblem": "Tìm theo vấn đề..."
   },
+  "demoBanner": {
+    "wantToSee": "Bạn muốn thấy openLesson hoạt động như thế nào?",
+    "scheduleDemo": "� đặt demo"
+  },
   "planMode": {
     "buildYourLearningPath": "Xây dựng lộ trình học tập",
     "topicTab": "Chủ đề",
@@ -914,13 +918,19 @@
     "exampleCreativeWriting": "Sáng tạo văn bản",
     "examplePersonalFinance": "Tài chính cá nhân",
     "subtitleWithYoutube": "Nhập một chủ đề hoặc dán video YouTube để tạo kế hoạch học tập có cấu trúc.",
-    "subtitleWithoutYoutube": "Nhập một chủ đề và chúng tôi sẽ tạo kế hoạch học tập có cấu trúc. Khám phá các khái niệm theo cách có cấu trúc, một buổi học tại một thời điểm."
+    "subtitleWithoutYoutube": "Nhập một chủ đề và chúng tôi sẽ tạo kế hoạch học tập có cấu trúc. Khám phá các khái niệm theo cách có cấu trúc, một buổi học tại một thời điểm.",
+    "youtubePlaceholder": "Dán URL video YouTube (ví dụ, https://youtube.com/watch?v=...)"
   },
   "agenticMode": {
     "title": "Chế độ Agentic",
     "subtitle": "Để trợ lý cá nhân của bạn dạy bạn bằng công cụ của chúng tôi. Truy cập lập trình đến openLesson cho AI agents và ứng dụng tự chủ.",
     "experimental": "Thử nghiệm",
     "experimentalDesc": "chưa hỗ trợ đầy đủ tutoring harness. Đang làm việc trên đó.",
+    "elizaDescription": "Biến agent ElizaOS của bạn thành gia sư cá nhân powered by openLesson.",
+    "openclawDescription": "Biến agent OpenClaw của bạn thành gia sư cá nhân powered by openLesson.",
+    "anyAgentDescription": "Biến bất kỳ AI agent nào thành gia sư cá nhân powered by openLesson.",
+    "downloadPlugin": "Tải Plugin",
+    "viewOnClawHub": "Xem trên ClawHub",
     "apiEndpoints": "API Endpoints",
     "parameters": "Tham số:",
     "copyCurl": "Sao chép curl",
@@ -1174,8 +1184,5 @@
   "organization": {
     "orgNamePlaceholder": "Công ty ABC",
     "orgSlugPlaceholder": "abc-corp"
-  },
-  "planMode": {
-    "youtubePlaceholder": "Dán URL video YouTube (ví dụ, https://youtube.com/watch?v=...)"
   }
 }

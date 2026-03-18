@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { Bot } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 const ENDPOINTS = [
   {
@@ -150,6 +151,7 @@ curl "https://openlesson.academy/api/agent/session/summary?session_id=session-uu
   -H "Authorization: Bearer YOUR_API_KEY"`;
 
 export function AgenticModeSelect() {
+  const { t } = useI18n();
   const [copiedEndpoint, setCopiedEndpoint] = useState<string | null>(null);
   const [copiedCurl, setCopiedCurl] = useState(false);
 
@@ -177,15 +179,14 @@ export function AgenticModeSelect() {
     <div className="w-full max-w-4xl">
       <div className="text-center mb-8">
         <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
-          Agentic Mode
+          {t('agenticMode.title')}
         </h2>
         <p className="text-slate-500 max-w-lg mx-auto text-sm leading-relaxed mb-4">
-          Let your own personal assistant teach you using our tools. Programmatic access to 
-          openLesson for AI agents and autonomous apps.
+          {t('agenticMode.subtitle')}
         </p>
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
-          <span className="text-xs font-medium text-amber-400">Experimental</span>
-          <span className="text-xs text-amber-400/70">— does not yet support the full tutoring harness. Working on it.</span>
+          <span className="text-xs font-medium text-amber-400">{t('agenticMode.experimental')}</span>
+          <span className="text-xs text-amber-400/70">— {t('agenticMode.experimentalDesc')}</span>
         </div>
       </div>
 
@@ -207,17 +208,17 @@ export function AgenticModeSelect() {
             ElizaOS
           </h3>
           <p className="text-sm text-slate-400">
-            Turn your ElizaOS agent into an openLesson-powered personal tutor.
+            {t('agenticMode.elizaDescription')}
           </p>
           <button
             type="button"
             className="mt-3 inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300"
             onClick={(e) => {
               e.stopPropagation();
-              window.location.href = "/elizaos/open-lesson.zip";
+              window.location.href = "/elizaos/open_lessons.zip";
             }}
           >
-            Download Plugin ↓
+            {t('agenticMode.downloadPlugin')} ↓
           </button>
         </a>
 
@@ -237,7 +238,7 @@ export function AgenticModeSelect() {
             OpenClaw
           </h3>
           <p className="text-sm text-slate-400">
-            Turn your OpenClaw agent into an openLesson-powered personal tutor.
+            {t('agenticMode.openclawDescription')}
           </p>
           <span 
             className="mt-3 inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 cursor-pointer"
@@ -246,7 +247,7 @@ export function AgenticModeSelect() {
               window.open('https://clawhub.ai/dncolomer/open-lesson', '_blank', 'noopener,noreferrer');
             }}
           >
-            View on ClawHub →
+            {t('agenticMode.viewOnClawHub')} →
           </span>
           <span 
             className="ml-3 inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 cursor-pointer"
@@ -258,7 +259,7 @@ export function AgenticModeSelect() {
               link.click();
             }}
           >
-            Download Plugin ↓
+            {t('agenticMode.downloadPlugin')} ↓
           </span>
         </a>
 
@@ -274,14 +275,14 @@ export function AgenticModeSelect() {
             Any Agent
           </h3>
           <p className="text-sm text-slate-400">
-            Turn any AI agent into an openLesson-powered personal tutor.
+            {t('agenticMode.anyAgentDescription')}
           </p>
         </a>
       </div>
 
       <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white">API Endpoints</h3>
+          <h3 className="text-lg font-semibold text-white">{t('agenticMode.apiEndpoints')}</h3>
         </div>
 
         <div className="space-y-6">
@@ -320,7 +321,7 @@ export function AgenticModeSelect() {
                 onClick={() => copyToClipboard(endpoint.curl, `curl-${idx}`)}
                 className="mt-2 text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
               >
-                {copiedEndpoint === `curl-${idx}` ? "✓ Copied curl" : "Copy curl"}
+                {copiedEndpoint === `curl-${idx}` ? t('agenticMode.copiedCurl') : t('agenticMode.copyCurl')}
               </button>
             </div>
           ))}
@@ -329,35 +330,32 @@ export function AgenticModeSelect() {
 
       <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6 mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white">Important Notes</h3>
+          <h3 className="text-lg font-semibold text-white">{t('agenticMode.importantNotes')}</h3>
         </div>
         
         <ul className="space-y-3 text-sm text-neutral-400">
           <li className="flex items-start gap-2">
             <span className="text-yellow-400">•</span>
             <span>
-              <span className="text-white font-medium">Audio-only:</span> The analyze endpoint accepts ONLY audio (base64 encoded). 
-              Do not send text - the system will reject it.
+              <span className="text-white font-medium">{t('agenticMode.audioOnly').split(':')[0]}:</span> {t('agenticMode.audioOnly').split(':').slice(1).join(':')}
             </span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-yellow-400">•</span>
             <span>
-              <span className="text-white font-medium">Supported formats:</span> webm, mp4, ogg (Opus codec preferred)
+              <span className="text-white font-medium">{t('agenticMode.supportedFormats').split(':')[0]}:</span> {t('agenticMode.supportedFormats').split(':').slice(1).join(':')}
             </span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-yellow-400">•</span>
             <span>
-              <span className="text-white font-medium">Days:</span> Use numeric days (7, 14, 30, 60, 90, 180) to constrain plan size. 
-              Default: 30 days.
+              {t('agenticMode.daysParam')}
             </span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-yellow-400">•</span>
             <span>
-              <span className="text-white font-medium">Authentication:</span> Include your API key in the 
-              Authorization header: <code className="text-green-400">Bearer YOUR_KEY</code>
+              {t('agenticMode.authentication')} <code className="text-green-400">Bearer YOUR_KEY</code>
             </span>
           </li>
         </ul>
@@ -365,12 +363,12 @@ export function AgenticModeSelect() {
 
       <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white">Complete Workflow Example</h3>
+          <h3 className="text-lg font-semibold text-white">{t('agenticMode.completeWorkflow')}</h3>
           <button
             onClick={copyCurl}
             className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
           >
-            {copiedCurl ? "✓ Copied" : "Copy curl"}
+            {copiedCurl ? "✓ Copied" : t('agenticMode.copyCurl')}
           </button>
         </div>
         
@@ -381,11 +379,11 @@ export function AgenticModeSelect() {
 
       <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 text-sm text-neutral-500">
         <a href="/skill.md" className="text-blue-400 hover:text-blue-300">
-          Full API Documentation →
+          {t('agenticMode.fullApiDocs')} →
         </a>
         <span className="hidden sm:inline">•</span>
         <a href="/dashboard" className="text-blue-400 hover:text-blue-300">
-          Get API Key
+          {t('agenticMode.getApiKey')}
         </a>
       </div>
     </div>

@@ -889,6 +889,10 @@
     "searchUsers": "Benutzer suchen...",
     "searchByProblem": "Nach Problem suchen..."
   },
+  "demoBanner": {
+    "wantToSee": "Möchtest du openLesson in Aktion sehen?",
+    "scheduleDemo": "Demo vereinbaren"
+  },
   "planMode": {
     "buildYourLearningPath": "Baue deinen Lernpfad",
     "topicTab": "Thema",
@@ -914,13 +918,19 @@
     "exampleCreativeWriting": "Kreatives Schreiben",
     "examplePersonalFinance": "Persönliche Finanzen",
     "subtitleWithYoutube": "Gib ein Thema ein oder füge ein YouTube-Video ein, um einen strukturierten Lernplan zu erstellen.",
-    "subtitleWithoutYoutube": "Gib ein Thema ein und wir erstellen einen strukturierten Lernplan. Erkunde Konzepte strukturiert, eine Sitzung nach der anderen."
+    "subtitleWithoutYoutube": "Gib ein Thema ein und wir erstellen einen strukturierten Lernplan. Erkunde Konzepte strukturiert, eine Sitzung nach der anderen.",
+    "youtubePlaceholder": "Füge eine YouTube-Video-URL ein (z.B. https://youtube.com/watch?v=...)"
   },
   "agenticMode": {
     "title": "Agentischer Modus",
     "subtitle": "Lass deinen persönlichen Assistenten dich mit unseren Tools unterrichten. Programmatischer Zugang zu openLesson für KI-Agenten und autonome Apps.",
     "experimental": "Experimentell",
     "experimentalDesc": "unterstützt noch nicht das volle Tutoring Harness. Daran wird gearbeitet.",
+    "elizaDescription": "Verwandle deinen ElizaOS-Agent in einen von openLesson powered persönlichen Tutor.",
+    "openclawDescription": "Verwandle deinen OpenClaw-Agent in einen von openLesson powered persönlichen Tutor.",
+    "anyAgentDescription": "Verwandle jeden AI-Agent in einen von openLesson powered persönlichen Tutor.",
+    "downloadPlugin": "Plugin herunterladen",
+    "viewOnClawHub": "Bei ClawHub ansehen",
     "apiEndpoints": "API Endpoints",
     "parameters": "Parameter:",
     "copyCurl": "Curl kopieren",
@@ -1174,8 +1184,5 @@
   "organization": {
     "orgNamePlaceholder": "ABC Firma",
     "orgSlugPlaceholder": "abc-corp"
-  },
-  "planMode": {
-    "youtubePlaceholder": "YouTube-Video-URL einfügen (z.B., https://youtube.com/watch?v=...)"
   }
 }

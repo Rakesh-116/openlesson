@@ -895,6 +895,10 @@
     "searchUsers": "Search users...",
     "searchByProblem": "Search by problem..."
   },
+  "demoBanner": {
+    "wantToSee": "Want to see openLesson in action?",
+    "scheduleDemo": "Schedule a demo"
+  },
   "planMode": {
     "buildYourLearningPath": "Build Your Learning Path",
     "topicTab": "Topic",
@@ -920,13 +924,19 @@
     "exampleCreativeWriting": "Creative Writing",
     "examplePersonalFinance": "Personal Finance",
     "subtitleWithYoutube": "Enter a topic or paste a YouTube video to create a structured learning plan.",
-    "subtitleWithoutYoutube": "Enter a topic and we'll create a structured learning plan. Explore concepts in a structured way, one session at a time."
+    "subtitleWithoutYoutube": "Enter a topic and we'll create a structured learning plan. Explore concepts in a structured way, one session at a time.",
+    "youtubePlaceholder": "Paste a YouTube video URL (e.g., https://youtube.com/watch?v=...)"
   },
   "agenticMode": {
     "title": "Agentic Mode",
     "subtitle": "Let your own personal assistant teach you using our tools. Programmatic access to openLesson for AI agents and autonomous apps.",
     "experimental": "Experimental",
     "experimentalDesc": "does not yet support the full tutoring harness. Working on it.",
+    "elizaDescription": "Turn your ElizaOS agent into an openLesson-powered personal tutor.",
+    "openclawDescription": "Turn your OpenClaw agent into an openLesson-powered personal tutor.",
+    "anyAgentDescription": "Turn any AI agent into an openLesson-powered personal tutor.",
+    "downloadPlugin": "Download Plugin",
+    "viewOnClawHub": "View on ClawHub",
     "apiEndpoints": "API Endpoints",
     "parameters": "Parameters:",
     "copyCurl": "Copy curl",
@@ -1180,8 +1190,5 @@
   "organization": {
     "orgNamePlaceholder": "Acme Corp",
     "orgSlugPlaceholder": "acme-corp"
-  },
-  "planMode": {
-    "youtubePlaceholder": "Paste a YouTube video URL (e.g., https://youtube.com/watch?v=...)"
   }
 }

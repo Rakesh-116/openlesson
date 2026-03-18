@@ -889,6 +889,10 @@
     "searchUsers": "Buscar usuarios...",
     "searchByProblem": "Buscar por problema..."
   },
+  "demoBanner": {
+    "wantToSee": "¿Quieres ver openLesson en acción?",
+    "scheduleDemo": "Programar una demo"
+  },
   "planMode": {
     "buildYourLearningPath": "Construye Tu Ruta de Aprendizaje",
     "topicTab": "Tema",
@@ -914,13 +918,19 @@
     "exampleCreativeWriting": "Escritura Creativa",
     "examplePersonalFinance": "Finanzas Personales",
     "subtitleWithYoutube": "Ingresa un tema o pega un video de YouTube para crear un plan de aprendizaje estructurado.",
-    "subtitleWithoutYoutube": "Ingresa un tema y crearemos un plan de aprendizaje estructurado. Explora conceptos de manera estructurada, una sesión a la vez."
+    "subtitleWithoutYoutube": "Ingresa un tema y crearemos un plan de aprendizaje estructurado. Explora conceptos de manera estructurada, una sesión a la vez.",
+    "youtubePlaceholder": "Pega una URL de video de YouTube (ej., https://youtube.com/watch?v=...)"
   },
   "agenticMode": {
     "title": "Modo Agéntico",
     "subtitle": "Deja que tu asistente personal te enseñe usando nuestras herramientas. Acceso programático a openLesson para agentes de IA y aplicaciones autónomas.",
     "experimental": "Experimental",
     "experimentalDesc": "todavía no soporta el tutoring harness completo. Trabajando en ello.",
+    "elizaDescription": "Convierte tu agente ElizaOS en un tutor personal potenciado por openLesson.",
+    "openclawDescription": "Convierte tu agente OpenClaw en un tutor personal potenciado por openLesson.",
+    "anyAgentDescription": "Convierte cualquier agente de IA en un tutor personal potenciado por openLesson.",
+    "downloadPlugin": "Descargar Plugin",
+    "viewOnClawHub": "Ver en ClawHub",
     "apiEndpoints": "Endpoints de API",
     "parameters": "Parámetros:",
     "copyCurl": "Copiar curl",
@@ -1174,8 +1184,5 @@
   "organization": {
     "orgNamePlaceholder": "Empresa ABC",
     "orgSlugPlaceholder": "abc-corp"
-  },
-  "planMode": {
-    "youtubePlaceholder": "Pega una URL de video de YouTube (ej., https://youtube.com/watch?v=...)"
   }
 }

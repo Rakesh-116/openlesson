@@ -889,6 +889,10 @@
     "searchUsers": "Szukaj użytkowników...",
     "searchByProblem": "Szukaj według problemu..."
   },
+  "demoBanner": {
+    "wantToSee": "Chcesz zobaczyć openLesson w akcji?",
+    "scheduleDemo": "Zaplanuj demo"
+  },
   "planMode": {
     "buildYourLearningPath": "Zbuduj ścieżkę nauki",
     "topicTab": "Temat",
@@ -914,13 +918,19 @@
     "exampleCreativeWriting": "Pisanie kreatywne",
     "examplePersonalFinance": "Finanse osobiste",
     "subtitleWithYoutube": "Wpisz temat lub wklej wideo YouTube, aby utworzyć strukturalny plan nauki.",
-    "subtitleWithoutYoutube": "Wpisz temat, a my utworzymy strukturalny plan nauki. Poznawaj koncepcje w sposób uporządkowany, jedna sesja na raz."
+    "subtitleWithoutYoutube": "Wpisz temat, a my utworzymy strukturalny plan nauki. Poznawaj koncepcje w sposób uporządkowany, jedna sesja na raz.",
+    "youtubePlaceholder": "Wklej URL wideo YouTube (np. https://youtube.com/watch?v=...)"
   },
   "agenticMode": {
     "title": "Tryb agentowy",
     "subtitle": "Niech Twój osobisty asystent uczy Cię za pomocą naszych narzędzi. Programowy dostęp do openLesson dla agentów AI i aplikacji autonomicznych.",
     "experimental": "Eksperymentalny",
     "experimentalDesc": "nie obsługuje jeszcze pełnego zestawu nauczania. Pracujemy nad tym.",
+    "elizaDescription": "Przekształć swojego agenta ElizaOS w osobistego korepetytora zasilanego przez openLesson.",
+    "openclawDescription": "Przekształć swojego agenta OpenClaw w osobistego korepetytora zasilanego przez openLesson.",
+    "anyAgentDescription": "Przekształć dowolnego agenta AI w osobistego korepetytora zasilanego przez openLesson.",
+    "downloadPlugin": "Pobierz wtyczkę",
+    "viewOnClawHub": "Zobacz na ClawHub",
     "apiEndpoints": "Endpointy API",
     "parameters": "Parametry:",
     "copyCurl": "Kopiuj curl",
@@ -1174,8 +1184,5 @@
   "organization": {
     "orgNamePlaceholder": "Firma ABC",
     "orgSlugPlaceholder": "abc-corp"
-  },
-  "planMode": {
-    "youtubePlaceholder": "Wklej URL filmu YouTube (np., https://youtube.com/watch?v=...)"
   }
 }

@@ -889,6 +889,10 @@
     "searchUsers": "搜索用户...",
     "searchByProblem": "按问题搜索..."
   },
+  "demoBanner": {
+    "wantToSee": "想看看 openLesson 是如何运作的吗？",
+    "scheduleDemo": "预约演示"
+  },
   "planMode": {
     "buildYourLearningPath": "构建学习路径",
     "topicTab": "主题",
@@ -914,13 +918,19 @@
     "exampleCreativeWriting": "创意写作",
     "examplePersonalFinance": "个人理财",
     "subtitleWithYoutube": "输入一个主题或粘贴YouTube视频来创建结构化学习计划。",
-    "subtitleWithoutYoutube": "输入一个主题，我们将创建一个结构化学习计划。以结构化的方式探索概念，一次一个环节。"
+    "subtitleWithoutYoutube": "输入一个主题，我们将创建一个结构化学习计划。以结构化的方式探索概念，一次一个环节。",
+    "youtubePlaceholder": "粘贴 YouTube 视频链接（例如 https://youtube.com/watch?v=...）"
   },
   "agenticMode": {
     "title": "代理模式",
     "subtitle": "让您的个人助理使用我们的工具来教您。面向AI代理和自主应用程序的openLesson编程访问。",
     "experimental": "实验性",
     "experimentalDesc": "尚不支持完整的辅导工具。我们正在努力。",
+    "elizaDescription": "将您的ElizaOS代理转变为由openLesson驱动的个人导师。",
+    "openclawDescription": "将您的OpenClaw代理转变为由openLesson驱动的个人导师。",
+    "anyAgentDescription": "将任何AI代理转变为由openLesson驱动的个人导师。",
+    "downloadPlugin": "下载插件",
+    "viewOnClawHub": "在ClawHub上查看",
     "apiEndpoints": "API端点",
     "parameters": "参数：",
     "copyCurl": "复制curl",
@@ -1174,8 +1184,5 @@
   "organization": {
     "orgNamePlaceholder": "ABC公司",
     "orgSlugPlaceholder": "abc-corp"
-  },
-  "planMode": {
-    "youtubePlaceholder": "粘贴YouTube视频链接（例如，https://youtube.com/watch?v=...）"
   }
 }
