@@ -46,7 +46,8 @@ interface ProbeNotificationsProps {
   feedbackLoading?: boolean;
   showControls?: boolean;
   elapsedSeconds?: number;
-  cycleProgress?: number;
+  storageBeat?: number;
+  analysisBeat?: number;
   isAnalyzing?: boolean;
   feedbackItems?: Array<{ id: string; text: string; timestamp: number }>;
   archivingProbeId?: string | null;
@@ -54,9 +55,6 @@ interface ProbeNotificationsProps {
   planError?: string | null;
   onAdvanceStep?: () => Promise<void>;
   onRollbackToStep?: (stepIndex: number) => Promise<void>;
-  // Pop-out window support
-  onPopOut?: () => void;
-  isPopOutActive?: boolean;
   // Loading and celebration states
   isInitializing?: boolean;
   isCelebrating?: boolean;
@@ -102,7 +100,8 @@ export function ProbeNotifications({
   feedbackLoading,
   showControls = true,
   elapsedSeconds = 0,
-  cycleProgress = 0,
+  storageBeat = 0,
+  analysisBeat = 0,
   isAnalyzing = false,
   feedbackItems = [],
   archivingProbeId,
@@ -110,8 +109,6 @@ export function ProbeNotifications({
   planError,
   onAdvanceStep,
   onRollbackToStep,
-  onPopOut,
-  isPopOutActive = false,
   isInitializing = false,
   isCelebrating = false,
 }: ProbeNotificationsProps) {
@@ -265,29 +262,6 @@ export function ProbeNotifications({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
               </svg>
             </button>
-
-            {/* Pop-out */}
-            {onPopOut && (
-              <button
-                onClick={onPopOut}
-                className={`p-1.5 rounded-md transition-colors ${
-                  isPopOutActive
-                    ? "text-cyan-400 bg-cyan-500/10"
-                    : "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800"
-                }`}
-                title={isPopOutActive ? t('session.popOutWindowActive') : t('session.openInSeparateWindow')}
-              >
-                {isPopOutActive ? (
-                  <div className="w-3.5 h-3.5 flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                  </div>
-                ) : (
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                )}
-              </button>
-            )}
 
             {/* Session controls dropdown */}
             {showControls && (
@@ -476,20 +450,25 @@ export function ProbeNotifications({
             {/* Recording Status Bar */}
             {isRecording && (
               <div className="px-3 py-2 border-b border-neutral-800 flex items-center gap-3 shrink-0">
-                <div className="flex items-center gap-1.5">
-                  {isAnalyzing && (
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                  )}
-                  <span className="text-[11px] text-blue-400">{isAnalyzing ? t('tools.observing') : t('tools.monitoring')}</span>
-                </div>
                 <div className="text-xs font-mono text-neutral-300 tabular-nums">
                   {formatTime(elapsedSeconds)}
                 </div>
-                <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-cyan-500 transition-all duration-1000 ease-linear rounded-full"
-                    style={{ width: `${(cycleProgress / 60) * 100}%` }}
-                  />
+                {/* Heartbeat indicators */}
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-neutral-500">{t('probes.status')}</span>
+                  {[...Array(5)].map((_, i) => (
+                    <div 
+                      key={`st-${i}`} 
+                      className={`w-1.5 h-1.5 rounded-sm ${i <= (storageBeat || 0) ? "bg-cyan-500" : "bg-neutral-700"}`}
+                    />
+                  ))}
+                  <span className="text-[9px] text-neutral-500 ml-2">{t('probes.answer')}</span>
+                  {[...Array(10)].map((_, i) => (
+                    <div 
+                      key={`an-${i}`}
+                      className={`w-1.5 h-1.5 rounded-sm ${i <= (analysisBeat || 0) ? "bg-purple-500" : "bg-neutral-700"}`}
+                    />
+                  ))}
                 </div>
               </div>
             )}
@@ -568,7 +547,7 @@ export function ProbeNotifications({
                             <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
-                            <span className="text-green-400">Validating...</span>
+                            <span className="text-green-400">{t('probes.validating')}</span>
                           </>
                         ) : (
                           <>
@@ -598,7 +577,7 @@ export function ProbeNotifications({
                 {/* Tool Suggestions */}
                 {probe.suggestedTools && probe.suggestedTools.length > 0 && viewMode === "active" && (
                   <div className="flex flex-wrap gap-1.5 mt-2">
-                    <span className="text-[9px] text-neutral-500 self-center mr-1">Try:</span>
+                    <span className="text-[9px] text-neutral-500 self-center mr-1">{t('probes.tryHint')}</span>
                     {probe.suggestedTools.map(tool => (
                       <button
                         key={tool}

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import Link from "next/link";
+import { useI18n } from "../lib/i18n";
 
 interface CommunityPlan {
   id: string;
@@ -19,6 +20,7 @@ interface CommunityPlansProps {
 const PAGE_SIZE = 5;
 
 export function CommunityPlans({ user }: CommunityPlansProps) {
+  const { t } = useI18n();
   const [plans, setPlans] = useState<CommunityPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState("");
@@ -83,7 +85,7 @@ export function CommunityPlans({ user }: CommunityPlansProps) {
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search topics..."
+            placeholder={t('communityPlans.searchPlaceholder')}
             className="flex-1 px-4 py-2 bg-neutral-900/50 border border-neutral-800 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:border-neutral-700"
           />
           <button

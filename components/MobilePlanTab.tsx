@@ -73,7 +73,7 @@ export function MobilePlanTab({
     return (
       <div className="h-full flex flex-col items-center justify-center p-6">
         <div className="w-10 h-10 border-2 border-neutral-700 border-t-cyan-500 rounded-full animate-spin mb-4" />
-        <p className="text-sm text-neutral-500">Creating your session plan...</p>
+        <p className="text-sm text-neutral-500">{t('sessionPlanViewer.creating')}</p>
       </div>
     );
   }
@@ -104,7 +104,7 @@ export function MobilePlanTab({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
         </div>
-        <p className="text-sm text-neutral-500">No plan created yet</p>
+        <p className="text-sm text-neutral-500">{t('sessionPlanViewer.noPlanYet')}</p>
         <p className="text-xs text-neutral-600 mt-1">
           Plan will be created when session starts
         </p>

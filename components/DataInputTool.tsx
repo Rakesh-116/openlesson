@@ -3,9 +3,11 @@
 import { useState, useRef, useEffect } from "react";
 import { MuseTemporalChart } from "./MuseTemporalChart";
 import { FaceTracker, FacialDataPoint } from "./FaceTracker";
+import { useI18n } from "../lib/i18n";
 
 interface DataInputToolProps {
   isRecording: boolean;
+  sessionId?: string;
   audioStream?: MediaStream | null;
   museStatus: "disconnected" | "connecting" | "connected" | "streaming";
   museError?: string | null;
@@ -18,12 +20,17 @@ interface DataInputToolProps {
   latestFacialData?: FacialDataPoint | null;
   onFacialData?: (data: FacialDataPoint) => void;
   onFaceError?: (error: string) => void;
+  isScreenCapturing?: boolean;
+  onStartScreenCapture?: () => void;
+  onStopScreenCapture?: () => void;
+  screenshotCount?: number;
 }
 
-type Tab = "audio" | "muse" | "face";
+type Tab = "audio" | "muse" | "face" | "screen";
 
 export function DataInputTool({
   isRecording,
+  sessionId,
   audioStream,
   museStatus,
   museError,
@@ -36,7 +43,12 @@ export function DataInputTool({
   latestFacialData = null,
   onFacialData,
   onFaceError,
+  isScreenCapturing = false,
+  onStartScreenCapture,
+  onStopScreenCapture,
+  screenshotCount = 0,
 }: DataInputToolProps) {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<Tab>("audio");
   const [blinkRate, setBlinkRate] = useState(0);
   const blinkCountRef = useRef<number>(0);
@@ -78,7 +90,7 @@ export function DataInputTool({
   return (
     <div className="flex flex-col h-full bg-neutral-900">
       <div className="flex border-b border-neutral-800">
-        {(["audio", "muse", "face"] as Tab[]).map((tab) => (
+        {(["audio", "muse", "face", "screen"] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -97,10 +109,10 @@ export function DataInputTool({
         {activeTab === "audio" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-neutral-400">Audio Detection</span>
+              <span className="text-xs font-medium text-neutral-400">{t('dataInput.audioDetection')}</span>
               <div className={`flex items-center gap-2 ${isRecording ? "text-green-400" : "text-neutral-500"}`}>
                 <div className={`w-2 h-2 rounded-full ${isRecording ? "bg-green-400 animate-pulse" : "bg-neutral-600"}`} />
-                <span className="text-xs">{isRecording ? "Audio Detected" : "No Audio"}</span>
+                <span className="text-xs">{isRecording ? t('dataInput.audioDetected') : t('dataInput.noAudio')}</span>
               </div>
             </div>
             {audioStream && isRecording && (
@@ -110,7 +122,7 @@ export function DataInputTool({
             )}
             {!audioStream && (
               <div className="h-24 flex items-center justify-center rounded-lg bg-neutral-950 border border-neutral-800">
-                <p className="text-neutral-500 text-xs">Start recording to see audio levels</p>
+                <p className="text-neutral-500 text-xs">{t('dataInput.startRecordingMessage')}</p>
               </div>
             )}
             <div className="text-xs text-neutral-500">
@@ -122,7 +134,7 @@ export function DataInputTool({
         {activeTab === "muse" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-neutral-400">Muse Headset</span>
+              <span className="text-xs font-medium text-neutral-400">{t('dataInput.museHeadset')}</span>
               <button
                 onClick={isMuseConnected ? onDisconnectMuse : onConnectMuse}
                 disabled={museStatus === "connecting"}
@@ -132,7 +144,7 @@ export function DataInputTool({
                     : "bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30"
                 }`}
               >
-                {museStatus === "connecting" ? "Connecting..." : isMuseConnected ? "Disconnect" : "Connect"}
+                {museStatus === "connecting" ? t('common.connecting') || "Connecting..." : isMuseConnected ? t('common.disconnect') || "Disconnect" : t('common.connect') || "Connect"}
               </button>
             </div>
 
@@ -144,7 +156,7 @@ export function DataInputTool({
 
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-neutral-500">Status:</span>
+                <span className="text-neutral-500">{t('dataInput.status')}:</span>
                 <span className={`${
                   museStatus === "streaming" ? "text-green-400" :
                   museStatus === "connected" ? "text-yellow-400" :
@@ -157,25 +169,25 @@ export function DataInputTool({
               
               {bandPowers && (
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-neutral-500">Signal:</span>
+                  <span className="text-neutral-500">{t('dataInput.signal')}:</span>
                   <div className="flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                    <span className="text-green-400">Receiving data</span>
+                    <span className="text-green-400">{t('dataInput.receivingData')}</span>
                   </div>
                 </div>
               )}
               
               {!bandPowers && isMuseConnected && (
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-neutral-500">Signal:</span>
-                  <span className="text-yellow-400">Waiting for signal...</span>
+                  <span className="text-neutral-500">{t('dataInput.signal')}:</span>
+                  <span className="text-yellow-400">{t('dataInput.waitingForSignal')}</span>
                 </div>
               )}
             </div>
 
             {bandPowers && (
               <div className="space-y-2">
-                <p className="text-xs text-neutral-500">Band Powers</p>
+                <p className="text-xs text-neutral-500">{t('dataInput.bandPowers')}</p>
                 <div className="grid grid-cols-5 gap-2">
                   {[
                     { label: "δ", value: bandPowers.delta, color: "bg-red-500" },
@@ -204,7 +216,7 @@ export function DataInputTool({
             )}
 
             <div>
-              <p className="text-xs text-neutral-500 mb-2">EEG Channels (Temporal)</p>
+              <p className="text-xs text-neutral-500 mb-2">{t('dataInput.eegChannels')}</p>
               <MuseTemporalChart
                 channelData={museChannelData}
                 isConnected={isMuseConnected}
@@ -220,7 +232,7 @@ export function DataInputTool({
         {activeTab === "face" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-neutral-400">Facial Data Tracking</span>
+              <span className="text-xs font-medium text-neutral-400">{t('dataInput.facialDataTracking')}</span>
               <button
                 onClick={() => onWebcamToggle?.()}
                 disabled={!onWebcamToggle}
@@ -245,43 +257,43 @@ export function DataInputTool({
                 {latestFacialData && (
                   <div className="grid grid-cols-3 gap-1 text-xs font-mono">
                     <div className="p-1.5 rounded bg-neutral-800/30">
-                      <span className="text-neutral-500">ENGAGEMENT: </span>
+                      <span className="text-neutral-500">{t('dataInput.engagement')}: </span>
                       <span className={latestFacialData.engagementScore >= 70 ? "text-green-400" : latestFacialData.engagementScore >= 40 ? "text-yellow-400" : "text-red-400"}>
                         {Math.round(latestFacialData.engagementScore)}%
                       </span>
                     </div>
                     <div className="p-1.5 rounded bg-neutral-800/30">
-                      <span className="text-neutral-500">CONFUSION: </span>
+                      <span className="text-neutral-500">{t('dataInput.confusion')}: </span>
                       <span className="text-orange-400">{Math.round(latestFacialData.confusionScore)}%</span>
                     </div>
                     <div className="p-1.5 rounded bg-neutral-800/30">
-                      <span className="text-neutral-500">PROCESSING: </span>
+                      <span className="text-neutral-500">{t('dataInput.processing')}: </span>
                       <span className="text-blue-400">{Math.round(latestFacialData.processingScore)}%</span>
                     </div>
                     <div className="p-1.5 rounded bg-neutral-800/30">
-                      <span className="text-neutral-500">FRUSTRATION: </span>
+                      <span className="text-neutral-500">{t('dataInput.frustration')}: </span>
                       <span className="text-red-400">{Math.round(latestFacialData.frustrationScore)}%</span>
                     </div>
                     <div className="p-1.5 rounded bg-neutral-800/30">
-                      <span className="text-neutral-500">SMILE: </span>
+                      <span className="text-neutral-500">{t('dataInput.smile')}: </span>
                       <span className="text-purple-400">{Math.round(latestFacialData.smileScore)}%</span>
                     </div>
                     <div className="p-1.5 rounded bg-neutral-800/30">
-                      <span className="text-neutral-500">EMOTION: </span>
+                      <span className="text-neutral-500">{t('dataInput.emotion')}: </span>
                       <span className="text-neutral-300">{latestFacialData.emotion.toUpperCase()}</span>
                     </div>
                     <div className="p-1.5 rounded bg-neutral-800/30">
-                      <span className="text-neutral-500">ATTENTION: </span>
+                      <span className="text-neutral-500">{t('dataInput.attention')}: </span>
                       <span className={latestFacialData.attentionLevel === "high" ? "text-green-400" : latestFacialData.attentionLevel === "medium" ? "text-yellow-400" : "text-red-400"}>
                         {latestFacialData.attentionLevel.toUpperCase()}
                       </span>
                     </div>
                     <div className="p-1.5 rounded bg-neutral-800/30">
-                      <span className="text-neutral-500">BLINK: </span>
+                      <span className="text-neutral-500">{t('dataInput.blink')}: </span>
                       <span className="text-neutral-300">{blinkRate}/min</span>
                     </div>
                     <div className="p-1.5 rounded bg-neutral-800/30">
-                      <span className="text-neutral-500">GAZE: </span>
+                      <span className="text-neutral-500">{t('dataInput.gaze')}: </span>
                       <span className={latestFacialData.gazeDirection === "at_camera" ? "text-green-400" : latestFacialData.gazeDirection === "away" ? "text-yellow-400" : "text-neutral-400"}>
                         {latestFacialData.gazeDirection.toUpperCase().replace("_", " ")}
                       </span>
@@ -293,12 +305,42 @@ export function DataInputTool({
 
             {!isWebcamEnabled && (
               <div className="h-48 flex items-center justify-center rounded-lg bg-neutral-950 border border-neutral-800">
-                <p className="text-neutral-500 text-xs">Enable webcam to track facial data</p>
+                <p className="text-neutral-500 text-xs">{t('dataInput.enableWebcamMessage')}</p>
               </div>
             )}
 
             <p className="text-xs text-neutral-600">
               Facial data captured every 500ms, stored every 60s. No video is sent to the server.
+            </p>
+          </div>
+        )}
+
+        {activeTab === "screen" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-neutral-400">{t('dataInput.screenCapture')}</span>
+              <button
+                onClick={isScreenCapturing ? onStopScreenCapture : onStartScreenCapture}
+                disabled={!sessionId}
+                className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                  isScreenCapturing
+                    ? "bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30"
+                    : "bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30"
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {isScreenCapturing ? "Stop Capturing" : "Start Capturing"}
+              </button>
+            </div>
+
+            <div className="flex items-center gap-4 p-4 rounded-lg bg-neutral-950 border border-neutral-800">
+              <div className={`w-3 h-3 rounded-full ${isScreenCapturing ? "bg-red-500 animate-pulse" : "bg-neutral-600"}`} />
+              <span className="text-xs text-neutral-400">
+                {isScreenCapturing ? `Capturing... (${screenshotCount} screenshots)` : "Screen capture is off"}
+              </span>
+            </div>
+
+            <p className="text-xs text-neutral-600">
+              Screenshots are captured every 5 seconds and stored for session analysis.
             </p>
           </div>
         )}

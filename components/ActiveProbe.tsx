@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import type { Probe, RequestType } from "@/lib/storage";
+import type { Probe } from "@/lib/storage";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+import { useI18n } from "../lib/i18n";
 
 interface ActiveProbeProps {
   probe: Probe | null;
@@ -44,18 +45,10 @@ export function ActiveProbe({
   probePosition,
   onToggleStar,
 }: ActiveProbeProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [expandedContent, setExpandedContent] = useState<string | null>(null);
-  const [expandLoading, setExpandLoading] = useState(false);
+  const { t } = useI18n();
   const [animateIn, setAnimateIn] = useState(false);
   const [flashPulse, setFlashPulse] = useState(false);
   const prevProbeIdRef = useRef<string | null>(null);
-
-  const [showAskInput, setShowAskInput] = useState(false);
-  const [askText, setAskText] = useState("");
-  const [askResponse, setAskResponse] = useState<string | null>(null);
-  const [askLoading, setAskLoading] = useState(false);
-  const askInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (probe) {
@@ -63,11 +56,6 @@ export function ActiveProbe({
       prevProbeIdRef.current = probe.id;
 
       setAnimateIn(false);
-      setIsExpanded(false);
-      setExpandedContent(null);
-      setShowAskInput(false);
-      setAskText("");
-      setAskResponse(null);
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => setAnimateIn(true));
@@ -81,83 +69,6 @@ export function ActiveProbe({
     }
   }, [probe?.id]);
 
-  const handleExpand = async () => {
-    if (!probe) return;
-
-    if (expandedContent) {
-      setIsExpanded(!isExpanded);
-      return;
-    }
-
-    setExpandLoading(true);
-    setIsExpanded(true);
-
-    try {
-      const res = await fetch("/api/expand-probe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ problem, probe: probe.text }),
-      });
-
-      if (res.ok) {
-        const { expanded } = await res.json();
-        setExpandedContent(expanded);
-      } else {
-        setExpandedContent("Could not expand. Click to retry.");
-      }
-    } catch {
-      setExpandedContent("Could not expand. Click to retry.");
-    } finally {
-      setExpandLoading(false);
-    }
-  };
-
-  const handleAskToggle = () => {
-    setShowAskInput(!showAskInput);
-    if (!showAskInput) {
-      setTimeout(() => askInputRef.current?.focus(), 50);
-    }
-  };
-
-  const handleAskSubmit = async () => {
-    if (!probe || !askText.trim()) return;
-
-    setAskLoading(true);
-    try {
-      const res = await fetch("/api/ask-probe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          problem,
-          probe: probe.text,
-          question: askText.trim(),
-        }),
-      });
-
-      if (res.ok) {
-        const { answer } = await res.json();
-        setAskResponse(answer);
-        setShowAskInput(false);
-      } else {
-        setAskResponse("Could not get an answer. Please try again.");
-      }
-    } catch {
-      setAskResponse("Could not get an answer. Please try again.");
-    } finally {
-      setAskLoading(false);
-    }
-  };
-
-  const handleAskKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleAskSubmit();
-    }
-    if (e.key === "Escape") {
-      setShowAskInput(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="w-full h-full">
@@ -166,7 +77,7 @@ export function ActiveProbe({
             <ThinkingDots />
           </div>
           <p className="text-neutral-400 text-sm italic">
-            Your tutor is formulating an opening question...
+            {t('probes.formulatingQuestion') || "Your tutor is formulating an opening question..."}
           </p>
         </div>
       </div>
@@ -181,7 +92,7 @@ export function ActiveProbe({
             <ListenIcon />
           </div>
           <p className="text-neutral-500 text-sm">
-            Your tutor is listening...
+            {t('probes.listening') || "Your tutor is listening..."}
           </p>
         </div>
       </div>
@@ -212,7 +123,7 @@ export function ActiveProbe({
         {flashPulse && (
           <div className="flex items-center gap-2 mb-3 animate-probe-badge">
             <div className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
-            <span className="text-[11px] font-medium text-blue-400 uppercase tracking-wider">New question</span>
+            <span className="text-[11px] font-medium text-blue-400 uppercase tracking-wider">{t('activeProbe.newQuestion')}</span>
           </div>
         )}
         <div className="flex items-start gap-3 sm:gap-4">
@@ -224,90 +135,7 @@ export function ActiveProbe({
           <div className="flex-1 min-w-0">
             <MarkdownContent content={probe.text} className="text-white text-base sm:text-lg leading-relaxed break-words" />
 
-            {isExpanded && (
-              <div className="mt-4 pt-4 border-t border-neutral-700/50">
-                {expandLoading ? (
-                  <div className="flex items-center gap-2 text-blue-400">
-                    <LoadingSpinner />
-                    <span className="text-sm">Going deeper...</span>
-                  </div>
-                ) : expandedContent ? (
-                  <div className="border-l-2 border-blue-500/50 pl-3 sm:pl-4 max-h-[40vh] overflow-y-auto">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                      <span className="text-[10px] font-medium text-blue-400 uppercase tracking-wider">Go Deeper</span>
-                    </div>
-                    <MarkdownContent content={expandedContent} className="text-blue-100/90 text-sm leading-relaxed break-words" />
-                  </div>
-                ) : null}
-              </div>
-            )}
-
-            {askResponse && (
-              <div className="mt-4 pt-4 border-t border-neutral-700/50">
-                <div className="border-l-2 border-emerald-500/50 pl-3 sm:pl-4 max-h-[40vh] overflow-y-auto">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    <span className="text-[10px] font-medium text-emerald-400 uppercase tracking-wider">Answer</span>
-                  </div>
-                  <MarkdownContent content={askResponse} className="text-emerald-100/90 text-sm leading-relaxed break-words" />
-                </div>
-              </div>
-            )}
-
-            {showAskInput && (
-              <div className="mt-3 flex items-center gap-2">
-                <input
-                  ref={askInputRef}
-                  type="text"
-                  value={askText}
-                  onChange={(e) => setAskText(e.target.value)}
-                  onKeyDown={handleAskKeyDown}
-                  placeholder="Type your question..."
-                  disabled={askLoading}
-                  className="flex-1 min-w-0 bg-neutral-800/80 border border-neutral-700/60 rounded-lg px-3 py-2 text-sm text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 disabled:opacity-50 transition-colors"
-                />
-                <button
-                  onClick={handleAskSubmit}
-                  disabled={askLoading || !askText.trim()}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all disabled:opacity-40 bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30 hover:border-emerald-500/50"
-                >
-                  {askLoading ? (
-                    <>
-                      <LoadingSpinner />
-                      <span className="hidden sm:inline">Thinking...</span>
-                    </>
-                  ) : (
-                    <>
-                      <SendIcon />
-                      <span className="hidden sm:inline">Send</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-
             <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-3">
-              <button
-                onClick={handleExpand}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-blue-600/15 text-blue-400 border border-blue-500/30 hover:bg-blue-600/25 hover:border-blue-500/50 hover:shadow-[0_0_12px_rgba(59,130,246,0.15)]"
-              >
-                <DeeperIcon />
-                {isExpanded ? "Collapse" : "Go deeper"}
-              </button>
-
-              <button
-                onClick={handleAskToggle}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-                  showAskInput
-                    ? "bg-emerald-600/25 text-emerald-400 border-emerald-500/50"
-                    : "bg-emerald-600/10 text-emerald-400/80 border-emerald-500/20 hover:bg-emerald-600/20 hover:border-emerald-500/40 hover:text-emerald-400"
-                }`}
-              >
-                <AskIcon />
-                Ask
-              </button>
-
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -318,7 +146,7 @@ export function ActiveProbe({
                     ? "text-amber-400 hover:text-amber-300"
                     : "text-neutral-600 hover:text-amber-400 hover:bg-neutral-800"
                 }`}
-                title={probe.starred ? "Unstar this question" : "Star this question"}
+                title={probe.starred ? (t('probes.unstarQuestion') || "Unstar this question") : (t('probes.starQuestion') || "Star this question")}
               >
                 <StarIcon filled={!!probe.starred} />
               </button>
@@ -331,7 +159,7 @@ export function ActiveProbe({
                     className={`p-1 rounded transition-all disabled:opacity-25 disabled:cursor-default ${
                       hasPrev ? "text-neutral-200 hover:text-white hover:bg-neutral-700" : "text-neutral-600"
                     }`}
-                    title="Previous question"
+                    title={t('probes.previousQuestion') || "Previous question"}
                   >
                     <ChevronLeftIcon />
                   </button>
@@ -346,7 +174,7 @@ export function ActiveProbe({
                     className={`p-1 rounded transition-all disabled:opacity-25 disabled:cursor-default ${
                       hasNext ? "text-neutral-200 hover:text-white hover:bg-neutral-700" : "text-neutral-600"
                     }`}
-                    title="Next question"
+                    title={t('probes.nextQuestion') || "Next question"}
                   >
                     <ChevronRightIcon />
                   </button>
@@ -354,7 +182,7 @@ export function ActiveProbe({
               )}
 
               <span className="text-xs text-neutral-600">
-                Gap: {Math.round(probe.gapScore * 100)}%
+                {t('activeProbe.gap')} {Math.round(probe.gapScore * 100)}%
               </span>
             </div>
           </div>
@@ -390,30 +218,6 @@ function ListenIcon() {
   );
 }
 
-function DeeperIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-    </svg>
-  );
-}
-
-function AskIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-    </svg>
-  );
-}
-
-function SendIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-    </svg>
-  );
-}
-
 function StarIcon({ filled }: { filled: boolean }) {
   return filled ? (
     <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
@@ -438,15 +242,6 @@ function ChevronRightIcon() {
   return (
     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-    </svg>
-  );
-}
-
-function LoadingSpinner() {
-  return (
-    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
     </svg>
   );
 }

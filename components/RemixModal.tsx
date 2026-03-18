@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
+import { useI18n } from "../lib/i18n";
 
 interface CommunityPlan {
   id: string;
@@ -17,6 +18,7 @@ interface RemixModalProps {
 }
 
 export function RemixModal({ plan, onClose, onComplete }: RemixModalProps) {
+  const { t } = useI18n();
   const [title, setTitle] = useState("");
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
@@ -87,7 +89,7 @@ export function RemixModal({ plan, onClose, onComplete }: RemixModalProps) {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g., Python for Data Science"
+            placeholder={t('remixModal.topicPlaceholder')}
             className="w-full px-4 py-3 bg-neutral-800/50 border border-neutral-700 rounded-xl text-white text-sm placeholder-neutral-500 focus:outline-none focus:border-neutral-600"
           />
         </div>
@@ -99,7 +101,7 @@ export function RemixModal({ plan, onClose, onComplete }: RemixModalProps) {
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="e.g., Make it more beginner-friendly, focus on practical applications, shorter sessions..."
+            placeholder={t('remixModal.modificationsPlaceholder')}
             rows={4}
             className="w-full px-4 py-3 bg-neutral-800/50 border border-neutral-700 rounded-xl text-white text-sm placeholder-neutral-500 focus:outline-none focus:border-neutral-600 resize-none"
           />

@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+import { useI18n } from "../lib/i18n";
 
 // Process content to handle common LaTeX escaping issues from LLMs
 function processLatexContent(content: string): string {
@@ -29,6 +30,7 @@ interface LLMChatProps {
   problem: string;
   messages?: ChatMessage[];
   onMessagesChange?: (messages: ChatMessage[]) => void;
+  sessionId?: string;
 }
 
 const WELCOME_MESSAGE: ChatMessage = {
@@ -37,7 +39,8 @@ const WELCOME_MESSAGE: ChatMessage = {
   content: "Hi! I'm here to help you with your learning. Feel free to ask me questions about the topic, get clarifications, or discuss concepts in a different way.\n\nRemember - I'm a separate assistant from the tutor. Let me know how I can help!",
 };
 
-export function LLMChat({ problem, messages: externalMessages, onMessagesChange }: LLMChatProps) {
+export function LLMChat({ problem, messages: externalMessages, onMessagesChange, sessionId }: LLMChatProps) {
+  const { t } = useI18n();
   // Use external state if provided, otherwise use internal state
   const [internalMessages, setInternalMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
   const messages = externalMessages ?? internalMessages;
@@ -94,6 +97,7 @@ export function LLMChat({ problem, messages: externalMessages, onMessagesChange 
         body: JSON.stringify({
           problem,
           messages: [...conversationHistory, { role: "user", content: userMessage.content }],
+          sessionId,
         }),
       });
 
@@ -141,11 +145,11 @@ export function LLMChat({ problem, messages: externalMessages, onMessagesChange 
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-800">
-        <h3 className="text-sm font-medium text-white">Assistant</h3>
+        <h3 className="text-sm font-medium text-white">{t('llmChat.assistant')}</h3>
         <button
           onClick={() => setShowClearConfirm(true)}
           className="p-1.5 text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800 rounded-lg transition-colors"
-          title="Clear chat"
+          title={t('llmChat.clearChat')}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -194,7 +198,7 @@ export function LLMChat({ problem, messages: externalMessages, onMessagesChange 
         <>
           <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setShowClearConfirm(false)} />
           <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-50 bg-neutral-800 border border-neutral-700 rounded-xl p-4 shadow-xl">
-            <p className="text-sm text-neutral-200 mb-3">Clear chat history?</p>
+            <p className="text-sm text-neutral-200 mb-3">{t('llmChat.clearConfirm')}</p>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowClearConfirm(false)}
@@ -220,7 +224,7 @@ export function LLMChat({ problem, messages: externalMessages, onMessagesChange 
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask me anything..."
+            placeholder={t('llmChat.placeholder')}
             className="flex-1 bg-neutral-900 border border-neutral-700 rounded-2xl px-4 py-3 text-sm text-white placeholder-neutral-500 resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
             rows={1}
             disabled={isLoading}

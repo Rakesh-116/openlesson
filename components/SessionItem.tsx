@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
+import { useI18n } from "../lib/i18n";
 
 interface PlanNode {
   id: string;
@@ -53,6 +54,7 @@ export function SessionItem({
   supabase: propSupabase,
   onNavigateToNode
 }: SessionItemProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const supabase = propSupabase || createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -273,7 +275,7 @@ export function SessionItem({
                 value={editedPlanningPrompt}
                 onChange={(e) => setEditedPlanningPrompt(e.target.value)}
                 onBlur={savePlanningPrompt}
-                placeholder="Custom instructions for this session..."
+                placeholder={t('sessionItem.customInstructions')}
                 className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-neutral-600 resize-none"
                 rows={2}
               />

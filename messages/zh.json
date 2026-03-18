@@ -25,7 +25,11 @@
     "goDeeper": "深入",
     "clickToCollapse": "点击收起",
     "recording": "录音中...",
-    "notRecording": "未录音"
+    "notRecording": "未录音",
+    "connecting": "连接中...",
+    "connect": "连接",
+    "disconnect": "断开",
+    "saving": "保存中..."
   },
   "nav": {
     "openLesson": "openLesson",
@@ -104,7 +108,7 @@
     "alreadyHaveAccount": "已有账户？",
     "signInLink": "登录"
   },
-"problemInput": {
+  "problemInput": {
     "placeholder": "你今天想学什么？（例如：解释递归，GPS是如何工作的？）",
     "starting": "正在开始...",
     "start": "开始",
@@ -423,7 +427,7 @@
     "regular": "常规版",
     "free": "免费版",
     "sessionsThisPeriod": "本期课程数",
-    "sessionsRemaining": "剩余 {count} 节课",
+    "sessionsRemaining": "剩余{count}个课程",
     "infinity": "∞",
     "extraLessons": "额外课程",
     "purchasedCredits": "已购买积分",
@@ -467,7 +471,6 @@
     "staked": "M已质押",
     "copy": "复制",
     "loading": "加载中...",
-    "noApiKeysYet": "暂无API密钥。",
     "requests": "请求",
     "createdOn": "创建于{date}",
     "apiKeyDescription": "使用API密钥以编程方式访问辅导。",
@@ -490,7 +493,6 @@
     "createNewPlan": "创建新计划",
     "createYourFirstPlan": "创建您的第一个计划",
     "latestPlanTitle": "最新计划",
-    "createdOn": "创建于{date}",
     "public": "公开",
     "private": "私有",
     "showingResults": "显示{start}-{end}，共{total}",
@@ -501,8 +503,6 @@
     "viewAllPlans": "查看所有计划",
     "sessionLimit": "/ {limit}",
     "unlimited": "∞",
-    "sessionsRemaining": "剩余{count}个课程",
-    "purchasedCredits": "已购买积分",
     "buyExtraLesson": "购买额外课程（$1.99）",
     "resetsOn": "重置于{date}",
     "extrasAvailable": "{count}个课程+任何额外课程将可用",
@@ -510,7 +510,6 @@
     "experimental": "实验性",
     "apiExperimentalDesc": "Agent API仍是实验性的，尚未支持完整的辅导功能（探测器、差距跟踪、课程计划）。我们正在积极努力实现完整功能。",
     "apiProOnly": "API密钥仅在专业版可用。{upgradeLink}以创建API密钥。",
-    "upgradeToPro": "升级到专业版",
     "yourNewApiKey": "您的新API密钥（立即复制 - 不会再显示）：",
     "experimentalFeature": "实验性",
     "home": "首页",
@@ -585,31 +584,6 @@
     "transcripts": "转录",
     "eeg": "EEG",
     "tools": "工具",
-    "dataContributionPart1": "您的数据正在为",
-    "dataContributionPart2": "做出贡献，以帮助推进AI对人类学习的理解。感谢您！",
-    "dataContributionPart3": "如有任何问题",
-    "datasetName": "全球人类对话数据集",
-    "contactOnX": "在X上联系我们",
-    "sessionReport": "课程报告",
-    "generatingReport": "正在生成课程报告...",
-    "reportFailed": "生成报告失败。请重试。",
-    "reportEmpty": "报告为空。请重试。",
-    "reportError": "生成报告时出现错误。",
-    "retry": "重试",
-    "backToDashboard": "返回仪表板",
-    "noSessionId": "未提供课程ID。"
-  },
-  "results": {
-    "notFound": "课程未找到",
-    "notFoundDesc": "此课程可能已被删除或不存在。",
-    "goToDashboard": "前往仪表板",
-    "breadcrumb": "结果",
-    "storedData": "存储的数据块",
-    "storedDataDesc": "课程期间捕获的录音、转录、EEG读数和工具交互",
-    "audio": "音频",
-    "transcripts": "转录",
-    "eeg": "EEG",
-    "tools": "工具",
     "dataContribution": "您的数据正在为全球人类对话数据集做出贡献，以帮助推进AI对人类学习的理解。感谢您！",
     "contactOnX": "在X上联系我们",
     "sessionReport": "课程报告",
@@ -618,7 +592,12 @@
     "reportEmpty": "报告为空。请重试。",
     "reportError": "生成报告时出现错误。",
     "retry": "重试",
-    "backToDashboard": "返回仪表板"
+    "backToDashboard": "返回仪表板",
+    "dataContributionPart1": "您的数据正在为",
+    "dataContributionPart2": "做出贡献，以帮助推进AI对人类学习的理解。感谢您！",
+    "dataContributionPart3": "如有任何问题",
+    "datasetName": "Global Human Conversation dataset",
+    "noSessionId": "未提供课程ID。"
   },
   "session": {
     "mobileDetected": "检测到移动设备",
@@ -730,7 +709,13 @@
     "noQuestionsYet": "暂无问题",
     "startSessionPrompt": "开始课程以接收引导问题",
     "completedProbesAppear": "完成的探测器将显示在这里",
-    "general": "常规"
+    "general": "常规",
+    "formulatingQuestion": "您的导师正在构思开场问题...",
+    "listening": "您的导师正在倾听...",
+    "starQuestion": "收藏这个问题",
+    "unstarQuestion": "取消收藏这个问题",
+    "previousQuestion": "上一个问题",
+    "nextQuestion": "下一个问题"
   },
   "tools": {
     "tools": "工具",
@@ -1091,5 +1076,106 @@
     "es": "Español",
     "de": "Deutsch",
     "pl": "Polski"
+  },
+  "dataInput": {
+    "audioDetection": "音频检测",
+    "audioDetected": "检测到音频",
+    "noAudio": "无音频",
+    "startRecordingMessage": "开始录音以查看音频电平",
+    "museHeadset": "Muse耳机",
+    "status": "状态",
+    "signal": "信号",
+    "receivingData": "正在接收数据",
+    "waitingForSignal": "等待信号...",
+    "bandPowers": "频段功率",
+    "eegChannels": "EEG通道（颞部）",
+    "facialDataTracking": "面部数据跟踪",
+    "engagement": "参与度",
+    "confusion": "困惑",
+    "processing": "处理中",
+    "frustration": "挫败感",
+    "smile": "微笑",
+    "emotion": "情绪",
+    "attention": "注意力",
+    "blink": "眨眼",
+    "gaze": "注视",
+    "enableWebcamMessage": "启用网络摄像头以跟踪面部数据",
+    "screenCapture": "屏幕捕获"
+  },
+  "activeProbe": {
+    "newQuestion": "新问题",
+    "gap": "差距：",
+    "validating": "验证中..."
+  },
+  "probes": {
+    "status": "状态：",
+    "answer": "回答：",
+    "tryHint": "尝试："
+  },
+  "sessionPlanViewer": {
+    "creating": "正在创建课程计划...",
+    "noPlanYet": "尚未创建计划"
+  },
+  "admin": {
+    "searchByTopic": "按主题搜索...",
+    "searchUsers": "搜索用户...",
+    "searchByProblem": "按问题搜索...",
+    "searchLeads": "搜索潜在客户...",
+    "searchOrganizations": "搜索组织...",
+    "statusAll": "状态：全部",
+    "statusActive": "状态：进行中",
+    "statusPaused": "状态：已暂停",
+    "statusCompleted": "状态：已完成",
+    "totalReferrals": "总推荐数",
+    "unclaimedRevenue": "未认领收入",
+    "totalRevenue": "总收入"
+  },
+  "partner": {
+    "confirmStake": "确认质押",
+    "actionRequired": "需要操作",
+    "connectWallet": "连接钱包",
+    "revenue": "收入",
+    "referrals": "推荐",
+    "payoutMethod": "支付方式",
+    "unstake": "解除质押 $UNSYS",
+    "unstakeInProgress": "解除质押进行中",
+    "readyToCompleteUnstake": "准备完成解除质押",
+    "completeUnstake": "完成解除质押",
+    "requestUnstake": "请求解除质押",
+    "processing": "处理中...",
+    "referralCode": "推荐代码",
+    "usersReferred": "已推荐用户",
+    "howProgramWorks": "合作伙伴计划运作方式",
+    "staking": "质押",
+    "revenueShare": "收入分成",
+    "payouts": "支付",
+    "unstaking": "解除质押",
+    "orEnterManually": "或手动输入"
+  },
+  "llmChat": {
+    "assistant": "助手",
+    "clearChat": "清除聊天",
+    "clearConfirm": "清除聊天历史？",
+    "placeholder": "问我任何问题..."
+  },
+  "sessionItem": {
+    "customInstructions": "此会话的自定义说明..."
+  },
+  "planView": {
+    "addDescription": "添加学习计划描述..."
+  },
+  "register": {
+    "usernamePlaceholder": "学习者42"
+  },
+  "remixModal": {
+    "topicPlaceholder": "例如，Python数据科学",
+    "modificationsPlaceholder": "例如，让它更适合初学者，专注于实际应用，更短的课程..."
+  },
+  "organization": {
+    "orgNamePlaceholder": "ABC公司",
+    "orgSlugPlaceholder": "abc-corp"
+  },
+  "planMode": {
+    "youtubePlaceholder": "粘贴YouTube视频链接（例如，https://youtube.com/watch?v=...）"
   }
 }

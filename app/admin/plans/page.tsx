@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n";
 
 interface PlanOwner {
   id: string;
@@ -29,6 +30,7 @@ type SortDirection = "asc" | "desc";
 const PAGE_SIZE = 25;
 
 export default function AdminPlansPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
@@ -243,7 +245,7 @@ export default function AdminPlansPage() {
         <div className="flex-1 min-w-[200px]">
           <input
             type="text"
-            placeholder="Search by topic..."
+            placeholder={t('admin.searchByTopic')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full px-4 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-700"

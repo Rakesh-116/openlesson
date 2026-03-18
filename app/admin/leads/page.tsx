@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n";
 
 interface Lead {
   id: string;
@@ -24,6 +25,7 @@ type DateFilter = "all" | "7days" | "30days" | "90days" | "year";
 const PAGE_SIZE = 25;
 
 export default function LeadsPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
@@ -217,7 +219,7 @@ export default function LeadsPage() {
         <div className="flex-1 min-w-[200px]">
           <input
             type="text"
-            placeholder="Search leads..."
+            placeholder={t('admin.searchLeads')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full px-4 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-700"

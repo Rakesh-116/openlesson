@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n";
 
 interface Organization {
   id: string;
@@ -18,6 +19,7 @@ interface Organization {
 const PAGE_SIZE = 25;
 
 export default function OrganizationsPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
@@ -172,7 +174,7 @@ export default function OrganizationsPage() {
         <div className="flex-1 min-w-[200px]">
           <input
             type="text"
-            placeholder="Search organizations..."
+            placeholder={t('admin.searchOrganizations')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full px-4 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-700"
@@ -276,7 +278,7 @@ export default function OrganizationsPage() {
                       setNewOrgSlug(generateSlug(e.target.value));
                     }
                   }}
-                  placeholder="Acme Corp"
+                  placeholder={t('organization.orgNamePlaceholder')}
                   className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-600"
                   required
                 />
@@ -287,7 +289,7 @@ export default function OrganizationsPage() {
                   type="text"
                   value={newOrgSlug}
                   onChange={(e) => setNewOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                  placeholder="acme-corp"
+                  placeholder={t('organization.orgSlugPlaceholder')}
                   className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-600 font-mono"
                   required
                 />

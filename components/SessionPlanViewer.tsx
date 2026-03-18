@@ -67,7 +67,7 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
     return (
       <div className="h-full w-full flex flex-col items-center justify-center p-6">
         <div className="w-8 h-8 border-2 border-neutral-700 border-t-cyan-500 rounded-full animate-spin mb-4" />
-        <p className="text-sm text-neutral-500">Creating your session plan...</p>
+        <p className="text-sm text-neutral-500">{t('sessionPlanViewer.creating')}</p>
       </div>
     );
   }
@@ -118,7 +118,7 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
             />
           </svg>
         </div>
-        <p className="text-sm text-neutral-500">No plan created yet</p>
+        <p className="text-sm text-neutral-500">{t('sessionPlanViewer.noPlanYet')}</p>
         <p className="text-xs text-neutral-600 mt-1">
           Plan will be created shortly...
         </p>

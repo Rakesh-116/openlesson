@@ -4,23 +4,24 @@ import { useState, useEffect } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 import { isValidYouTubeUrl, EXAMPLE_YOUTUBE_VIDEOS, getYouTubeThumbnail } from "@/lib/youtube";
+import { useI18n } from "@/lib/i18n";
 
 const WEEKS_OPTIONS = [
-  { value: 1, label: "1 week" },
-  { value: 2, label: "2 weeks" },
-  { value: 4, label: "1 month" },
-  { value: 8, label: "2 months" },
-  { value: 12, label: "3 months" },
-  { value: 26, label: "6 months" },
+  { value: 1, label: "planMode.week1" },
+  { value: 2, label: "planMode.week2" },
+  { value: 4, label: "planMode.month1" },
+  { value: 8, label: "planMode.month2" },
+  { value: 12, label: "planMode.month3" },
+  { value: 26, label: "planMode.month6" },
 ];
 
 const DEFAULT_EXAMPLE_TOPICS = [
-  "Machine Learning",
-  "Philosophy",
-  "Quantum Physics",
-  "World History",
-  "Creative Writing",
-  "Personal Finance",
+  "planMode.exampleMachineLearning",
+  "planMode.examplePhilosophy",
+  "planMode.exampleQuantumPhysics",
+  "planMode.exampleWorldHistory",
+  "planMode.exampleCreativeWriting",
+  "planMode.examplePersonalFinance",
 ];
 
 type ThemeColor = "neutral" | "teal" | "slate" | "blue" | "amber" | "violet";
@@ -123,16 +124,23 @@ interface PlanModeSelectProps {
 
 export function PlanModeSelect({ 
   theme = "neutral",
-  title = "Build Your Learning Path",
+  title,
   subtitle,
-  placeholder = "What do you want to learn? (e.g., Machine Learning, Philosophy)",
-  exampleTopics = DEFAULT_EXAMPLE_TOPICS,
+  placeholder,
+  exampleTopics,
   showYouTubeTab = true,
 }: PlanModeSelectProps) {
-  // Dynamic subtitle based on whether YouTube tab is shown
+  const { t } = useI18n();
+  const defaultTitle = t('planMode.buildYourLearningPath');
+  const defaultPlaceholder = placeholder ?? t('problemInput.placeholder');
+  const defaultExampleTopics = exampleTopics?.map(key => t(key)) ?? DEFAULT_EXAMPLE_TOPICS.map(key => t(key));
+  
+  const displayTitle = title ?? defaultTitle;
+  const displayPlaceholder = placeholder ?? defaultPlaceholder;
+  
   const defaultSubtitle = showYouTubeTab 
-    ? "Enter a topic or paste a YouTube video to create a structured learning plan."
-    : "Enter a topic and we'll create a structured learning plan. Explore concepts in a structured way, one session at a time.";
+    ? t('planMode.subtitleWithYoutube')
+    : t('planMode.subtitleWithoutYoutube');
   const displaySubtitle = subtitle ?? defaultSubtitle;
   const [activeTab, setActiveTab] = useState<InputTab>("topic");
   const [topic, setTopic] = useState("");
@@ -156,18 +164,17 @@ export function PlanModeSelect({
   }, []);
 
   const handleGeneratePlan = async () => {
-    // Validate input based on active tab
     if (activeTab === "topic" && !topic.trim()) {
-      setError("Please enter a topic");
+      setError(t('planMode.enterTopic'));
       return;
     }
     if (activeTab === "youtube") {
       if (!youtubeUrl.trim()) {
-        setError("Please enter a YouTube URL");
+        setError(t('planMode.enterYoutubeUrl'));
         return;
       }
       if (!isValidYouTubeUrl(youtubeUrl.trim())) {
-        setError("Please enter a valid YouTube URL");
+        setError(t('planMode.validYoutubeUrl'));
         return;
       }
     }
@@ -206,7 +213,7 @@ export function PlanModeSelect({
       const data = await response.json();
       router.push(`/plan/${data.planId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      setError(err instanceof Error ? err.message : t('planMode.somethingWrong'));
     } finally {
       setIsGenerating(false);
     }
@@ -221,9 +228,10 @@ export function PlanModeSelect({
 
   // Get current input value and placeholder based on tab
   const currentValue = activeTab === "youtube" ? youtubeUrl : topic;
+  const youtubePlaceholder = t('planMode.youtubePlaceholder');
   const currentPlaceholder = activeTab === "youtube" 
-    ? "Paste a YouTube video URL (e.g., https://youtube.com/watch?v=...)"
-    : placeholder;
+    ? youtubePlaceholder
+    : displayPlaceholder;
   const currentOnChange = activeTab === "youtube" 
     ? (e: React.ChangeEvent<HTMLTextAreaElement>) => setYoutubeUrl(e.target.value)
     : (e: React.ChangeEvent<HTMLTextAreaElement>) => setTopic(e.target.value);
@@ -237,7 +245,7 @@ export function PlanModeSelect({
     <div className="w-full max-w-2xl p-6">
       <div className="text-center mb-10">
         <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
-          {title}
+          {displayTitle}
         </h2>
         <p className={`max-w-lg mx-auto text-sm leading-relaxed ${styles.description}`}>
           {displaySubtitle}
@@ -257,7 +265,7 @@ export function PlanModeSelect({
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
-              Topic
+              {t('planMode.topicTab')}
             </span>
           </button>
           <button
@@ -270,7 +278,7 @@ export function PlanModeSelect({
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
               </svg>
-              YouTube Video
+              {t('planMode.youtubeTab')}
             </span>
           </button>
         </div>
@@ -303,7 +311,7 @@ export function PlanModeSelect({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             )}
-            {isGenerating ? "Analyzing..." : "Generate"}
+            {isGenerating ? t('planMode.analyzing') : t('planMode.generate')}
           </button>
         </div>
         {error && (
@@ -314,7 +322,7 @@ export function PlanModeSelect({
       {/* Weeks Selector */}
       <div className="mb-6">
         <label className={`block text-sm mb-3 ${styles.label}`}>
-          How long should the learning plan be?
+          {t('planMode.howLongPlan')}
         </label>
         <div className="flex flex-wrap gap-2">
           {WEEKS_OPTIONS.map((option) => (
@@ -327,7 +335,7 @@ export function PlanModeSelect({
                   : styles.weekInactive
               }`}
             >
-              {option.label}
+              {t(option.label)}
             </button>
           ))}
         </div>
@@ -336,21 +344,21 @@ export function PlanModeSelect({
       {/* Example Pills - Different for each tab */}
       {activeTab === "topic" || !showYouTubeTab ? (
         <div className="flex flex-wrap gap-2">
-          {exampleTopics.map((t) => (
+          {defaultExampleTopics.map((topicItem) => (
             <button
-              key={t}
-              onClick={() => setTopic(t)}
+              key={topicItem}
+              onClick={() => setTopic(topicItem)}
               disabled={isGenerating}
               className={`px-3 py-1.5 text-xs border rounded-full transition-colors ${styles.topicPill}`}
             >
-              {t}
+              {topicItem}
             </button>
           ))}
         </div>
       ) : (
         <div>
           <label className={`block text-sm mb-3 ${styles.label}`}>
-            Try these educational videos:
+            {t('planMode.tryVideos')}
           </label>
           <div className="grid grid-cols-3 gap-3">
             {EXAMPLE_YOUTUBE_VIDEOS.map((video) => (

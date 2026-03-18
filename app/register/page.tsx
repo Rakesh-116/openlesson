@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/Navbar";
+import { useI18n } from "@/lib/i18n";
 
 function RegisterForm() {
   const [username, setUsername] = useState("");
@@ -16,6 +17,7 @@ function RegisterForm() {
   const [referralPartner, setReferralPartner] = useState<{ username: string } | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useI18n();
 
   useEffect(() => {
     const ref = searchParams.get("ref");
@@ -74,7 +76,7 @@ function RegisterForm() {
       router.push("/dashboard");
       router.refresh();
     } catch {
-      setError("An unexpected error occurred.");
+      setError(t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -86,19 +88,19 @@ function RegisterForm() {
 
       <div className="flex-1 flex items-center justify-center px-6">
         <div className="w-full max-w-sm">
-          <h2 className="text-xl font-semibold text-white mb-1">Create an account</h2>
-          <p className="text-sm text-neutral-500 mb-8">Start your learning journey.</p>
+          <h2 className="text-xl font-semibold text-white mb-1">{t('auth.createAccount')}</h2>
+          <p className="text-sm text-neutral-500 mb-8">{t('auth.registerSubtitle')}</p>
 
           {referralPartner ? (
             <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
               <p className="text-sm text-emerald-400">
-                🎉 You have been invited to openLesson by <span className="font-medium">@{referralPartner.username}</span>. Enjoy 15 lessons for free as a thank you gift for becoming a member of our community!
+                {t('auth.referralMessage', { username: referralPartner.username })}
               </p>
             </div>
           ) : referralCode ? (
             <div className="mb-4 p-3 bg-neutral-800/50 border border-neutral-700 rounded-lg">
               <p className="text-sm text-neutral-400">
-                Create an account to get started.
+                {t('auth.referralFallback')}
               </p>
             </div>
           ) : null}
@@ -106,14 +108,14 @@ function RegisterForm() {
           <form onSubmit={handleRegister} className="space-y-3.5">
             <div>
               <label htmlFor="username" className="block text-[11px] text-neutral-500 uppercase tracking-wider mb-1.5">
-                Username
+                {t('auth.username')}
               </label>
               <input
                 id="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="learner42"
+                placeholder={t('register.usernamePlaceholder')}
                 className="w-full px-3.5 py-2.5 bg-neutral-900/80 border border-neutral-800 rounded-xl text-white text-sm placeholder-neutral-700 focus:outline-none focus:border-neutral-600 transition-colors"
                 required
               />
@@ -121,7 +123,7 @@ function RegisterForm() {
 
             <div>
               <label htmlFor="email" className="block text-[11px] text-neutral-500 uppercase tracking-wider mb-1.5">
-                Email
+                {t('auth.email')}
               </label>
               <input
                 id="email"
@@ -135,7 +137,7 @@ function RegisterForm() {
 
             <div>
               <label htmlFor="password" className="block text-[11px] text-neutral-500 uppercase tracking-wider mb-1.5">
-                Password
+                {t('auth.password')}
               </label>
               <input
                 id="password"
@@ -159,14 +161,14 @@ function RegisterForm() {
               disabled={loading}
               className="w-full py-2.5 bg-white hover:bg-neutral-200 disabled:bg-neutral-800 disabled:text-neutral-600 text-black text-sm font-medium rounded-xl transition-colors mt-2"
             >
-              {loading ? "Creating account..." : "Create Account"}
+              {loading ? t('auth.creatingAccount') : t('auth.createAccountBtn')}
             </button>
           </form>
 
           <p className="text-center text-xs text-neutral-600 mt-6">
-            Already have an account?{" "}
+            {t('auth.alreadyHaveAccount')}{" "}
             <Link href="/login" className="text-neutral-400 hover:text-white transition-colors">
-              Sign in
+              {t('auth.signInLink')}
             </Link>
           </p>
         </div>
@@ -176,14 +178,16 @@ function RegisterForm() {
 }
 
 export default function RegisterPage() {
+  const { t } = useI18n();
+  
   return (
     <Suspense fallback={
       <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
         <Navbar showNav={false} />
         <div className="flex-1 flex items-center justify-center px-6">
           <div className="w-full max-w-sm">
-            <h2 className="text-xl font-semibold text-white mb-1">Create an account</h2>
-            <p className="text-sm text-neutral-500 mb-8">Start your learning journey.</p>
+            <h2 className="text-xl font-semibold text-white mb-1">{t('auth.createAccount')}</h2>
+            <p className="text-sm text-neutral-500 mb-8">{t('auth.registerSubtitle')}</p>
             <div className="animate-pulse space-y-3.5">
               <div className="h-10 bg-neutral-800 rounded-xl" />
               <div className="h-10 bg-neutral-800 rounded-xl" />

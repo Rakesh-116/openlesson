@@ -8,6 +8,7 @@ import { PlanChat } from "@/components/PlanChat";
 import { Navbar } from "@/components/Navbar";
 import { RemixModal } from "@/components/RemixModal";
 import { getYouTubeThumbnail } from "@/lib/youtube";
+import { useI18n } from "../lib/i18n";
 
 export interface PlanNode {
   id: string;
@@ -43,6 +44,7 @@ interface PlanViewProps {
 }
 
 export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
+  const { t } = useI18n();
   const params = useParams();
   const router = useRouter();
   const planId = params.id as string;
@@ -345,7 +347,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                   <textarea
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
-                    placeholder="Add a description for this learning plan..."
+                    placeholder={t('planView.addDescription')}
                     className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 resize-none"
                     rows={2}
                     autoFocus
@@ -356,7 +358,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                       disabled={savingDescription}
                       className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 text-white text-xs rounded-lg transition-colors"
                     >
-                      {savingDescription ? "Saving..." : "Save"}
+                      {savingDescription ? t('common.saving') : t('common.save')}
                     </button>
                     <button
                       onClick={() => {

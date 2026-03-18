@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n";
 
 interface UserProfile {
   id: string;
@@ -25,6 +26,7 @@ type SortField = "created_at" | "duration_ms";
 type SortDirection = "asc" | "desc";
 
 export default function SessionsPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
@@ -227,7 +229,7 @@ export default function SessionsPage() {
           <div className="flex-1 min-w-[200px]">
             <input
               type="text"
-              placeholder="Search by problem..."
+              placeholder={t('admin.searchByProblem')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-4 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-700"
