@@ -302,16 +302,33 @@ CURRENT PLAN:
 - Steps: {steps}
 - Current Step Index: {current_step} (0-indexed)
 
-RECENT OBSERVATIONS:
-- Gap Score: {gap_score} (0.0-1.0, higher = more confusion/gaps detected)
-- Signals: {signals}
-- Recent Transcript: {transcript}
-- Requests/Probes Already Presented: {previous_probes}
+RECENT SESSION ACTIVITY:
+{context_description}
+
+RECENT TRANSCRIPT (from audio):
+{transcript}
+
+Requests/Probes Already Presented:
+{previous_probes}
 
 PROBE MANAGEMENT:
 - Current Open Probes (not archived): {open_probe_count} / 5 maximum
 - Focused Probes (user is actively working on these): {focused_probes}
 - Time since last probe was generated: {secondsSinceLastProbe}s ago
+
+TASK 1 - GAP DETECTION:
+Analyze the transcript and recent activity above for gaps in reasoning. Look for:
+- Hesitations, long pauses, trailing off mid-thought
+- Unexamined assumptions taken for granted
+- Contradictions or inconsistencies in reasoning
+- Circular thinking or going in loops
+- Skipping steps or jumping to conclusions
+- Confusion markers ("I don't know", "wait", "hmm", going in circles)
+
+Rate the gap level from 0.0 to 1.0 where:
+- 0.0-0.3: Confident, flowing reasoning process
+- 0.4-0.6: Some hesitation, minor gaps in reasoning
+- 0.7-1.0: Clear gaps, contradictions, or stuck thinking
 
 TIMING GUIDANCE: If a probe was just generated (<30s ago), lean toward NOT generating another probe unless the gap score is severe (>0.7). The student may still be processing the previous probe. Only override this if there are multiple high-priority unresolved gaps.
 
@@ -334,26 +351,29 @@ CRITICAL RULES:
 - Be aware of what has already been covered in archived/previous probes — do not revisit ground already covered. Build on it.
 
 Based on these observations, decide:
-1. Should the plan change? Consider:
+1. What is the GAP SCORE and SIGNALS from the transcript analysis?
+2. Should the plan change? Consider:
    - Is the student stuck on a concept? (might need to add a simpler step or suggestion)
    - Is the student progressing faster than expected? (might skip ahead)
    - Are there unexpected gaps that the plan doesn't address?
    - Is the current step completed or should we stay on it?
 
-2. What is the NEXT REQUEST to give the student?
+3. What is the NEXT REQUEST to give the student?
    - This MUST be directly about the current step's specific topic — no abstract or meta questions
    - Match the type (question/task/suggestion/checkpoint/feedback) to what the student needs right now
    - If at probe cap (5) and cannot archive any, set next_request to null
    - For "task" type requests, consider which ILE tools would help and include 1-2 suggested_tools
    - The question should push them to the next concrete insight within the current step
 
-3. Should any probes be auto-archived?
+4. Should any probes be auto-archived?
    - Check if focused probes have been addressed (evidence in transcript, whiteboard, or actions)
    - Check if any non-focused probes are clearly resolved
    - Only archive if there's clear evidence the student has engaged with and addressed the probe
 
 Return ONLY valid JSON:
 {
+  "gap_score": 0.5,
+  "signals": ["hesitation", "confusion"],
   "plan_changed": true/false,
   "should_pause": false,
   "updated_steps": [...],
@@ -1224,6 +1244,8 @@ export interface SessionPlanUpdateResult {
   probesToArchive: string[];
   canGenerateProbe: boolean;
   reasoning: string;
+  gapScore: number;
+  signals: string[];
 }
 
 export interface FocusedProbeInfo {
@@ -1236,8 +1258,7 @@ export async function updateSessionPlanLLM(options: {
   strategy: string;
   steps: SessionPlanStep[];
   currentStepIndex: number;
-  gapScore: number;
-  signals: string[];
+  contextDescription?: string;
   transcript?: string;
   previousProbes: string[];
   focusedProbes?: FocusedProbeInfo[];
@@ -1263,8 +1284,7 @@ export async function updateSessionPlanLLM(options: {
     .replace("{strategy}", options.strategy)
     .replace("{steps}", stepsText)
     .replace("{current_step}", options.currentStepIndex.toString())
-    .replace("{gap_score}", options.gapScore.toFixed(2))
-    .replace("{signals}", options.signals.join(", ") || "none detected")
+    .replace("{context_description}", options.contextDescription || "No recent activity data available")
     .replace("{transcript}", options.transcript || "No recent transcript available")
     .replace("{previous_probes}", options.previousProbes.length > 0
       ? options.previousProbes.map((p, i) => `${i + 1}. ${p}`).join("\n")
@@ -1283,6 +1303,8 @@ export async function updateSessionPlanLLM(options: {
     probes_to_archive?: string[];
     can_generate_probe?: boolean;
     reasoning?: string;
+    gap_score?: number;
+    signals?: string[];
   }
 
   const response = await callOpenRouterJSON<RawPlanUpdate>(
@@ -1340,6 +1362,8 @@ export async function updateSessionPlanLLM(options: {
     probesToArchive: parsed.probes_to_archive || [],
     canGenerateProbe: parsed.can_generate_probe ?? true,
     reasoning: parsed.reasoning || "",
+    gapScore: Math.max(0, Math.min(1, parsed.gap_score ?? 0.5)),
+    signals: parsed.signals || [],
   };
 
   return { success: true, result };

@@ -66,10 +66,6 @@ import { useI18n } from "@/lib/i18n";
 // Configuration
 const STORAGE_INTERVAL_MS = 5000;
 const ANALYSIS_INTERVAL_MS = 10000;
-const AUTO_PAUSE_TIMEOUT_MS = 4 * 60 * 60 * 1000; // 4 hours
-
-// Feature flags
-const ENABLE_AUTO_PAUSE = false; // Disable LLM-triggered auto-pause
 
 export function SessionView({ sessionId }: { sessionId: string }) {
   const router = useRouter();
@@ -139,7 +135,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const prevToolRef = useRef<Tool | null>(null);
   const [objectives, setObjectives] = useState<string[]>([]);
   const [objectiveStatuses, setObjectiveStatuses] = useState<("red" | "yellow" | "green" | "blue")[]>([]);
-  const [feedbackLoading, setFeedbackLoading] = useState(false);
 
   // Archive/Focus probe state
   const [archivingProbeId, setArchivingProbeId] = useState<string | null>(null);
@@ -309,7 +304,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const heartbeatSecondRef = useRef(0);
-  const autoPauseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastProbeTimeRef = useRef(0);
   const isAnalyzingRef = useRef(false);
   const muteTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -380,7 +374,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     handleResume?: () => void;
     handleReset?: () => void;
     handleClose?: () => void;
-    handleGetFeedback?: () => void;
     handleArchiveProbe?: (probeId: string) => Promise<void>;
     handleToggleFocus?: (probeId: string, focused: boolean) => void;
     handleAdvanceStep?: () => Promise<void>;
@@ -408,9 +401,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         break;
       case "close":
         handlers.handleClose?.();
-        break;
-      case "get_feedback":
-        handlers.handleGetFeedback?.();
         break;
       case "archive_probe":
         if (action.probeId) handlers.handleArchiveProbe?.(action.probeId);
@@ -778,11 +768,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         });
         if (response.ok) {
           const data = await response.json();
-          console.log("[SessionView] Calibration response:", { 
-            chunks: data.chunks?.length, 
-            chunkCount: data.relevantChunkCount,
-            problem: session.problem 
-          });
           const chunks = data.chunks || [];
           setRagChunks(chunks);
           // Pre-select chunks with similarity > 70%
@@ -913,325 +898,160 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     setIsAnalyzing(true);
 
     try {
-      // Analysis now fetches data from storage (no audio in request)
-      const openProbeCount = currentSession.probes.filter(p => !p.archived).length;
-      const gapRes = await fetch("/api/analyze-gap", {
+      const openProbes = currentSession.probes.filter(p => !p.archived);
+      const focusedProbes = openProbes.filter(p => p.focused).map(p => ({ id: p.id, text: p.text }));
+      const currentPlan = sessionPlanRef.current;
+
+      if (!currentPlan) {
+        isAnalyzingRef.current = false;
+        setIsAnalyzing(false);
+        return;
+      }
+
+      // Helper to validate plan data
+      const isValidPlan = (plan: SessionPlan | null | undefined): boolean => {
+        return !!(plan && 
+          plan.steps && 
+          Array.isArray(plan.steps) && 
+          plan.steps.length > 0 &&
+          plan.goal);
+      };
+
+      // Single call to session-plan/update (now includes gap analysis)
+      const res = await fetch("/api/session-plan/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           sessionId: currentSession.id,
-          problem: currentSession.problem,
-          openProbeCount,
+          previousProbes: currentSession.probes.map((p) => p.text),
+          focusedProbes,
+          openProbeCount: openProbes.length,
           lastProbeTimestamp: lastProbeTimeRef.current || 0,
         }),
       });
 
-      // Clear previous errors on successful response
       setPipelineErrors(prev => ({ ...prev, analysis: undefined, transcription: undefined }));
 
-      if (!gapRes.ok) {
+      if (!res.ok) {
         setPipelineErrors(prev => ({ ...prev, analysis: "Analysis service unavailable" }));
+        isAnalyzingRef.current = false;
+        setIsAnalyzing(false);
         return;
       }
-      const gapData = await gapRes.json();
 
-      // Check for transcription errors
-      if (gapData.error === "transcription_failed") {
-        setPipelineErrors(prev => ({ ...prev, transcription: "Transcription failed - audio may be unclear" }));
-      }
+      const planData = await res.json();
 
-      // Update objective statuses based on analysis
-      if (objectiveStatuses.length > 0 && gapData.gapScore !== undefined) {
+      // Update objective statuses based on gap score from the unified response
+      if (objectiveStatuses.length > 0 && planData.gapScore !== undefined) {
         setObjectiveStatuses(prev => {
           const newStatuses = [...prev];
-          // Update a random objective based on gap score
-          // Lower gap score = better progress = greener
-          // Higher gap score = struggling = redder
           const statusToSet: "red" | "yellow" | "green" = 
-            gapData.gapScore >= 0.7 ? "red" : 
-            gapData.gapScore >= 0.4 ? "yellow" : "green";
+            planData.gapScore >= 0.7 ? "red" : 
+            planData.gapScore >= 0.4 ? "yellow" : "green";
           
-          // Update a random objective to show progress (round-robin style)
           const idxToUpdate = currentSession.probes.length % newStatuses.length;
           newStatuses[idxToUpdate] = statusToSet;
           return newStatuses;
         });
       }
 
-      // Update session plan with current observations
-      const currentPlan = sessionPlanRef.current;
-      let nextRequestText: string | null = null;
-      let nextRequestType: RequestType = "question";
-      let nextRequestSuggestedTools: ToolName[] | undefined = undefined;
-      let canGenerateProbe = true;
-      
-      // Calculate open (non-archived) probes and focused probes
-      const openProbes = currentSession.probes.filter(p => !p.archived);
-      const focusedProbes = openProbes.filter(p => p.focused).map(p => ({ id: p.id, text: p.text }));
-      
-      if (currentPlan) {
-        // Helper to validate plan data
-        const isValidPlan = (plan: SessionPlan | null | undefined): boolean => {
-          return !!(plan && 
-            plan.steps && 
-            Array.isArray(plan.steps) && 
-            plan.steps.length > 0 &&
-            plan.goal);
-        };
-
-        // Helper to fetch plan update
-        const fetchPlanUpdate = async () => {
-          const res = await fetch("/api/session-plan/update", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              sessionId: currentSession.id,
-              gapScore: gapData.gapScore,
-              signals: gapData.signals || [],
-              transcript: gapData.transcript || "",
-              previousProbes: currentSession.probes.map((p) => p.text),
-              focusedProbes,
-              openProbeCount: openProbes.length,
-              lastProbeTimestamp: lastProbeTimeRef.current || 0,
-            }),
-          });
-          if (!res.ok) return null;
-          return res.json();
-        };
-
-        try {
-          let planData = await fetchPlanUpdate();
-          
-          // If plan is corrupted, retry once
-          if (planData && !isValidPlan(planData.plan)) {
-            console.warn('[Plan Update] Received corrupted plan, retrying...', planData.plan);
-            await new Promise(resolve => setTimeout(resolve, 500)); // Brief delay before retry
-            planData = await fetchPlanUpdate();
-          }
-          
-          if (planData) {
-            // Check for step transition BEFORE updating state
-            const previousStepIndex = sessionPlanRef.current?.currentStepIndex ?? 0;
-            const newStepIndex = planData.plan?.currentStepIndex ?? 0;
-            const totalSteps = planData.plan?.steps?.length ?? 0;
-            const isStepTransition = newStepIndex > previousStepIndex && isValidPlan(planData.plan);
-            
-            // Check if plan is now complete (all steps completed)
-            const allStepsCompleted = planData.plan?.steps?.every((s: { status: string }) => s.status === 'completed') ?? false;
-            const isPlanComplete = isStepTransition && allStepsCompleted && totalSteps > 0;
-            
-            // Update local plan state (with validation to prevent corruption)
-            if (isValidPlan(planData.plan)) {
-              setSessionPlan(planData.plan);
-              sessionPlanRef.current = planData.plan;
-            } else if (planData.plan) {
-              // Log corruption for debugging, keep previous state
-              console.warn('[Plan Update] Plan still corrupted after retry, keeping previous state:', planData.plan);
-            }
-            
-            // On step transition: archive ALL active probes and trigger celebration
-            if (isStepTransition) {
-              // Archive all active probes from the previous step
-              const activeProbesForArchive = currentSession.probes.filter(p => !p.archived);
-              if (activeProbesForArchive.length > 0) {
-                let sessionWithArchivedProbes = currentSession;
-                for (const probe of activeProbesForArchive) {
-                  await archiveProbe(probe.id);
-                  sessionWithArchivedProbes = {
-                    ...sessionWithArchivedProbes,
-                    probes: sessionWithArchivedProbes.probes.map(p => 
-                      p.id === probe.id ? { ...p, archived: true } : p
-                    ),
-                  };
-                }
-                setSession(sessionWithArchivedProbes);
-                sessionRef.current = sessionWithArchivedProbes;
-              }
-              
-              // Check if this completes the entire plan
-              if (isPlanComplete) {
-                // Plan is fully complete - show completion modal and pause
-                setIsCelebrating(true);
-                playSessionCompleteSound();
-                setTimeout(() => {
-                  setIsCelebrating(false);
-                  setShowPlanCompleteModal(true);
-                  // Auto-pause recording
-                  if (isRecording && !isPaused) {
-                    setIsPaused(true);
-                  }
-                }, 1500);
-              } else {
-                // Regular step completion celebration
-                setIsCelebrating(true);
-                playStepCompleteSound();
-                setTimeout(() => setIsCelebrating(false), 1500);
-              }
-            } else if (planData.probesToArchive && planData.probesToArchive.length > 0) {
-              // Handle LLM-suggested archiving of resolved probes (only if not a step transition)
-              let updatedSession = currentSession;
-              for (const probeId of planData.probesToArchive) {
-                await archiveProbe(probeId);
-                updatedSession = {
-                  ...updatedSession,
-                  probes: updatedSession.probes.map(p => 
-                    p.id === probeId ? { ...p, archived: true } : p
-                  ),
-                };
-              }
-              setSession(updatedSession);
-              sessionRef.current = updatedSession;
-              
-              // Play success sound for auto-archive
-              if (planData.probesToArchive.length > 0) {
-                playArchiveSound();
-              }
-            }
-            
-            // Update canGenerateProbe flag
-            canGenerateProbe = planData.canGenerateProbe !== false;
-            
-            // Check if LLM wants to pause the session (feature-flagged)
-            if (ENABLE_AUTO_PAUSE && planData.shouldPause) {
-              // Get current step for the feedback probe
-              const currentStep = planData.plan?.steps?.[planData.plan?.currentStepIndex || 0];
-              
-              // Create a feedback probe with the pause reason
-              const pauseProbe = await addProbe(currentSession.id, {
-                timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
-                gapScore: 0,
-                signals: ["pause_suggested"],
-                text: planData.pauseReason || "Time for a short break to let things sink in.",
-                requestType: "feedback",
-                planStepId: currentStep?.id,
-              });
-              
-              const sessionForUpdate = sessionRef.current || currentSession;
-              const updatedSession = addProbeToSession(sessionForUpdate, pauseProbe);
-              setSession(updatedSession);
-              sessionRef.current = updatedSession;
-              setActiveProbe(pauseProbe);
-              setViewingProbeIndex(updatedSession.probes.length - 1);
-              
-              // Trigger pause - clear all intervals and stop recording
-              if (timerRef.current) clearInterval(timerRef.current);
-              if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
-              
-              const recorder = recorderRef.current;
-              if (recorder) {
-                await recorder.stop();
-                recorderRef.current = null;
-              }
-              
-              if (stream) {
-                stream.getTracks().forEach((t) => t.stop());
-                setStream(null);
-              }
-              
-              await pauseSession(currentSession.id);
-              setIsRecording(false);
-              setIsPaused(true);
-              return;
-            }
-            
-            // Use the next request from the plan update
-            if (planData.nextRequest) {
-              nextRequestText = planData.nextRequest.text;
-              nextRequestType = planData.nextRequest.type || "question";
-              // Extract suggested tools if provided
-              if (planData.nextRequest.suggested_tools && Array.isArray(planData.nextRequest.suggested_tools)) {
-                nextRequestSuggestedTools = planData.nextRequest.suggested_tools as ToolName[];
-              }
-            }
-          }
-        } catch (err) {
-          console.warn("Plan update failed:", err);
-        }
-      }
-      
-      // Check if we can generate a new probe (respect 5-probe cap)
-      const currentOpenProbeCount = (sessionRef.current?.probes || currentSession.probes).filter(p => !p.archived).length;
-      const shouldGenerateProbe = canGenerateProbe && currentOpenProbeCount < 5;
-      
-      if (shouldGenerateProbe) {
-        // Use plan-provided request or fall back to generating one
-        let probeText = nextRequestText;
-        let requestType: RequestType = nextRequestType;
+      // Process plan update response
+      if (planData) {
+        // Check for step transition BEFORE updating state
+        const previousStepIndex = sessionPlanRef.current?.currentStepIndex ?? 0;
+        const newStepIndex = planData.plan?.currentStepIndex ?? 0;
+        const totalSteps = planData.plan?.steps?.length ?? 0;
+        const isStepTransition = newStepIndex > previousStepIndex && isValidPlan(planData.plan);
         
-        if (!probeText) {
-          // Fallback: generate probe the old way
-          const probeRes = await fetch("/api/generate-probe", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              problem: currentSession.problem,
-              transcript: gapData.transcript || "",
-              gapScore: gapData.gapScore,
-              signals: gapData.signals || [],
-              previousProbes: currentSession.probes.map((p) => p.text),
-              archivedProbes: currentSession.probes.filter((p) => p.archived).map((p) => p.text),
-              sessionPlan: currentPlan,
-            }),
-          });
-
-          if (probeRes.ok) {
-            const probeData = await probeRes.json();
-            probeText = probeData.probe;
-            requestType = probeData.requestType || "question";
-          }
+        const allStepsCompleted = planData.plan?.steps?.every((s: { status: string }) => s.status === 'completed') ?? false;
+        const isPlanComplete = isStepTransition && allStepsCompleted && totalSteps > 0;
+        
+        if (isValidPlan(planData.plan)) {
+          setSessionPlan(planData.plan);
+          sessionPlanRef.current = planData.plan;
+        } else if (planData.plan) {
+          console.warn('[Plan Update] Plan corrupted, keeping previous state:', planData.plan);
         }
-
-        if (probeText?.trim()) {
-          // Get current step ID from the updated plan
-          const updatedPlan = sessionPlanRef.current;
-          const currentStep = updatedPlan?.steps?.[updatedPlan?.currentStepIndex || 0];
-          
-          // Persist probe to Supabase
-          const savedProbe = await addProbe(currentSession.id, {
-            timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
-            gapScore: gapData.gapScore,
-            signals: gapData.signals || [],
-            text: probeText.trim(),
-            requestType,
-            planStepId: currentStep?.id,
-          });
-          
-          // Add suggested tools if available (ephemeral, not persisted)
-          if (nextRequestSuggestedTools && nextRequestSuggestedTools.length > 0) {
-            savedProbe.suggestedTools = nextRequestSuggestedTools;
+        
+        // On step transition: archive ALL active probes and trigger celebration
+        if (isStepTransition) {
+          const activeProbesForArchive = currentSession.probes.filter(p => !p.archived);
+          if (activeProbesForArchive.length > 0) {
+            let sessionWithArchivedProbes = currentSession;
+            for (const probe of activeProbesForArchive) {
+              await archiveProbe(probe.id);
+              sessionWithArchivedProbes = {
+                ...sessionWithArchivedProbes,
+                probes: sessionWithArchivedProbes.probes.map(p => 
+                  p.id === probe.id ? { ...p, archived: true } : p
+                ),
+              };
+            }
+            setSession(sessionWithArchivedProbes);
+            sessionRef.current = sessionWithArchivedProbes;
           }
-
-          const updatedSession = addProbeToSession(currentSession, savedProbe);
+          
+          if (isPlanComplete) {
+            setIsCelebrating(true);
+            playSessionCompleteSound();
+            setTimeout(() => {
+              setIsCelebrating(false);
+              setShowPlanCompleteModal(true);
+              if (isRecording && !isPaused) {
+                setIsPaused(true);
+              }
+            }, 1500);
+          } else {
+            setIsCelebrating(true);
+            playStepCompleteSound();
+            setTimeout(() => setIsCelebrating(false), 1500);
+          }
+        } else if (planData.probesToArchive && planData.probesToArchive.length > 0) {
+          let updatedSession = currentSession;
+          for (const probeId of planData.probesToArchive) {
+            await archiveProbe(probeId);
+            updatedSession = {
+              ...updatedSession,
+              probes: updatedSession.probes.map(p => 
+                p.id === probeId ? { ...p, archived: true } : p
+              ),
+            };
+          }
           setSession(updatedSession);
           sessionRef.current = updatedSession;
-
-          setActiveProbe(savedProbe);
-          setViewingProbeIndex(updatedSession.probes.length - 1);
-          lastProbeTimeRef.current = Date.now();
-        }
-      }
-
-      // Check if tutor suggests ending
-      if (currentSession.probes.length > 3) {
-        try {
-          const endRes = await fetch("/api/check-session-end", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              problem: currentSession.problem,
-              probeCount: currentSession.probes.length,
-              elapsedMs: Date.now() - new Date(currentSession.startedAt).getTime(),
-              recentProbes: currentSession.probes.slice(-3).map((p) => p.text),
-            }),
-          });
-          if (endRes.ok) {
-            const endData = await endRes.json();
-            if (endData.shouldEnd) {
-              setEndReason(endData.reason || "Looks like you've covered enough ground.");
-              setShowEndDialog(true);
-            }
+          
+          if (planData.probesToArchive.length > 0) {
+            playArchiveSound();
           }
-        } catch { /* silent */ }
+        }
+        
+        // Use the next request from the plan update
+        if (planData.nextRequest) {
+          const currentOpenProbeCount = (sessionRef.current?.probes || currentSession.probes).filter(p => !p.archived).length;
+          
+          if (planData.canGenerateProbe !== false && currentOpenProbeCount < 5) {
+            const savedProbe = await addProbe(currentSession.id, {
+              timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
+              gapScore: planData.gapScore ?? 0.5,
+              signals: planData.signals || [],
+              text: planData.nextRequest.text,
+              requestType: planData.nextRequest.type || "question",
+              planStepId: currentPlan.steps?.[currentPlan.currentStepIndex]?.id,
+            });
+            
+            if (planData.nextRequest.suggested_tools) {
+              savedProbe.suggestedTools = planData.nextRequest.suggested_tools;
+            }
+            
+            const updatedSession = addProbeToSession(currentSession, savedProbe);
+            setSession(updatedSession);
+            sessionRef.current = updatedSession;
+
+            setActiveProbe(savedProbe);
+            setViewingProbeIndex(updatedSession.probes.length - 1);
+            lastProbeTimeRef.current = Date.now();
+          }
+        }
       }
     } catch (err) {
       console.error("Analysis error:", err);
@@ -1264,6 +1084,17 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           }
           setTransferHealth({ ...transferHealthRef.current });
         }
+      }
+
+      // Transcription: transcribe any missing chunks from the last 15 seconds
+      try {
+        await fetch("/api/transcribe-chunks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: currentSession.id }),
+        });
+      } catch (err) {
+        console.warn("Transcription heartbeat error:", err);
       }
 
       // Tool data: save whiteboard and notebook content
@@ -1351,11 +1182,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         chunkDurationMs: 60000,
         maxBufferDurationMs: 300000,
         onChunk: async (chunk) => {
-          console.log("[onChunk] Callback invoked!", { chunkIndex: chunk.chunkIndex, hasSession: !!session, timestamp: chunk.timestamp, blobSize: chunk.blob.size });
-          
           // Skip empty audio chunks - don't store sound or transcript
           if (!chunk.blob.size || chunk.blob.size < 100) {
-            console.log("[onChunk] Skipping empty audio chunk", { chunkIndex: chunk.chunkIndex, blobSize: chunk.blob.size });
             return;
           }
           
@@ -1363,7 +1191,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             const idx = chunkIndexRef.current++;
             transferHealthRef.current.audio.sent++;
             setTransferHealth({ ...transferHealthRef.current });
-            console.log("[onChunk] Processing chunk:", { idx, chunkIndex: chunk.chunkIndex, blobSize: chunk.blob.size, blobType: chunk.blob.type });
             try {
               await saveAudioChunk(session.id, chunk.blob, idx, chunk.timestamp);
               transferHealthRef.current.audio.saved++;
@@ -1382,9 +1209,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               
               if (!transcribeRes.ok) {
                 console.error("Transcription failed for chunk", chunk.chunkIndex);
-              } else {
-                const transcribeData = await transcribeRes.json();
-                console.log("[onChunk] Transcription result:", { chunkIndex: chunk.chunkIndex, transcriptLength: transcribeData.transcript?.length, wordCount: transcribeData.wordCount });
               }
               
               setPipelineErrors(prev => ({ ...prev, storage: undefined, transcription: undefined }));
@@ -1424,11 +1248,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         heartbeatSecondRef.current = (second + 1) % 10;
       }, 1000);
 
-      // Auto-pause after 4 hours to prevent storage errors from very long sessions
-      autoPauseTimeoutRef.current = setTimeout(() => {
-        console.log("[Auto-pause] 4 hour timeout reached, pausing session automatically");
-        handlePause();
-      }, AUTO_PAUSE_TIMEOUT_MS);
     } catch (err) {
       setError("Could not access microphone. Please grant permission and try again.");
     }
@@ -1437,24 +1256,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const stopRecording = async () => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
-    if (autoPauseTimeoutRef.current) clearTimeout(autoPauseTimeoutRef.current);
 
     const recorder = recorderRef.current;
     
-    console.log("[stopRecording] Recorder state:", {
-      hasRecorder: !!recorder,
-      chunkCount: recorder?.getChunkCount?.() || 0,
-      isRecording: recorder?.getIsRecording(),
-      bufferDuration: recorder?.getBufferDuration(),
-    });
-    
     const fullAudio = recorder?.getFullAudio() ?? null;
-    
-    console.log("[stopRecording] Full audio:", {
-      exists: !!fullAudio,
-      size: fullAudio?.size,
-      type: fullAudio?.type,
-    });
     
     await recorder?.stop();
     recorderRef.current = null;
@@ -1477,16 +1282,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
     // Save audio first before navigating - it needs to be done before results page loads
     if (fullAudio) {
-      console.log("[stopRecording] Saving audio:", { 
-        hasAudio: !!fullAudio, 
-        size: fullAudio.size, 
-        type: fullAudio.type 
-      });
       await saveSessionAudio(finalSession.id, fullAudio);
-      console.log("[stopRecording] Audio saved successfully");
 
       // Trigger transcription for RAG
-      console.log("[stopRecording] Starting transcription for RAG...");
       const audioBase64 = await blobToBase64(fullAudio);
       try {
         const transcriptResponse = await fetch("/api/process-session-transcript", {
@@ -1498,35 +1296,27 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             audioFormat: fullAudio.type.split("/")[1] || "webm",
           }),
         });
-        if (transcriptResponse.ok) {
-          console.log("[stopRecording] Transcription completed successfully");
-        } else {
+        if (!transcriptResponse.ok) {
           console.warn("[stopRecording] Transcription failed:", await transcriptResponse.text());
         }
       } catch (transcribeErr) {
         console.error("[stopRecording] Transcription error:", transcribeErr);
       }
-    } else {
-      console.log("[stopRecording] No audio to save - fullAudio is null");
     }
 
     // Save EEG data before navigating
     if (museStatus === "streaming" && eegBufferRef.current.size > 0) {
-      console.log("[stopRecording] Saving EEG data...");
       const channels: Record<string, number[]> = {};
       for (const [ch, samples] of eegBufferRef.current.entries()) {
         channels[ch] = samples;
       }
       await saveSessionEEG(finalSession.id, { channels, bandPowers }, museClientRef.current?.deviceName);
-      console.log("[stopRecording] EEG data saved successfully");
     }
 
     handleDisconnectMuse();
 
     // Navigate after all data is saved
     router.push(`/results?id=${finalSession.id}`);
-
-    handleDisconnectMuse();
   };
 
   // ---- Screenshot Handlers ----
@@ -1557,7 +1347,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const handlePause = async () => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
-    if (autoPauseTimeoutRef.current) clearTimeout(autoPauseTimeoutRef.current);
 
     const recorder = recorderRef.current;
     await recorder?.stop();
@@ -1585,11 +1374,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         chunkDurationMs: 60000,
         maxBufferDurationMs: 300000,
         onChunk: async (chunk) => {
-          console.log("[onChunk] Callback invoked (resume)!", { chunkIndex: chunk.chunkIndex, hasSession: !!session, blobSize: chunk.blob.size });
-          
           // Skip empty audio chunks - don't store sound or transcript
           if (!chunk.blob.size || chunk.blob.size < 100) {
-            console.log("[onChunk] Skipping empty audio chunk (resume)", { chunkIndex: chunk.chunkIndex, blobSize: chunk.blob.size });
             return;
           }
           
@@ -1597,7 +1383,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             const idx = chunkIndexRef.current++;
             transferHealthRef.current.audio.sent++;
             setTransferHealth({ ...transferHealthRef.current });
-            console.log("[onChunk] Processing chunk (resume):", { idx, chunkIndex: chunk.chunkIndex, blobSize: chunk.blob.size, blobType: chunk.blob.type });
             try {
               await saveAudioChunk(session.id, chunk.blob, idx, chunk.timestamp);
               transferHealthRef.current.audio.saved++;
@@ -1616,9 +1401,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               
               if (!transcribeRes.ok) {
                 console.error("Transcription failed for chunk", chunk.chunkIndex);
-              } else {
-                const transcribeData = await transcribeRes.json();
-                console.log("[onChunk] Transcription result:", { chunkIndex: chunk.chunkIndex, transcriptLength: transcribeData.transcript?.length, wordCount: transcribeData.wordCount });
               }
               
               setPipelineErrors(prev => ({ ...prev, storage: undefined, transcription: undefined }));
@@ -1663,11 +1445,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         heartbeatSecondRef.current = (second + 1) % 10;
       }, 1000);
 
-      // Auto-pause after 4 hours to prevent storage errors from very long sessions
-      autoPauseTimeoutRef.current = setTimeout(() => {
-        console.log("[Auto-pause] 4 hour timeout reached, pausing session automatically");
-        handlePause();
-      }, AUTO_PAUSE_TIMEOUT_MS);
     } catch (err) {
       setError("Could not access microphone. Please grant permission and try again.");
     }
@@ -1758,98 +1535,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     }
   };
 
-  const [forcingProbe, setForcingProbe] = useState(false);
-
-  const handleForceProbe = useCallback(async () => {
-    const recorder = recorderRef.current;
-    const currentSession = sessionRef.current;
-    if (!recorder || !currentSession || forcingProbe) return;
-
-    setForcingProbe(true);
-    try {
-      // Get recent audio for transcript context
-      const recentAudio = recorder.getRecentAudio(15000);
-      let transcript = "";
-
-      if (recentAudio && recentAudio.size > 1000) {
-        const audioBase64 = await blobToBase64(recentAudio);
-        const audioFormat = recorder.getAudioFormat();
-        const gapRes = await fetch("/api/analyze-gap", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            audioBase64, 
-            audioFormat, 
-            problem: currentSession.problem,
-            whiteboardData: whiteboardDataRef.current,
-          }),
-        });
-        if (gapRes.ok) {
-          const gapData = await gapRes.json();
-          transcript = gapData.transcript || "";
-        }
-      }
-
-      // Force a probe regardless of gap score
-      const probeRes = await fetch("/api/generate-probe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          problem: currentSession.problem,
-          transcript,
-          gapScore: 1.0,
-          signals: ["user_requested"],
-          previousProbes: currentSession.probes.map((p) => p.text),
-          archivedProbes: currentSession.probes.filter((p) => p.archived).map((p) => p.text),
-        }),
-      });
-
-      if (probeRes.ok) {
-        const { probe: probeText } = await probeRes.json();
-
-        // Get current step ID
-        const currentPlan = sessionPlanRef.current;
-        const currentStep = currentPlan?.steps?.[currentPlan?.currentStepIndex || 0];
-        
-        const savedProbe = await addProbe(currentSession.id, {
-          timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
-          gapScore: 1.0,
-          signals: ["user_requested"],
-          text: probeText,
-          planStepId: currentStep?.id,
-        });
-        const updatedSession = addProbeToSession(currentSession, savedProbe);
-        setSession(updatedSession);
-        sessionRef.current = updatedSession;
-        setActiveProbe(savedProbe);
-        setViewingProbeIndex(updatedSession.probes.length - 1);
-        lastProbeTimeRef.current = Date.now();
-      }
-    } catch (err) {
-      console.error("Force probe error:", err);
-    } finally {
-      setForcingProbe(false);
-    }
-  }, [forcingProbe]);
-
-  // Spacebar shortcut to force a probe
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Only when recording, and not typing in an input/textarea
-      if (!isRecording) return;
-      if (e.code !== "Space") return;
-      const target = e.target as HTMLElement;
-      const tag = target?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      // Don't capture space when inside Monaco Editor
-      if (target?.closest(".monaco-editor")) return;
-      e.preventDefault();
-      handleForceProbe();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isRecording, handleForceProbe]);
-
   // Probe navigation
   const probeCount = session?.probes.length ?? 0;
   const canGoPrev = viewingProbeIndex > 0;
@@ -1897,51 +1582,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       sessionRef.current = finalSession;
     }
     await stopRecording();
-  };
-
-  const handleGetFeedback = async () => {
-    if (!session || !activeProbe || !isRecording) return;
-
-    setFeedbackLoading(true);
-    try {
-      const previousProbes = session.probes.map(p => p.text);
-      const res = await fetch("/api/feedback-and-question", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          problem: session.problem,
-          previousProbes,
-          recentContext: "User requested feedback",
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        
-        if (data.question) {
-          // Get current step ID
-          const currentPlan = sessionPlanRef.current;
-          const currentStep = currentPlan?.steps?.[currentPlan?.currentStepIndex || 0];
-          
-          const savedProbe = await addProbe(session.id, {
-            timestamp: Date.now() - new Date(session.startedAt).getTime(),
-            gapScore: activeProbe.gapScore,
-            signals: ["feedback_request"],
-            text: data.question,
-            planStepId: currentStep?.id,
-          });
-          const updated = addProbeToSession(session, savedProbe);
-          setSession(updated);
-          sessionRef.current = updated;
-          setActiveProbe(savedProbe);
-          setViewingProbeIndex(updated.probes.length - 1);
-        }
-      }
-    } catch (error) {
-      console.error("Get feedback error:", error);
-    } finally {
-      setFeedbackLoading(false);
-    }
   };
 
   const handleAdvanceStep = async () => {
@@ -2155,13 +1795,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       handleResume,
       handleReset,
       handleClose,
-      handleGetFeedback,
       handleArchiveProbe,
       handleToggleFocus,
       handleAdvanceStep,
       handleRollbackToStep,
     };
-  }, [startRecording, stopRecording, handlePause, handleResume, handleReset, handleClose, handleGetFeedback, handleArchiveProbe, handleToggleFocus, handleAdvanceStep, handleRollbackToStep]);
+  }, [startRecording, stopRecording, handlePause, handleResume, handleReset, handleClose, handleArchiveProbe, handleToggleFocus, handleAdvanceStep, handleRollbackToStep]);
 
   // Auto-pause on browser close/refresh
   useEffect(() => {
@@ -2184,7 +1823,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       if (timerRef.current) clearInterval(timerRef.current);
       if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
       if (muteTimerRef.current) clearTimeout(muteTimerRef.current);
-      if (autoPauseTimeoutRef.current) clearTimeout(autoPauseTimeoutRef.current);
       if (micStreamRef.current) {
         micStreamRef.current.getTracks().forEach(t => t.stop());
         micStreamRef.current = null;
@@ -2649,8 +2287,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   onStopRecording={stopRecording}
                   onPause={handlePause}
                   onResume={handleResume}
-                  onGetFeedback={handleGetFeedback}
-                  feedbackLoading={feedbackLoading}
                   elapsedSeconds={elapsedSeconds}
                   storageBeat={storageBeat}
                   analysisBeat={analysisBeat}

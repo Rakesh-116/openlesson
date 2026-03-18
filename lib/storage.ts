@@ -878,6 +878,37 @@ export async function getRecentAudioChunks(sessionId: string, ms: number): Promi
   }));
 }
 
+export interface RecentTranscript {
+  id: string;
+  sessionId: string;
+  content: string;
+  timestamp: number;
+}
+
+export async function getRecentTranscripts(sessionId: string, ms: number): Promise<RecentTranscript[]> {
+  const supabase = createClient();
+  const cutoffTime = Date.now() - ms;
+  
+  const { data, error } = await supabase
+    .from("session_transcript")
+    .select("id, session_id, content, timestamp_ms")
+    .eq("session_id", sessionId)
+    .gte("timestamp_ms", cutoffTime)
+    .not("content", "is", null)
+    .order("timestamp_ms", { ascending: true });
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data.map((row) => ({
+    id: row.id,
+    sessionId: row.session_id,
+    content: row.content,
+    timestamp: row.timestamp_ms,
+  }));
+}
+
 export interface RecentToolEvent {
   id: string;
   sessionId: string;

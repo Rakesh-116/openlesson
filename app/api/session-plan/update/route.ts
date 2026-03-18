@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateSessionPlanLLM } from "@/lib/openrouter";
-import { getSessionPlan, updateSessionPlan, validatePlanSteps, type SessionPlanStep } from "@/lib/storage";
+import { getSessionPlan, updateSessionPlan, validatePlanSteps, type SessionPlanStep, getRecentTranscripts, getRecentToolEvents, getRecentFacialData, getRecentEEGData, getRecentScreenshots } from "@/lib/storage";
 import { getUserPrompts } from "@/lib/prompts";
 import { createClient } from "@/lib/supabase/server";
 
@@ -12,9 +12,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { 
       sessionId, 
-      gapScore, 
-      signals, 
-      transcript, 
       previousProbes,
       focusedProbes,
       openProbeCount,
@@ -36,10 +33,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    // Fetch plan and prompt overrides in parallel (reuse authenticated client)
-    const [currentPlan, promptOverrides] = await Promise.all([
+    // Fetch plan and prompt overrides in parallel
+    const [currentPlan, promptOverrides, transcripts, toolEvents, facialData, eegData, screenshots] = await Promise.all([
       getSessionPlan(sessionId, supabase),
       getUserPrompts(supabase, user.id),
+      getRecentTranscripts(sessionId, 15000),
+      getRecentToolEvents(sessionId, 15000),
+      getRecentFacialData(sessionId, 15000),
+      getRecentEEGData(sessionId, 15000),
+      getRecentScreenshots(sessionId, 15000),
     ]);
     
     if (!currentPlan) {
@@ -49,15 +51,60 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update the plan using LLM
+    // Build context description from fetched sensor data
+    let contextDescription = "Recent session activity:\n";
+    
+    // Transcript - most important for gap analysis
+    if (transcripts.length > 0) {
+      contextDescription += `- Recent transcripts (${transcripts.length} chunks):\n`;
+      transcripts.forEach((t, i) => {
+        contextDescription += `  ${i + 1}. [${new Date(t.timestamp).toLocaleTimeString()}] ${t.content.slice(0, 200)}${t.content.length > 200 ? '...' : ''}\n`;
+      });
+    }
+    
+    if (toolEvents.length > 0) {
+      const toolTypes = [...new Set(toolEvents.map(e => e.toolName))];
+      contextDescription += `- Tools used: ${toolTypes.join(", ")}\n`;
+    }
+    
+    if (facialData.length > 0) {
+      contextDescription += `- ${facialData.length} facial data point(s) recorded\n`;
+    }
+    
+    if (eegData.length > 0) {
+      contextDescription += `- ${eegData.length} EEG data chunk(s) recorded\n`;
+    }
+    
+    if (screenshots.length > 0) {
+      contextDescription += `- ${screenshots.length} screenshot(s) available for analysis\n`;
+    }
+
+    // If no transcripts, return default - can't do gap analysis without speech
+    if (transcripts.length === 0) {
+      return NextResponse.json({
+        plan: currentPlan,
+        gapScore: 0.5,
+        signals: ["waiting_for_audio"],
+        transcript: "",
+        planChanged: false,
+        nextRequest: null,
+        probesToArchive: [],
+        canGenerateProbe: true,
+        reasoning: "No audio transcripts available yet",
+      });
+    }
+
+    // Combine transcripts into single context
+    const transcriptText = transcripts.map(t => t.content).join("\n\n");
+
+    // Update the plan using LLM with full sensor data
     const result = await updateSessionPlanLLM({
       goal: currentPlan.goal,
       strategy: currentPlan.strategy,
       steps: currentPlan.steps,
       currentStepIndex: currentPlan.currentStepIndex,
-      gapScore: gapScore ?? 0.5,
-      signals: signals || [],
-      transcript: transcript || "",
+      contextDescription,
+      transcript: transcriptText,
       previousProbes: previousProbes || [],
       focusedProbes: focusedProbes || [],
       openProbeCount: openProbeCount ?? 0,
@@ -72,12 +119,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { planChanged, shouldPause, pauseReason, updatedSteps, currentStepIndex, nextRequest, probesToArchive, canGenerateProbe, reasoning } = result.result;
+    const { planChanged, shouldPause, pauseReason, updatedSteps, currentStepIndex, nextRequest, probesToArchive, canGenerateProbe, reasoning, gapScore, signals } = result.result;
 
     // Update plan in database if it changed
     let updatedPlan = currentPlan;
     if (planChanged && updatedSteps) {
-      // Mark the current step as in_progress, previous as completed
       const normalizedSteps: SessionPlanStep[] = updatedSteps.map((step, idx) => ({
         id: step.id || `step_${idx + 1}_${Date.now()}`,
         description: step.description,
@@ -90,8 +136,6 @@ export async function POST(request: NextRequest) {
             : "pending",
       }));
 
-      // Validate before writing — if LLM returned empty/invalid steps,
-      // fall back to keeping current plan's steps with updated statuses
       try {
         validatePlanSteps(normalizedSteps);
         updatedPlan = await updateSessionPlan(currentPlan.id, {
@@ -100,7 +144,6 @@ export async function POST(request: NextRequest) {
         }, supabase);
       } catch (validationError) {
         console.warn('[Plan Update] LLM returned invalid steps, falling back to current steps with status updates:', validationError);
-        // Keep the existing steps but update their statuses based on currentStepIndex
         const fallbackSteps: SessionPlanStep[] = currentPlan.steps.map((step, idx) => ({
           id: step.id,
           description: step.description,
@@ -118,7 +161,6 @@ export async function POST(request: NextRequest) {
         }, supabase);
       }
     } else if (currentStepIndex !== currentPlan.currentStepIndex) {
-      // Just update the current step index if it changed
       const normalizedSteps: SessionPlanStep[] = currentPlan.steps.map((step, idx) => ({
         id: step.id,
         description: step.description,
@@ -146,6 +188,9 @@ export async function POST(request: NextRequest) {
       probesToArchive,
       canGenerateProbe,
       reasoning,
+      gapScore: gapScore ?? 0.5,
+      signals: signals || [],
+      transcript: transcriptText.slice(0, 1000),
     });
   } catch (error) {
     console.error("Update session plan error:", error);

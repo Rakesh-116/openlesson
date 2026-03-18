@@ -199,16 +199,18 @@ export function MobileSessionView({
         }
         
         if (second % 10 === 0 && currentSession) {
-          // Analysis heartbeat - call analyze-gap
+          // Analysis heartbeat - call session-plan/update (now includes gap analysis)
           try {
-            const openProbeCount = currentSession.probes.filter((p: Probe) => !p.archived).length;
-            await fetch("/api/analyze-gap", {
+            const openProbes = currentSession.probes.filter((p: Probe) => !p.archived);
+            const focusedProbes = openProbes.filter((p: Probe) => p.focused).map((p: Probe) => ({ id: p.id, text: p.text }));
+            await fetch("/api/session-plan/update", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 sessionId: currentSession.id,
-                problem: currentSession.problem,
-                openProbeCount,
+                previousProbes: currentSession.probes.map((p: Probe) => p.text),
+                focusedProbes,
+                openProbeCount: openProbes.length,
                 lastProbeTimestamp: 0,
               }),
             });
