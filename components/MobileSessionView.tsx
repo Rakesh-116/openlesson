@@ -256,10 +256,13 @@ export function MobileSessionView({
       if (second % 5 === 0 && session) {
         try {
           if (recorderRef.current) {
-            const recentAudio = recorderRef.current.getRecentAudio(5000);
-            if (recentAudio && recentAudio.size > 100) {
+            const audio = recorderRef.current.getRecentAudio(5000);
+            if (audio && audio.size > 100) {
               const idx = chunkIndexRef.current++;
-              saveAudioChunk(session.id, recentAudio, idx, Date.now());
+              console.log("[Mobile] Saving audio chunk", idx, "size=", audio.size);
+              saveAudioChunk(session.id, audio, idx, Date.now()).catch(err => {
+                console.error("[Mobile] Failed to save audio chunk:", err);
+              });
             }
           }
           if (whiteboardDataRef.current) {
@@ -342,8 +345,23 @@ export function MobileSessionView({
           noiseSuppression: true,
         },
       });
-      stream.getTracks().forEach(t => t.stop());
-      
+
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length === 0) {
+        stream.getTracks().forEach(t => t.stop());
+        setMicStatus("denied");
+        setError("Could not access microphone. No audio track available. Please grant permission and try again.");
+        return;
+      }
+
+      const track = audioTracks[0];
+      if (track.readyState === 'ended') {
+        stream.getTracks().forEach(t => t.stop());
+        setMicStatus("denied");
+        setError("Microphone permission denied. Please allow microphone access in your browser settings.");
+        return;
+      }
+
       chunkIndexRef.current = 0;
 
       const recorder = new AudioRecorder({
@@ -605,17 +623,57 @@ export function MobileSessionView({
   // Pause recording
   const pauseRecording = useCallback(async () => {
     if (!session) return;
+    recorderRef.current?.pause();
     setIsPaused(true);
-    // Timer is stopped by the effect based on isPaused state
     await pauseSession(session.id);
   }, [session]);
 
   // Resume recording
   const resumeRecording = useCallback(async () => {
     if (!session) return;
-    setIsPaused(false);
-    await resumeSession(session.id);
-    // Timer is started by the effect based on isRecording and isPaused state
+
+    if (recorderRef.current) {
+      recorderRef.current.resume();
+      setIsPaused(false);
+      await resumeSession(session.id);
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      });
+
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length === 0) {
+        stream.getTracks().forEach(t => t.stop());
+        setMicStatus("denied");
+        setError("Could not access microphone. Please grant permission and try again.");
+        return;
+      }
+
+      const recorder = new AudioRecorder({
+        chunkDurationMs: 60000,
+        maxBufferDurationMs: 300000,
+      });
+
+      recorderRef.current = recorder;
+      await recorder.start(stream);
+      setIsPaused(false);
+      setIsRecording(true);
+      await resumeSession(session.id);
+
+      const startTime = Date.now();
+      timerRef.current = setInterval(() => {
+        setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
+      }, 1000);
+    } catch (err) {
+      setMicStatus("denied");
+      setError("Could not access microphone. Please grant permission and try again.");
+    }
   }, [session]);
 
   // Archive probe
@@ -694,6 +752,10 @@ export function MobileSessionView({
         video: { facingMode: "environment" },
       });
       cameraStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
       setCameraMode('open');
     } catch (err) {
       console.error("Camera access failed:", err);
@@ -1222,7 +1284,10 @@ export function MobileSessionView({
       </div>
 
       {/* Bottom Tab Bar */}
-      <div className="shrink-0 pb-safe py-1.5 px-4 bg-neutral-900 border-t border-neutral-800">
+      <div
+        className="shrink-0 py-1.5 px-4 bg-neutral-900 border-t border-neutral-800"
+        style={{ paddingBottom: "max(6px, env(safe-area-inset-bottom))" }}
+      >
         <div className="max-w-md mx-auto">
           <div className="flex items-center justify-around">
             {tabs.map((tab, index) => (

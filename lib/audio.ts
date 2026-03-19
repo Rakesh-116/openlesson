@@ -31,6 +31,7 @@ export class AudioRecorder {
   private config: AudioRecorderConfig;
   private startTime: number = 0;
   private isRecording: boolean = false;
+  private isPaused: boolean = false;
   private chunkIndex: number = 0;
 
   constructor(config: Partial<AudioRecorderConfig> = {}) {
@@ -57,12 +58,18 @@ export class AudioRecorder {
         this.ownsStream = true;
       }
 
+      this.stream.getAudioTracks().forEach(track => {
+        track.enabled = true;
+      });
+
       const mimeType = this.getSupportedMimeType();
 
-      this.mediaRecorder = new MediaRecorder(this.stream, {
-        mimeType,
-        audioBitsPerSecond: 64000,
-      });
+      const recorderOptions: MediaRecorderOptions = { mimeType };
+      if (this.stream?.getAudioTracks().length) {
+        recorderOptions.audioBitsPerSecond = 64000;
+      }
+
+      this.mediaRecorder = new MediaRecorder(this.stream, recorderOptions);
 
       this.startTime = Date.now();
       this.chunks = [];
@@ -97,8 +104,8 @@ export class AudioRecorder {
         this.config.onError?.(error);
       };
 
-      console.log("[AudioRecorder] About to start with timeslice:", this.config.chunkDurationMs);
-      this.mediaRecorder.start(this.config.chunkDurationMs);
+      console.log("[AudioRecorder] About to start with timeslice: 5000");
+      this.mediaRecorder.start(5000);
       console.log("[AudioRecorder] Started, state:", this.mediaRecorder.state);
     } catch (error) {
       this.cleanup();
@@ -114,6 +121,7 @@ export class AudioRecorder {
       }
 
       this.isRecording = false;
+      this.isPaused = false;
 
       if (this.mediaRecorder && this.mediaRecorder.state !== "inactive") {
         const finalDataHandler = (event: Event) => {
@@ -133,6 +141,24 @@ export class AudioRecorder {
         resolve();
       }
     });
+  }
+
+  pause(): void {
+    if (this.mediaRecorder && this.mediaRecorder.state === "recording") {
+      this.mediaRecorder.pause();
+      this.isPaused = true;
+    }
+  }
+
+  resume(): void {
+    if (this.mediaRecorder && this.mediaRecorder.state === "paused") {
+      this.mediaRecorder.resume();
+      this.isPaused = false;
+    }
+  }
+
+  getIsPaused(): boolean {
+    return this.isPaused;
   }
 
   private cleanup(): void {
@@ -156,10 +182,11 @@ export class AudioRecorder {
 
   private getSupportedMimeType(): string {
     const types = [
+      "audio/mp4",
+      "audio/aac",
       "audio/webm;codecs=opus",
       "audio/webm",
       "audio/ogg;codecs=opus",
-      "audio/mp4",
     ];
 
     for (const type of types) {

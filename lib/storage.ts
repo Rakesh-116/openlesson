@@ -514,14 +514,18 @@ export async function saveAudioChunk(
   timestamp: number
 ): Promise<string> {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError) {
+    console.error("[saveAudioChunk] Auth error:", authError);
+    throw new Error("Not authenticated");
+  }
   if (!user) throw new Error("Not authenticated");
 
   const ts = Date.now();
   const path = `${user.id}/${sessionId}/chunk_${chunkIndex}_${ts}.webm`;
   const contentType = chunkBlob.type || "audio/webm";
 
-  console.log("[saveAudioChunk] Saving:", { sessionId, chunkIndex, path });
+  console.log("[saveAudioChunk] Saving:", { sessionId, chunkIndex, path, size: chunkBlob.size, contentType });
 
   const { error } = await supabase.storage
     .from("session-audio")
@@ -532,9 +536,10 @@ export async function saveAudioChunk(
 
   if (error) {
     console.error("[saveAudioChunk] Upload error:", error);
-    return "";
+    throw error;
   }
 
+  console.log("[saveAudioChunk] Success:", path);
   return path;
 }
 
