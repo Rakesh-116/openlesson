@@ -1004,7 +1004,7 @@ export function MobileSessionView({
 
   return (
     <div 
-      className="h-screen bg-[#0a0a0a] flex flex-col overflow-hidden"
+      className="h-dvh bg-[#0a0a0a] flex flex-col overflow-hidden"
       style={{ 
         paddingTop: "env(safe-area-inset-top)",
         paddingBottom: "env(safe-area-inset-bottom)",
