@@ -7,6 +7,19 @@ import { hashApiKey, getX402Price, getX402Description } from "@/lib/x402";
 import { analyzeGap } from "@/lib/openrouter";
 import { getUserPrompts } from "@/lib/prompts";
 
+const LOCALE_TO_LANGUAGE: Record<string, string> = {
+  en: "English",
+  vi: "Vietnamese",
+  zh: "Chinese",
+  es: "Spanish",
+  de: "German",
+  pl: "Polish",
+};
+
+function getLanguageName(locale: string): string {
+  return LOCALE_TO_LANGUAGE[locale] || "English";
+}
+
 async function getServiceRoleClient() {
   return createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -86,7 +99,7 @@ export async function POST(req: NextRequest) {
 
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
-      .select("id, user_id, problem, is_agent_session, status")
+      .select("id, user_id, problem, is_agent_session, status, metadata")
       .eq("id", session_id)
       .single();
 
@@ -120,11 +133,15 @@ export async function POST(req: NextRequest) {
 
     const promptOverrides = await getUserPrompts();
 
+    const tutoringLanguage = session.metadata?.tutoringLanguage;
+    const languageName = tutoringLanguage ? getLanguageName(tutoringLanguage) : undefined;
+
     const result = await analyzeGap({
       audioBase64: audio_base64,
       audioFormat: audio_format,
       problem: session.problem,
       promptOverrides,
+      tutoringLanguage: languageName,
     });
 
     if (!result.success) {

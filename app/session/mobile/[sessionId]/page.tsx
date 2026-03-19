@@ -93,6 +93,7 @@ export default function MobileSessionPage() {
     <MobileSessionView
       sessionId={sessionId}
       initialSession={session}
+      initialPlan={plan}
     />
   );
 }

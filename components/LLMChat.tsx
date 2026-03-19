@@ -31,19 +31,53 @@ interface LLMChatProps {
   messages?: ChatMessage[];
   onMessagesChange?: (messages: ChatMessage[]) => void;
   sessionId?: string;
+  tutoringLanguage?: string;
 }
 
-const WELCOME_MESSAGE: ChatMessage = {
-  id: "welcome",
-  role: "assistant",
-  content: "Hi! I'm here to help you with your learning. Feel free to ask me questions about the topic, get clarifications, or discuss concepts in a different way.\n\nRemember - I'm a separate assistant from the tutor. Let me know how I can help!",
+const CHAT_WELCOME_MESSAGES: Record<string, string> = {
+  en: "Hi! I'm here to help you with your learning. Feel free to ask me questions about the topic, get clarifications, or discuss concepts in a different way.\n\nRemember - I'm a separate assistant from the tutor. Let me know how I can help!",
+  es: "¡Hola! Estoy aquí para ayudarte con tu aprendizaje. Siéntete libre de preguntarme sobre el tema, pedir aclaraciones o discutir conceptos de otra manera.\n\nRecuerda - soy un asistente separado del tutor. ¡Dime cómo puedo ayudarte!",
+  vi: "Chào! Tôi ở đây để giúp bạn học tập. Hãy thoải mái hỏi tôi về chủ đề, yêu cầu giải thích hoặc thảo luận theo cách khác.\n\nNhớ nhé - tôi là một trợ lý riêng biệt với gia sư. Hãy cho tôi biết tôi có thể giúp gì!",
+  zh: "你好！我在这里帮助你学习。你可以随意问我关于这个主题的问题，获取解释，或者用不同的方式讨论概念。\n\n请记住 - 我是一个独立于导师的助手。让我知道你需要什么帮助！",
+  de: "Hallo! Ich bin hier, um dir beim Lernen zu helfen. Frag mich ruhig zum Thema, bitte um Erklärungen oder diskutiere Konzepte auf andere Weise.\n\nDenk daran - ich bin ein separater Assistent vom Tutor. Sag mir, wie ich helfen kann!",
+  pl: "Cześć! Jestem tu, żeby pomóc Ci w nauce. Śmiało pytaj o temat, proś o wyjaśnienia lub omawiaj koncepcje w inny sposób.\n\nPamiętaj - jestem osobnym asystentem od korepetytora. Daj znać, jak mogę pomóc!",
 };
 
-export function LLMChat({ problem, messages: externalMessages, onMessagesChange, sessionId }: LLMChatProps) {
+export function LLMChat({ problem, messages: externalMessages, onMessagesChange, sessionId, tutoringLanguage }: LLMChatProps) {
   const { t } = useI18n();
+  
+  // Get localized welcome message based on tutoring language
+  const getWelcomeContent = () => {
+    return tutoringLanguage && CHAT_WELCOME_MESSAGES[tutoringLanguage] 
+      ? CHAT_WELCOME_MESSAGES[tutoringLanguage] 
+      : CHAT_WELCOME_MESSAGES.en;
+  };
+  
   // Use external state if provided, otherwise use internal state
-  const [internalMessages, setInternalMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
+  const [internalMessages, setInternalMessages] = useState<ChatMessage[]>([]);
   const messages = externalMessages ?? internalMessages;
+  
+  // Initialize or update welcome message when tutoringLanguage changes
+  useEffect(() => {
+    const welcomeMsg = {
+      id: "welcome",
+      role: "assistant" as const,
+      content: getWelcomeContent(),
+    };
+    
+    if (externalMessages !== undefined) {
+      // Using external state - update the welcome message in external state
+      if (externalMessages.length === 0) {
+        onMessagesChange?.([welcomeMsg]);
+      } else if (externalMessages[0]?.id === "welcome") {
+        // Replace existing welcome message with localized version
+        onMessagesChange?.([welcomeMsg, ...externalMessages.slice(1)]);
+      }
+    } else if (internalMessages.length === 0) {
+      // Using internal state - initialize with welcome message
+      setInternalMessages([welcomeMsg]);
+    }
+  }, [tutoringLanguage]);
   
   // Helper to update messages - handles both internal state and external callback
   const updateMessages = (newMessages: ChatMessage[]) => {
@@ -63,13 +97,6 @@ export function LLMChat({ problem, messages: externalMessages, onMessagesChange,
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  // Initialize with welcome message if external messages are empty
-  useEffect(() => {
-    if (externalMessages && externalMessages.length === 0) {
-      onMessagesChange?.([WELCOME_MESSAGE]);
-    }
-  }, [externalMessages, onMessagesChange]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,7 +165,11 @@ export function LLMChat({ problem, messages: externalMessages, onMessagesChange,
   };
 
   const handleClear = () => {
-    updateMessages([WELCOME_MESSAGE]);
+    updateMessages([{
+      id: "welcome",
+      role: "assistant",
+      content: getWelcomeContent(),
+    }]);
     setShowClearConfirm(false);
   };
 

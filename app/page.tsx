@@ -8,12 +8,14 @@ import { AgenticModeSelect } from "@/components/AgenticModeSelect";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import { DemoBanner } from "@/components/DemoBanner";
+import { useI18n } from "@/lib/i18n";
 
 type Mode = "session" | "plan" | "agentic";
 
 export default function Home() {
   const [selectedTopic, setSelectedTopic] = useState("");
   const [mode, setMode] = useState<Mode>("session");
+  const { t } = useI18n();
 
   return (
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
@@ -33,7 +35,7 @@ export default function Home() {
                   : "text-slate-500 hover:text-white"
               }`}
             >
-              Learn
+              {t('home.learn')}
             </button>
             <button
               onClick={() => setMode("plan")}
@@ -43,7 +45,7 @@ export default function Home() {
                   : "text-slate-500 hover:text-white"
               }`}
             >
-              Plan
+              {t('home.plan')}
             </button>
             <button
               onClick={() => setMode("agentic")}
@@ -53,7 +55,7 @@ export default function Home() {
                   : "text-slate-500 hover:text-white"
               }`}
             >
-              Agentic
+              {t('home.agentic')}
             </button>
           </div>
         </div>
@@ -63,11 +65,10 @@ export default function Home() {
             {/* Hero Text */}
             <div className="text-center mb-8">
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 tracking-tight">
-                What Do You Want to Learn Today?
+                {t('home.heroTitle')}
               </h1>
               <p className="text-slate-400 max-w-xl mx-auto text-base sm:text-lg leading-relaxed">
-                Your personal AI tutor that guides you through any topic. 
-                Speak your thoughts — get the right questions to deepen your understanding.
+                {t('home.heroSubtitle')}
               </p>
             </div>
 

@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useI18n } from "@/lib/i18n";
 
 interface BreadcrumbItem {
   label: string;
@@ -21,6 +23,7 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [solutionsOpen, setSolutionsOpen] = useState(false);
   const solutionsRef = useRef<HTMLDivElement>(null);
+  const { t } = useI18n();
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -59,19 +62,19 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
   };
 
   const solutionsItems = [
-    { href: "/", label: "For Individuals", desc: "Personal learning & skill building" },
-    { href: "/enterprise", label: "For Sales", desc: "Team training & enablement" },
-    { href: "/eval", label: "For HR", desc: "Candidate testing & competency reports" },
-    { href: "/homeschool", label: "For Families", desc: "Homeschool & parent dashboard" },
-    { href: "/schools", label: "For Schools", desc: "Teachers & classroom management" },
-    { href: "/certify", label: "For Careers", desc: "Certification prep & career growth" },
+    { href: "/", label: t('nav.forIndividuals'), desc: t('nav.personalLearning') },
+    { href: "/enterprise", label: t('nav.forSales'), desc: t('nav.teamTraining') },
+    { href: "/eval", label: t('nav.forHR'), desc: t('nav.candidateTesting') },
+    { href: "/homeschool", label: t('nav.forFamilies'), desc: t('nav.homeschool') },
+    { href: "/schools", label: t('nav.forSchools'), desc: t('nav.teachers') },
+    { href: "/certify", label: t('nav.forCareers'), desc: t('nav.certificationPrep') },
   ];
 
   const navLinks = [
-    { href: "/pricing", label: "Pricing" },
-    { href: "/coaching", label: "Coaching" },
-    { href: "/about", label: "About" },
-    { href: "/dashboard", label: "Dashboard" },
+    { href: "/pricing", label: t('nav.pricing') },
+    { href: "/coaching", label: t('nav.coaching') },
+    { href: "/about", label: t('nav.about') },
+    { href: "/dashboard", label: t('nav.dashboard') },
   ];
 
   return (
@@ -79,7 +82,7 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
       <div className="max-w-5xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Link href="/" className="text-base sm:text-lg font-semibold text-white tracking-tight hover:text-slate-300 transition-colors">
-            openLesson
+            {t('nav.openLesson')}
           </Link>
           
           {breadcrumbs.length > 0 && (
@@ -110,7 +113,7 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
                 onClick={() => setSolutionsOpen(!solutionsOpen)}
                 className="text-xs sm:text-sm text-slate-500 hover:text-white transition-colors inline-flex items-center gap-1"
               >
-                Solutions
+                {t('nav.solutions')}
                 <svg className={`w-3 h-3 transition-transform ${solutionsOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
@@ -141,17 +144,19 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
                 {link.label}
               </Link>
             ))}
+
+            <LanguageSwitcher />
             
             {isLoggedIn === true ? (
               <button
                 onClick={handleSignOut}
                 className="text-xs sm:text-sm text-slate-500 hover:text-white transition-colors"
               >
-                Sign out
+                {t('nav.signOut')}
               </button>
             ) : isLoggedIn === false && (
               <Link href="/login" className="px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors">
-                Sign In
+                {t('nav.signIn')}
               </Link>
             )}
           </div>

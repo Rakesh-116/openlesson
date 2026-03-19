@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { ObserverMode, Frequency } from "@/lib/storage";
+import { useI18n } from "@/lib/i18n";
 
 interface ObserverControlsProps {
   mode: ObserverMode;
@@ -77,6 +78,7 @@ export function ObserverControls({
   isMuted,
   muteRemaining,
 }: ObserverControlsProps) {
+  const { t } = useI18n();
   const [muteCountdown, setMuteCountdown] = useState<string>("");
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -174,7 +176,7 @@ export function ObserverControls({
         <span className="text-neutral-700">|</span>
         <span>Rare · <span className="text-neutral-400">Normal</span> · Frequent</span>
         <span className="text-neutral-700">|</span>
-        <span>{isMuted ? "Muted" : "Mute tutor"}</span>
+        <span>{isMuted ? t('common.muted') : t('common.muteTutor')}</span>
       </div>
     </div>
   );

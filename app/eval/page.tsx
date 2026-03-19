@@ -8,19 +8,21 @@ import { Navbar } from "@/components/Navbar";
 import { RoadmapBadge } from "@/components/FeatureStatus";
 import { LeadCapture } from "@/components/LeadCapture";
 import { DemoBanner } from "@/components/DemoBanner";
+import { useI18n } from "@/lib/i18n";
 
 type Mode = "session" | "plan";
 
-const EVAL_TOPICS = [
-  { topic: "Evaluate my Python skills: implement a binary search tree", category: "Technical Interview", emoji: "🌳" },
-  { topic: "Test my SQL: write a query to find duplicate emails", category: "Database", emoji: "🗃️" },
-  { topic: "System design: design a URL shortener", category: "System Design", emoji: "🔗" },
-  { topic: "Explain Big-O of this algorithm and optimize it", category: "Algorithms", emoji: "📊" },
-];
-
 export default function EvalPage() {
+  const { t } = useI18n();
   const [selectedTopic, setSelectedTopic] = useState("");
   const [mode, setMode] = useState<Mode>("session");
+
+  const evalTopics = [
+    { topic: t('eval.topic1'), category: t('eval.categoryTechnical'), emoji: "🌳" },
+    { topic: t('eval.topic2'), category: t('eval.categoryDatabase'), emoji: "🗃️" },
+    { topic: t('eval.topic3'), category: t('eval.categorySystemDesign'), emoji: "🔗" },
+    { topic: t('eval.topic4'), category: t('eval.categoryAlgorithms'), emoji: "📊" },
+  ];
 
   return (
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
@@ -33,10 +35,10 @@ export default function EvalPage() {
           <div className="w-full max-w-xl mx-auto flex flex-col gap-8">
             {/* Mockup */}
             <div className="rounded-2xl border border-slate-700 bg-slate-800/30 overflow-hidden flex flex-col relative">
-              <RoadmapBadge label="Report Preview" eta="Q2 2026" />
+              <RoadmapBadge label={t('eval.reportPreview')} eta={t('eval.q2')} />
               <div className="bg-slate-700/50 px-5 py-2.5 border-b border-slate-700 flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-300">Assessment Results</span>
-                <span className="text-xs text-slate-500">Sample Report</span>
+                <span className="text-sm font-medium text-slate-300">{t('eval.assessmentResults')}</span>
+                <span className="text-xs text-slate-500">{t('eval.sampleReport')}</span>
               </div>
               <div className="p-5 flex flex-col">
                 <div className="flex items-center gap-6 mb-4">
@@ -44,24 +46,24 @@ export default function EvalPage() {
                     <span className="text-xl font-bold text-emerald-400">78%</span>
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-white mb-1">Overall: Proficient</h3>
+                    <h3 className="text-lg font-semibold text-white mb-1">{t('eval.overallProficient')}</h3>
                     <p className="text-sm text-slate-400">Python, SQL, System Design</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { skill: "Algorithms", score: 85, status: "Advanced" },
-                    { skill: "System Design", score: 72, status: "Proficient" },
-                    { skill: "SQL", score: 91, status: "Advanced" },
-                    { skill: "Debugging", score: 64, status: "Needs Work" },
+                    { skill: t('eval.skillAlgorithms'), score: 85, status: t('eval.advanced') },
+                    { skill: t('eval.skillSystemDesign'), score: 72, status: t('eval.proficient') },
+                    { skill: t('eval.skillSQL'), score: 91, status: t('eval.advanced') },
+                    { skill: t('eval.skillDebugging'), score: 64, status: t('eval.needsWork') },
                   ].map(({ skill, score, status }) => (
                     <div key={skill} className="bg-slate-700/50 rounded-xl p-3 flex flex-col justify-center">
                       <p className="text-xs text-slate-400 mb-1.5">{skill}</p>
                       <div className="flex items-center justify-between">
                         <span className="text-lg font-bold text-white">{score}%</span>
                         <span className={`text-[10px] px-2 py-0.5 rounded ${
-                          status === "Advanced" ? "bg-emerald-500/20 text-emerald-400" :
-                          status === "Proficient" ? "bg-blue-500/20 text-blue-400" :
+                          status === t('eval.advanced') ? "bg-emerald-500/20 text-emerald-400" :
+                          status === t('eval.proficient') ? "bg-blue-500/20 text-blue-400" :
                           "bg-amber-500/20 text-amber-400"
                         }`}>{status}</span>
                       </div>
@@ -70,7 +72,7 @@ export default function EvalPage() {
                 </div>
                 <div className="mt-4 pt-4 border-t border-slate-700">
                   <p className="text-xs text-slate-500">
-                    "Strong fundamentals in algorithms and SQL. Debugging async patterns needs improvement."
+                    {t('eval.mockupQuote')}
                   </p>
                 </div>
               </div>
@@ -78,35 +80,35 @@ export default function EvalPage() {
 
             {/* Value Proposition - Updated to bullet format */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-white">The Problem With Technical Interviews</h3>
+              <h3 className="text-lg font-semibold text-white">{t('eval.problemTitle')}</h3>
               <ul className="space-y-2">
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-red-400 mt-0.5">✗</span>
-                  <span>Candidates memorize LeetCode solutions without understanding</span>
+                  <span>{t('eval.problem1')}</span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-red-400 mt-0.5">✗</span>
-                  <span>Take-home tests get outsourced or AI-assisted</span>
+                  <span>{t('eval.problem2')}</span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-red-400 mt-0.5">✗</span>
-                  <span>Live coding creates anxiety that masks true ability</span>
+                  <span>{t('eval.problem3')}</span>
                 </li>
               </ul>
               
-              <h3 className="text-lg font-semibold text-white pt-4">How openLesson Helps</h3>
+              <h3 className="text-lg font-semibold text-white pt-4">{t('eval.howItHelps')}</h3>
               <ul className="space-y-2">
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-emerald-400 mt-0.5">✓</span>
-                  <span>Candidates explain their reasoning verbally</span>
+                  <span>{t('eval.solution1')}</span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-emerald-400 mt-0.5">✓</span>
-                  <span>AI probes with follow-up questions, like a patient interviewer</span>
+                  <span>{t('eval.solution2')}</span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-emerald-400 mt-0.5">✓</span>
-                  <span>Reports show exactly where understanding breaks down</span>
+                  <span>{t('eval.solution3')}</span>
                 </li>
               </ul>
             </div>
@@ -115,30 +117,30 @@ export default function EvalPage() {
             <div className="grid grid-cols-3 gap-3">
               <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 text-center">
                 <span className="text-2xl mb-2 block">⚖️</span>
-                <p className="text-xs text-slate-400">Fair & Consistent</p>
+                <p className="text-xs text-slate-400">{t('eval.fairConsistent')}</p>
               </div>
               <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 text-center">
                 <span className="text-2xl mb-2 block">📊</span>
-                <p className="text-xs text-slate-400">Detailed Reports</p>
+                <p className="text-xs text-slate-400">{t('eval.detailedReports')}</p>
               </div>
               <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 text-center">
                 <span className="text-2xl mb-2 block">📈</span>
-                <p className="text-xs text-slate-400">Scalable Screening</p>
+                <p className="text-xs text-slate-400">{t('eval.scalableScreening')}</p>
               </div>
             </div>
 
             {/* Disclaimer */}
             <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
               <p className="text-xs text-amber-400/80">
-                <strong>Note:</strong> openLesson is a supplementary assessment tool, not a replacement for human judgment in hiring decisions.
+                {t('eval.disclaimer')}
               </p>
             </div>
 
             {/* Lead Capture Form */}
             <LeadCapture 
               audience="hr"
-              title="Request a Demo for Your Team"
-              subtitle="See how conversational assessments can improve your hiring process."
+              title={t('eval.requestDemo')}
+              subtitle={t('eval.demoSubtitle')}
             />
           </div>
         </div>
@@ -148,7 +150,7 @@ export default function EvalPage() {
           <div className="w-full max-w-xl flex flex-col">
             {/* Solution Label */}
             <div className="flex justify-center mb-4">
-              <span className="text-xs text-slate-500 uppercase tracking-widest">For HR</span>
+              <span className="text-xs text-slate-500 uppercase tracking-widest">{t('eval.label')}</span>
             </div>
 
             {/* Mode Toggle */}
@@ -162,7 +164,7 @@ export default function EvalPage() {
                       : "text-slate-500 hover:text-white"
                   }`}
                 >
-                  Assess Now
+                  {t('eval.assessNow')}
                 </button>
                 <button
                   onClick={() => setMode("plan")}
@@ -172,7 +174,7 @@ export default function EvalPage() {
                       : "text-slate-500 hover:text-white"
                   }`}
                 >
-                  Build Assessment
+                  {t('eval.buildAssessment')}
                 </button>
               </div>
             </div>
@@ -181,10 +183,10 @@ export default function EvalPage() {
               <div className="flex flex-col flex-1">
                 <div className="text-center mb-5">
                   <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">
-                    Assess What Candidates Actually Understand
+                    {t('eval.title')}
                   </h2>
                   <p className="text-slate-500 max-w-md mx-auto text-sm leading-relaxed">
-                    Conversational assessments that probe reasoning — not memorized answers. Get competency reports, not pass/fail scores.
+                    {t('eval.subtitle')}
                   </p>
                 </div>
 
@@ -192,16 +194,16 @@ export default function EvalPage() {
                   <ProblemInput 
                     initialTopic={selectedTopic} 
                     theme="slate" 
-                    placeholder="Define an assessment topic (e.g., Python OOP, System Design, SQL joins)"
+                    placeholder={t('eval.placeholder')}
                   />
                 </div>
 
                 <div className="mt-6 flex-1 flex flex-col">
                   <p className="text-sm text-slate-500 mb-3 text-center">
-                    Or try one of these evaluation scenarios:
+                    {t('eval.orTryOne')}
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 flex-1">
-                    {EVAL_TOPICS.map(({ topic, category, emoji }) => (
+                    {evalTopics.map(({ topic, category, emoji }) => (
                       <button
                         key={topic}
                         onClick={() => setSelectedTopic(topic)}
@@ -225,10 +227,8 @@ export default function EvalPage() {
               <div className="w-full flex-1 flex flex-col">
                 <PlanModeSelect 
                   theme="slate"
-                  title="Build Your Assessment"
-                  subtitle="Create a structured assessment covering multiple competency areas."
-                  placeholder="What skills should this assessment evaluate? (e.g., Backend Engineering, Data Analysis)"
-                  exampleTopics={["Backend Engineering", "Data Analysis", "System Design", "Product Management", "DevOps", "Frontend"]}
+                  title={t('eval.buildAssessment')}
+                  placeholder={t('eval.placeholder')}
                   showYouTubeTab={false}
                 />
               </div>

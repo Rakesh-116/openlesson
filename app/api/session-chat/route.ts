@@ -1,7 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callOpenRouterText, systemMessage, userMessage, DEFAULT_MODEL, RECOMMENDED_TEMPS } from "@/lib/openrouter-client";
+import { createClient } from "@/lib/supabase/server";
 
-const SYSTEM_PROMPT = `You are a learning assistant in openLesson.
+const LOCALE_TO_LANGUAGE: Record<string, string> = {
+  en: "English",
+  vi: "Vietnamese",
+  zh: "Chinese",
+  es: "Spanish",
+  de: "German",
+  pl: "Polish",
+};
+
+function getLanguageName(locale: string): string {
+  return LOCALE_TO_LANGUAGE[locale] || "English";
+}
+
+const BASE_SYSTEM_PROMPT = `You are a learning assistant in openLesson.
 
 The user is in a live session thinking out loud about a topic. A separate AI tutor asks probing questions to find reasoning gaps.
 
@@ -17,14 +31,33 @@ Rules:
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { problem, messages, model } = body;
+    const { problem, messages, model, sessionId, tutoringLanguage: bodyLanguage } = body;
 
     if (!problem) {
       return NextResponse.json({ error: "Missing problem" }, { status: 400 });
     }
 
+    // Get tutoring language from body or session metadata
+    let tutoringLanguage = bodyLanguage;
+    if (!tutoringLanguage && sessionId) {
+      const supabase = await createClient();
+      const { data: sessionData } = await supabase
+        .from("sessions")
+        .select("metadata")
+        .eq("id", sessionId)
+        .single();
+      if (sessionData?.metadata?.tutoringLanguage) {
+        tutoringLanguage = sessionData.metadata.tutoringLanguage;
+      }
+    }
+    const languageName = tutoringLanguage ? getLanguageName(tutoringLanguage) : undefined;
+
+    const systemPrompt = languageName 
+      ? `IMPORTANT: Respond in ${languageName} throughout.\n\n${BASE_SYSTEM_PROMPT}`
+      : BASE_SYSTEM_PROMPT;
+
     const conversationMessages = [
-      systemMessage(SYSTEM_PROMPT),
+      systemMessage(systemPrompt),
       userMessage(`The user is working on: ${problem}`),
       ...(messages || []).map((m: { role: string; content: string }) => ({
         role: m.role as "user" | "assistant",

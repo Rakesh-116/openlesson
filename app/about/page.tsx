@@ -1,92 +1,13 @@
+"use client";
+
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { HowItWorks } from "@/components/HowItWorks";
-import { FAQ, ABOUT_FAQ_ITEMS } from "@/components/FAQ";
+import { FAQ } from "@/components/FAQ";
 import { DemoBanner } from "@/components/DemoBanner";
+import { useI18n } from "@/lib/i18n";
 
-export const metadata = {
-  title: "About - openLesson",
-  description: "openLesson is an AI-powered tutor that listens to you reason and asks guiding questions when it spots gaps. Built by Daniel Colomer of Uncertain Systems.",
-  openGraph: {
-    title: "About openLesson",
-    description: "An AI tutor that listens to you reason and asks questions when it spots gaps. Open source, built on guided questioning.",
-    url: "https://openlesson.academy/about",
-    siteName: "openLesson",
-    type: "website",
-  },
-};
-
-const VALUES = [
-  {
-    icon: "🎓",
-    title: "Understanding Over Answers",
-    description: "We believe the goal of learning is to understand deeply, not to get answers quickly. That's why we never give solutions — only questions.",
-  },
-  {
-    icon: "🔓",
-    title: "Open Source",
-    description: "Education technology should be accessible to everyone. openLesson is fully open source — run it yourself, modify it, build on it.",
-  },
-  {
-    icon: "🎙️",
-    title: "Audio-First",
-    description: "Speaking activates different cognitive processes than typing. When you verbalize your reasoning, gaps in understanding become obvious.",
-  },
-  {
-    icon: "🏛️",
-    title: "Guided Questioning",
-    description: "Questions that guide you to understanding rather than telling you what to think. The best way to learn is to discover answers yourself.",
-  },
-];
-
-const HOW_IT_WORKS_STEPS = [
-  {
-    icon: "🎯",
-    title: "Pick Your Topic",
-    description: "Choose what you want to understand better — math, physics, business concepts, anything.",
-  },
-  {
-    icon: "🎙️",
-    title: "Think Out Loud",
-    description: "Explain your reasoning verbally. Our AI analyzes your speech in real-time for logical gaps.",
-  },
-  {
-    icon: "💡",
-    title: "Get Questioned",
-    description: "Receive targeted guiding questions that reveal what you don't quite understand yet.",
-  },
-];
-
-const USE_CASES = [
-  {
-    icon: "🏠",
-    title: "Homeschool",
-    description: "Guide your kids through any subject with AI that asks the right questions.",
-    href: "/homeschool",
-  },
-  {
-    icon: "🏫",
-    title: "Schools",
-    description: "Classroom tools that let teachers see how each student thinks.",
-    href: "/schools",
-  },
-  {
-    icon: "🏢",
-    title: "Enterprise",
-    description: "Train teams on products, compliance, and sales through active learning.",
-    href: "/enterprise",
-  },
-  {
-    icon: "📜",
-    title: "Certifications",
-    description: "Prepare for AWS, PMP, and other exams by truly understanding the material.",
-    href: "/certify",
-  },
-];
-
-// TODO: Replace these placeholder video IDs with your actual YouTube video IDs
-// Format: Just the video ID from the URL (e.g., "BC7HCkjtOME" from youtube.com/watch?v=BC7HCkjtOME)
 const VIDEOS = [
   {
     id: "PLACEHOLDER_VIDEO_1",
@@ -105,25 +26,122 @@ const VIDEOS = [
   },
 ];
 
-const WHY_OPENLESSON = [
-  {
-    title: "We Listen, Not Lecture",
-    description: "ChatGPT answers your questions. openLesson listens to YOUR answers and finds the holes in your reasoning.",
-    icon: "👂",
-  },
-  {
-    title: "Audio-First Learning",
-    description: "Speaking activates different neural pathways than typing. When you verbalize your thinking, gaps become obvious.",
-    icon: "🗣️",
-  },
-  {
-    title: "Never Gives Answers",
-    description: "We use guided questioning — leading you to understanding through questions, not handing you solutions.",
-    icon: "🤔",
-  },
-];
-
 export default function AboutPage() {
+  const { t } = useI18n();
+
+  const VALUES = [
+    {
+      icon: "🎓",
+      title: t('about.understandingTitle'),
+      description: t('about.understandingDesc'),
+    },
+    {
+      icon: "🔓",
+      title: t('about.openSourceTitle'),
+      description: t('about.openSourceDesc'),
+    },
+    {
+      icon: "🎙️",
+      title: t('about.audioFirstTitle'),
+      description: t('about.audioFirstDesc'),
+    },
+    {
+      icon: "🏛️",
+      title: t('about.guidedTitle'),
+      description: t('about.guidedDesc'),
+    },
+  ];
+
+  const HOW_IT_WORKS_STEPS = [
+    {
+      icon: "🎯",
+      title: t('about.pickTopic'),
+      description: t('about.pickTopicDesc'),
+    },
+    {
+      icon: "🎙️",
+      title: t('about.thinkOutLoud'),
+      description: t('about.thinkOutLoudDesc'),
+    },
+    {
+      icon: "💡",
+      title: t('about.getQuestioned'),
+      description: t('about.getQuestionedDesc'),
+    },
+  ];
+
+  const USE_CASES = [
+    {
+      icon: "🏠",
+      title: t('about.homeschool'),
+      description: t('about.homeschoolDesc'),
+      href: "/homeschool",
+    },
+    {
+      icon: "🏫",
+      title: t('about.schools'),
+      description: t('about.schoolsDesc'),
+      href: "/schools",
+    },
+    {
+      icon: "🏢",
+      title: t('about.enterprise'),
+      description: t('about.enterpriseDesc'),
+      href: "/enterprise",
+    },
+    {
+      icon: "📜",
+      title: t('about.certifications'),
+      description: t('about.certificationsDesc'),
+      href: "/certify",
+    },
+  ];
+
+  const WHY_OPENLESSON = [
+    {
+      title: t('about.weListenTitle'),
+      description: t('about.weListenDesc'),
+      icon: "👂",
+    },
+    {
+      title: t('about.audioFirstLearnTitle'),
+      description: t('about.audioFirstLearnDesc'),
+      icon: "🗣️",
+    },
+    {
+      title: t('about.neverGivesAnswersTitle'),
+      description: t('about.neverGivesAnswersDesc'),
+      icon: "🤔",
+    },
+  ];
+
+  const ABOUT_FAQ_ITEMS = [
+    {
+      question: t('about.faqLanguagesQuestion'),
+      answer: t('about.faqLanguagesAnswer'),
+    },
+    {
+      question: t('about.faqTokenQuestion'),
+      answer: t('about.faqTokenAnswer'),
+    },
+    {
+      question: t('about.faqPartnerQuestion'),
+      answer: t('about.faqPartnerAnswer'),
+    },
+    {
+      question: t('about.faqDifferentQuestion'),
+      answer: t('about.faqDifferentAnswer'),
+    },
+    {
+      question: t('about.faqFreeQuestion'),
+      answer: t('about.faqFreeAnswer'),
+    },
+    {
+      question: t('about.faqSubjectsQuestion'),
+      answer: t('about.faqSubjectsAnswer'),
+    },
+  ];
+
   return (
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
       <DemoBanner />
@@ -134,25 +152,23 @@ export default function AboutPage() {
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-500/10 border border-slate-500/20 text-slate-400 text-xs mb-6">
             <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-            About openLesson
+            {t('about.badge')}
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold text-white mb-5 tracking-tight">
-            An AI Tutor That Listens to You Think
+            {t('about.heroTitle')}
           </h1>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto leading-relaxed">
-            The best way to learn isn't being told the answer—it's discovering it yourself 
-            through the right questions. openLesson listens to your reasoning and asks 
-            questions that reveal gaps you didn't know you had.
+            {t('about.heroSubtitle')}
           </p>
         </div>
 
         {/* How It Works */}
         <div className="mb-16 py-12 border-t border-b border-slate-800">
           <HowItWorks
-            title="How openLesson Works"
+            title={t('about.howItWorks')}
             steps={HOW_IT_WORKS_STEPS}
             cta={{
-              text: "Try Your First Session Free →",
+              text: t('about.tryFirstFree'),
               href: "/register",
             }}
           />
@@ -161,10 +177,10 @@ export default function AboutPage() {
         {/* Use Cases */}
         <div className="mb-16">
           <h2 className="text-xl sm:text-2xl font-semibold text-white text-center mb-3">
-            Use It Your Way
+            {t('about.useItYourWay')}
           </h2>
           <p className="text-slate-500 text-center text-sm mb-8 max-w-lg mx-auto">
-            openLesson adapts to how you learn—at home, in the classroom, or at work.
+            {t('about.useItYourWayDesc')}
           </p>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -186,9 +202,9 @@ export default function AboutPage() {
           </div>
           
           <p className="text-center mt-6 text-sm text-slate-500">
-            Want personalized guidance?{" "}
+            {t('about.wantCoaching')}{" "}
             <Link href="/coaching" className="text-amber-400 hover:text-amber-300 underline underline-offset-2">
-              Try 1-on-1 coaching →
+              {t('about.tryCoaching')}
             </Link>
           </p>
         </div>
@@ -196,10 +212,10 @@ export default function AboutPage() {
         {/* What Makes openLesson Different */}
         <div className="mb-16">
           <h2 className="text-xl sm:text-2xl font-semibold text-white text-center mb-3">
-            What Makes openLesson Different
+            {t('about.whatMakesDifferent')}
           </h2>
           <p className="text-slate-500 text-center text-sm mb-8 max-w-lg mx-auto">
-            Most AI tools give you answers. We help you find them yourself.
+            {t('about.whatMakesDifferentDesc')}
           </p>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -222,27 +238,27 @@ export default function AboutPage() {
 
         {/* The Story */}
         <div className="mb-16">
-          <h2 className="text-2xl font-semibold text-white mb-6">The Story</h2>
+          <h2 className="text-2xl font-semibold text-white mb-6">{t('about.theStory')}</h2>
           <div className="prose prose-invert max-w-none">
             <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6 space-y-4">
               <p className="text-slate-300 leading-relaxed">
-                For seven years, I've solved hard problems live on camera—quantum mechanics, competition math, 
+                For seven years, I&apos;ve solved hard problems live on camera—quantum mechanics, competition math, 
                 theoretical physics—with zero preparation. No scripts. Just real-time thinking, mistakes and all.
               </p>
               <p className="text-slate-300 leading-relaxed">
-                I'm Daniel Colomer, and through{" "}
+                I&apos;m Daniel Colomer, and through{" "}
                 <a href="https://www.youtube.com/@UncertainSystems" target="_blank" rel="noopener noreferrer" className="text-white underline underline-offset-2 hover:text-slate-300">Uncertain Systems</a>, 
-                I've done hundreds of hours of streaming and 1-on-1 coaching. Along the way, I noticed something: 
-                the students who improved fastest weren't the ones I gave the best explanations to. 
+                I&apos;ve done hundreds of hours of streaming and 1-on-1 coaching. Along the way, I noticed something: 
+                the students who improved fastest weren&apos;t the ones I gave the best explanations to. 
                 They were the ones I asked the best <em>questions</em> of.
               </p>
               <p className="text-slate-300 leading-relaxed">
                 Guided questioning — asking questions that expose gaps in understanding — has been the gold standard for teaching 
-                for millennia. But it doesn't scale. A great tutor has to listen carefully, detect where reasoning 
+                for millennia. But it doesn&apos;t scale. A great tutor has to listen carefully, detect where reasoning 
                 breaks down, and ask precisely the right question at the right moment.
               </p>
               <p className="text-slate-300 leading-relaxed">
-                That's what openLesson is: an AI that listens to you reason out loud, detects gaps in your understanding, 
+                That&apos;s what openLesson is: an AI that listens to you reason out loud, detects gaps in your understanding, 
                 and asks the questions that help you find answers yourself. It never tells you what to think — it helps you 
                 think better.
               </p>
@@ -252,9 +268,9 @@ export default function AboutPage() {
 
         {/* Watch Me Think - YouTube Videos */}
         <div className="mb-16">
-          <h2 className="text-2xl font-semibold text-white mb-2">Watch Me Think</h2>
+          <h2 className="text-2xl font-semibold text-white mb-2">{t('about.watchMeThink')}</h2>
           <p className="text-slate-500 text-sm mb-6">
-            Real-time problem solving on{" "}
+            {t('about.watchMeThinkDesc')}{" "}
             <a
               href="https://www.youtube.com/@UncertainSystems"
               target="_blank"
@@ -263,7 +279,6 @@ export default function AboutPage() {
             >
               Uncertain Systems
             </a>
-            . No scripts, no edits.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -305,14 +320,14 @@ export default function AboutPage() {
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
               </svg>
-              Watch more on YouTube
+              {t('about.watchMoreYoutube')}
             </a>
           </div>
         </div>
 
         {/* Our Values */}
         <div className="mb-16">
-          <h2 className="text-2xl font-semibold text-white mb-6">What We Believe</h2>
+          <h2 className="text-2xl font-semibold text-white mb-6">{t('about.whatWeBelieve')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {VALUES.map((value, index) => (
               <div
@@ -337,10 +352,9 @@ export default function AboutPage() {
                 </svg>
               </div>
               <div>
-                <h3 className="text-lg font-medium text-white mb-2">Fully Open Source</h3>
+                <h3 className="text-lg font-medium text-white mb-2">{t('about.fullyOpenSource')}</h3>
                 <p className="text-sm text-slate-400 leading-relaxed mb-4">
-                  openLesson is released under an open source license. You can self-host it, modify it, 
-                  and build on it. We believe educational technology should be accessible to everyone.
+                  {t('about.fullyOpenSourceDesc')}
                 </p>
                 <a
                   href="https://github.com/dncolomer/openLesson"
@@ -348,7 +362,7 @@ export default function AboutPage() {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-sm text-green-400 hover:text-green-300 transition-colors"
                 >
-                  View on GitHub
+                  {t('about.viewOnGithub')}
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
@@ -360,12 +374,12 @@ export default function AboutPage() {
 
         {/* FAQ */}
         <div className="mb-16">
-          <FAQ items={ABOUT_FAQ_ITEMS} />
+          <FAQ items={ABOUT_FAQ_ITEMS} title={t('about.faqTitle')} />
         </div>
 
         {/* Contact */}
         <div className="mb-16">
-          <h2 className="text-2xl font-semibold text-white mb-6">Get in Touch</h2>
+          <h2 className="text-2xl font-semibold text-white mb-6">{t('about.getInTouch')}</h2>
           <div className="flex flex-wrap gap-3">
             <a
               href="https://x.com/uncertainsys"
@@ -416,16 +430,16 @@ export default function AboutPage() {
         {/* CTA */}
         <div className="text-center">
           <h2 className="text-xl font-semibold text-white mb-3">
-            Experience it yourself
+            {t('about.experienceYourself')}
           </h2>
           <p className="text-slate-500 text-sm mb-6 max-w-md mx-auto">
-            Start your first session free. See what guided questioning feels like.
+            {t('about.experienceYourselfDesc')}
           </p>
           <Link
             href="/register"
             className="inline-flex items-center gap-2 px-6 py-3 bg-slate-200 hover:bg-white text-slate-900 text-sm font-medium rounded-xl transition-colors"
           >
-            Get Started Free
+            {t('about.getStartedFree')}
           </Link>
         </div>
       </div>

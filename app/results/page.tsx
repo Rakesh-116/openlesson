@@ -10,6 +10,7 @@ import {
 } from "@/lib/storage";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import { useI18n } from "@/lib/i18n";
 
 interface SessionSummary {
   audioChunks: number;
@@ -19,6 +20,7 @@ interface SessionSummary {
 }
 
 function ResultsContent() {
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("id");
   const [session, setSession] = useState<Session | null>(null);
@@ -113,13 +115,13 @@ function ResultsContent() {
       });
 
       if (!res.ok) {
-        setReportError("Failed to generate report. Please try again.");
+        setReportError(t('results.reportFailed'));
         return;
       }
 
       const { report } = await res.json();
       if (!report) {
-        setReportError("Report came back empty. Please try again.");
+        setReportError(t('results.reportEmpty'));
         return;
       }
 
@@ -128,7 +130,7 @@ function ResultsContent() {
       await saveSession(updatedSession);
     } catch (err) {
       console.error("Report generation failed:", err);
-      setReportError("Something went wrong generating the report.");
+      setReportError(t('results.reportError'));
     } finally {
       setReportLoading(false);
     }
@@ -145,15 +147,15 @@ function ResultsContent() {
   if (!session) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#0a0a0a]">
-        <h1 className="text-2xl font-bold text-white mb-4">Session Not Found</h1>
+        <h1 className="text-2xl font-bold text-white mb-4">{t('results.notFound')}</h1>
         <p className="text-neutral-500 mb-8 text-sm">
-          This session may have been deleted or doesn&apos;t exist.
+          {t('results.notFoundDesc')}
         </p>
         <Link
           href="/"
           className="px-5 py-2.5 bg-white/10 hover:bg-white/15 text-white text-sm rounded-xl transition-colors"
         >
-          Go to Dashboard
+          {t('results.goToDashboard')}
         </Link>
       </div>
     );
@@ -163,7 +165,7 @@ function ResultsContent() {
     <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
       <Navbar 
         breadcrumbs={[
-          { label: "Results" }
+          { label: t('results.breadcrumb') }
         ]}
       />
 
@@ -188,35 +190,35 @@ function ResultsContent() {
           <div className="mb-8">
             <div className="mb-2">
               <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                Stored Data Chunks
+                {t('results.storedData')}
               </h3>
               <p className="text-[10px] text-neutral-600 mt-0.5">
-                Audio recordings, transcriptions, EEG readings, and tool interactions captured during the session
+                {t('results.storedDataDesc')}
               </p>
             </div>
             <div className="grid grid-cols-4 gap-3">
-              <SummaryCard label="Audio" value={summary.audioChunks} />
-              <SummaryCard label="Transcripts" value={summary.transcripts} />
-              <SummaryCard label="EEG" value={summary.eegChunks} />
-              <SummaryCard label="Tools" value={summary.toolData} />
+              <SummaryCard label={t('results.audio')} value={summary.audioChunks} />
+              <SummaryCard label={t('results.transcripts')} value={summary.transcripts} />
+              <SummaryCard label={t('results.eeg')} value={summary.eegChunks} />
+              <SummaryCard label={t('results.tools')} value={summary.toolData} />
             </div>
             <p className="text-[10px] text-neutral-500 mt-3">
-              Your data is contributing to the{" "}
+              {t('results.dataContributionPart1')}{" "}
               <a href="https://huggingface.co/datasets/unsys/ghc" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
-                Global Human Conversation dataset
+                {t('results.datasetName')}
               </a>{" "}
-              to help advance AI understanding of human learning. Thank you!{" "}
+              {t('results.dataContributionPart2')}{" "}
               <a href="https://x.com/uncertainsys" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
-                Contact us on X
+                {t('results.contactOnX')}
               </a>{" "}
-              with any questions.
+              {t('results.dataContributionPart3')}.
             </p>
           </div>
         )}
 
         {session.report ? (
           <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5">
-            <h3 className="text-sm font-medium text-neutral-300 mb-3">Session Report</h3>
+            <h3 className="text-sm font-medium text-neutral-300 mb-3">{t('results.sessionReport')}</h3>
             <div
               className="prose prose-sm prose-invert max-w-none text-neutral-400 leading-relaxed text-sm"
               dangerouslySetInnerHTML={{ __html: markdownToHtml(session.report) }}
@@ -224,22 +226,22 @@ function ResultsContent() {
           </div>
         ) : reportLoading ? (
           <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5">
-            <h3 className="text-sm font-medium text-neutral-300 mb-3">Session Report</h3>
+            <h3 className="text-sm font-medium text-neutral-300 mb-3">{t('results.sessionReport')}</h3>
             <div className="flex items-center gap-3 py-6 justify-center">
               <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full" />
-              <p className="text-sm text-neutral-500">Generating your session report...</p>
+              <p className="text-sm text-neutral-500">{t('results.generatingReport')}</p>
             </div>
           </div>
         ) : reportError ? (
           <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-5">
-            <h3 className="text-sm font-medium text-neutral-300 mb-3">Session Report</h3>
+            <h3 className="text-sm font-medium text-neutral-300 mb-3">{t('results.sessionReport')}</h3>
             <div className="flex flex-col items-center gap-3 py-4">
               <p className="text-sm text-red-400">{reportError}</p>
               <button
                 onClick={() => generateAndSaveReport(session)}
                 className="px-4 py-1.5 text-sm bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg transition-colors"
               >
-                Retry
+                {t('results.retry')}
               </button>
             </div>
           </div>
@@ -250,7 +252,7 @@ function ResultsContent() {
             href="/dashboard"
             className="px-6 py-2.5 bg-white/10 hover:bg-white/15 text-white text-sm font-medium rounded-xl transition-colors"
           >
-            Back to Dashboard
+            {t('results.backToDashboard')}
           </Link>
         </div>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/lib/i18n";
 
 type Audience = "enterprise" | "schools" | "hr";
 
@@ -11,12 +12,6 @@ interface LeadCaptureProps {
   submitText?: string;
 }
 
-const ROLE_OPTIONS: Record<Audience, string[]> = {
-  enterprise: ["Sales Leader", "Training Manager", "L&D Manager", "HR Director", "Executive"],
-  schools: ["Teacher", "Department Head", "Principal", "District Admin", "IT Admin"],
-  hr: ["HR Manager", "Recruiter", "Talent Acquisition Lead", "Hiring Manager", "HR Director"],
-};
-
 const SIZE_OPTIONS = [
   { value: "1-10", label: "1-10" },
   { value: "11-50", label: "11-50" },
@@ -25,24 +20,13 @@ const SIZE_OPTIONS = [
   { value: "500+", label: "500+" },
 ];
 
-const DEFAULT_TITLES: Record<Audience, string> = {
-  enterprise: "Get Early Access to Team Features",
-  schools: "Request a School Pilot",
-  hr: "Request a Demo for Your Team",
-};
-
-const DEFAULT_SUBTITLES: Record<Audience, string> = {
-  enterprise: "Join the waitlist for team dashboards, SSO, and enterprise features.",
-  schools: "We're partnering with early-adopter educators to build classroom tools.",
-  hr: "See how conversational assessments can improve your hiring process.",
-};
-
 export function LeadCapture({
   audience,
   title,
   subtitle,
-  submitText = "Request Access",
+  submitText,
 }: LeadCaptureProps) {
+  const { t } = useI18n();
   const [formData, setFormData] = useState({
     email: "",
     organization: "",
@@ -53,6 +37,73 @@ export function LeadCapture({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const getRoleOptions = (): string[] => {
+    switch (audience) {
+      case "enterprise":
+        return [
+          t("leadCapture.roleSalesLeader"),
+          t("leadCapture.roleTrainingManager"),
+          t("leadCapture.roleLAndDManager"),
+          t("leadCapture.roleHRDirector"),
+          t("leadCapture.roleExecutive"),
+        ];
+      case "schools":
+        return [
+          t("leadCapture.roleTeacher"),
+          t("leadCapture.roleDepartmentHead"),
+          t("leadCapture.rolePrincipal"),
+          t("leadCapture.roleDistrictAdmin"),
+          t("leadCapture.roleITAdmin"),
+        ];
+      case "hr":
+        return [
+          t("leadCapture.roleHRManager"),
+          t("leadCapture.roleRecruiter"),
+          t("leadCapture.roleTalentAcquisition"),
+          t("leadCapture.roleHiringManager"),
+          t("leadCapture.roleHRDirector"),
+        ];
+    }
+  };
+
+  const getDefaultTitle = (): string => {
+    switch (audience) {
+      case "enterprise":
+        return t("enterprise.leadTitle");
+      case "schools":
+        return t("eval.requestDemo");
+      case "hr":
+        return t("eval.requestDemo");
+    }
+  };
+
+  const getDefaultSubtitle = (): string => {
+    switch (audience) {
+      case "enterprise":
+        return t("enterprise.leadSubtitle");
+      case "schools":
+        return t("leadCapture.schoolPilotSubtitle");
+      case "hr":
+        return t("eval.demoSubtitle");
+    }
+  };
+
+  const getOrgLabel = (): string => {
+    return audience === "schools" ? t("leadCapture.schoolName") : t("leadCapture.companyName");
+  };
+
+  const getOrgPlaceholder = (): string => {
+    return audience === "schools" ? t("leadCapture.schoolPlaceholder") : t("leadCapture.enterprisePlaceholder");
+  };
+
+  const getSizeLabel = (): string => {
+    return audience === "schools" ? t("leadCapture.numStudents") : t("leadCapture.teamSize");
+  };
+
+  const getThanksMessage = (): string => {
+    return audience === "schools" ? t("leadCapture.thanksMessageSchool") : t("leadCapture.thanksMessageOrg");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,10 +159,9 @@ export function LeadCapture({
               d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <h3 className="text-lg font-medium text-white mb-2">Thanks for your interest!</h3>
+          <h3 className="text-lg font-medium text-white mb-2">{t("leadCapture.thanksTitle")}</h3>
           <p className="text-sm text-slate-400">
-            We'll be in touch soon to discuss how openLesson can help your{" "}
-            {audience === "schools" ? "school" : "organization"}.
+            {getThanksMessage()}
           </p>
         </div>
       </div>
@@ -122,17 +172,17 @@ export function LeadCapture({
     <div className="w-full">
       <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
         <h3 className="text-lg font-semibold text-white mb-2">
-          {title || DEFAULT_TITLES[audience]}
+          {title || getDefaultTitle()}
         </h3>
         <p className="text-sm text-slate-400 mb-6">
-          {subtitle || DEFAULT_SUBTITLES[audience]}
+          {subtitle || getDefaultSubtitle()}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Email */}
           <div>
             <label htmlFor="email" className="block text-xs text-slate-400 mb-1.5">
-              Work Email *
+              {t("leadCapture.workEmail")} *
             </label>
             <input
               type="email"
@@ -141,7 +191,7 @@ export function LeadCapture({
               required
               value={formData.email}
               onChange={handleChange}
-              placeholder="you@company.com"
+              placeholder={t("leadCapture.emailPlaceholder")}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-slate-600"
             />
           </div>
@@ -149,7 +199,7 @@ export function LeadCapture({
           {/* Organization */}
           <div>
             <label htmlFor="organization" className="block text-xs text-slate-400 mb-1.5">
-              {audience === "schools" ? "School Name" : "Company Name"} *
+              {getOrgLabel()} *
             </label>
             <input
               type="text"
@@ -158,7 +208,7 @@ export function LeadCapture({
               required
               value={formData.organization}
               onChange={handleChange}
-              placeholder={audience === "schools" ? "Springfield High School" : "Acme Corp"}
+              placeholder={getOrgPlaceholder()}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-slate-600"
             />
           </div>
@@ -166,7 +216,7 @@ export function LeadCapture({
           {/* Role */}
           <div>
             <label htmlFor="role" className="block text-xs text-slate-400 mb-1.5">
-              Your Role
+              {t("leadCapture.yourRole")}
             </label>
             <select
               id="role"
@@ -175,20 +225,20 @@ export function LeadCapture({
               onChange={handleChange}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-slate-600"
             >
-              <option value="">Select your role</option>
-              {ROLE_OPTIONS[audience].map((role) => (
+              <option value="">{t("leadCapture.selectRole")}</option>
+              {getRoleOptions().map((role) => (
                 <option key={role} value={role}>
                   {role}
                 </option>
               ))}
-              <option value="Other">Other</option>
+              <option value="Other">{t("leadCapture.roleOther")}</option>
             </select>
           </div>
 
           {/* Size */}
           <div>
             <label htmlFor="size" className="block text-xs text-slate-400 mb-1.5">
-              {audience === "schools" ? "Number of Students" : "Team Size"}
+              {getSizeLabel()}
             </label>
             <select
               id="size"
@@ -197,7 +247,7 @@ export function LeadCapture({
               onChange={handleChange}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-slate-600"
             >
-              <option value="">Select size</option>
+              <option value="">{t("leadCapture.selectSize")}</option>
               {SIZE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -209,7 +259,7 @@ export function LeadCapture({
           {/* Message */}
           <div>
             <label htmlFor="message" className="block text-xs text-slate-400 mb-1.5">
-              Anything else we should know? (optional)
+              {t("leadCapture.optionalNote")}
             </label>
             <textarea
               id="message"
@@ -217,7 +267,7 @@ export function LeadCapture({
               value={formData.message}
               onChange={handleChange}
               rows={3}
-              placeholder="Tell us about your use case..."
+              placeholder={t("leadCapture.messagePlaceholder")}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-slate-600 resize-none"
             />
           </div>
@@ -233,7 +283,7 @@ export function LeadCapture({
             disabled={isSubmitting}
             className="w-full py-3 text-sm font-medium text-slate-900 bg-slate-200 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors"
           >
-            {isSubmitting ? "Submitting..." : submitText}
+            {isSubmitting ? t("leadCapture.submitting") : submitText || t("leadCapture.requestAccess")}
           </button>
         </form>
       </div>

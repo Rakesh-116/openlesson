@@ -4,13 +4,26 @@ import { createSessionPlan, getUserCalibration, getSessionPlan } from "@/lib/sto
 import { getUserPrompts } from "@/lib/prompts";
 import { createClient } from "@/lib/supabase/server";
 
+const LOCALE_TO_LANGUAGE: Record<string, string> = {
+  en: "English",
+  vi: "Vietnamese",
+  zh: "Chinese",
+  es: "Spanish",
+  de: "German",
+  pl: "Polish",
+};
+
+function getLanguageName(locale: string): string {
+  return LOCALE_TO_LANGUAGE[locale] || "English";
+}
+
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { sessionId, problem, objectives, force, planningPrompt } = body;
+    const { sessionId, problem, objectives, force, planningPrompt, tutoringLanguage: bodyLanguage } = body;
 
     if (!sessionId || !problem) {
       return NextResponse.json(
@@ -26,6 +39,20 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
+
+    // Get tutoring language from body or session metadata
+    let tutoringLanguage = bodyLanguage;
+    if (!tutoringLanguage) {
+      const { data: sessionData } = await supabase
+        .from("sessions")
+        .select("metadata")
+        .eq("id", sessionId)
+        .single();
+      if (sessionData?.metadata?.tutoringLanguage) {
+        tutoringLanguage = sessionData.metadata.tutoringLanguage;
+      }
+    }
+    const languageName = tutoringLanguage ? getLanguageName(tutoringLanguage) : undefined;
 
     // If force=true, delete existing plan first
     if (force) {
@@ -62,6 +89,7 @@ export async function POST(request: NextRequest) {
       calibration: calibrationText,
       promptOverrides,
       planningPrompt, // Pass custom planning prompt if provided
+      tutoringLanguage: languageName,
     });
 
     if (!result.success || !result.plan) {

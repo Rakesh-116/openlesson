@@ -92,6 +92,7 @@ export interface Session {
     eegSummary?: Record<string, number> | null;
     whiteboardData?: string | null;
     notebookData?: string | null;
+    tutoringLanguage?: string;
   };
 }
 

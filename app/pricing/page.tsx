@@ -8,6 +8,7 @@ import { Footer } from "@/components/Footer";
 
 import { createClient } from "@/lib/supabase/client";
 import { DemoBanner } from "@/components/DemoBanner";
+import { useI18n } from "@/lib/i18n";
 
 interface UserState {
   authenticated: boolean;
@@ -15,31 +16,8 @@ interface UserState {
   isAdmin: boolean;
 }
 
-// Improved feature descriptions for display (more user-friendly)
-const DISPLAY_FEATURES: Record<PlanId, string[]> = {
-  free: [
-    "1 learning session to try it out",
-    "AI listens as you think out loud",
-    "Get a report showing your understanding",
-  ],
-  regular: [
-    "5 learning sessions per month",
-    "Need more? Add sessions for $1.99 each",
-    "Upload recordings for analysis",
-    "Customize your tutor's style",
-    "Full history and progress tracking",
-  ],
-  pro: [
-    "Unlimited learning sessions",
-    "Upload recordings for analysis",
-    "Customize your tutor's style",
-    "Full history and progress tracking",
-    "Priority support",
-    "Developer API access",
-  ],
-};
-
 export default function PricingPage() {
+  const { t } = useI18n();
   const [user, setUser] = useState<UserState | null>(null);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
@@ -109,22 +87,22 @@ export default function PricingPage() {
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs mb-6">
             <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
-            Open source
+            {t('pricing.openSource')}
           </div>
           <h1 className="text-3xl sm:text-5xl font-bold text-white mb-4 tracking-tight">
-            Simple pricing
+            {t('pricing.title')}
           </h1>
           <p className="text-slate-500 text-base max-w-lg mx-auto leading-relaxed">
-            openLesson is free to use and{" "}
+            {t('pricing.subtitlePart1')}{" "}
               <a
               href="https://github.com/dncolomer/openLesson"
               target="_blank"
               rel="noopener noreferrer"
               className="text-slate-300 hover:text-white underline underline-offset-2 transition-colors"
             >
-              open source on GitHub
+              {t('pricing.githubLinkText')}
             </a>
-            . Self-host it or use the hosted version below.
+            . {t('pricing.subtitlePart2')}
           </p>
         </div>
 
@@ -132,13 +110,17 @@ export default function PricingPage() {
         <div className="flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory -mx-4 px-4 sm:-mx-6 sm:px-6 xl:mx-0 xl:px-0 xl:grid xl:grid-cols-5 xl:overflow-visible xl:pb-0 mb-6">
           {/* Free */}
           <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 flex flex-col min-w-[240px] snap-start shrink-0 xl:min-w-0 xl:shrink">
-            <p className="text-sm text-slate-400 mb-1">{PLANS.free.name}</p>
+            <p className="text-sm text-slate-400 mb-1">{t('pricing.free')}</p>
             <div className="flex items-baseline gap-1 mb-3">
               <span className="text-2xl font-bold text-white">$0</span>
-              <span className="text-sm text-slate-600">forever</span>
+              <span className="text-sm text-slate-600">{t('pricing.forever')}</span>
             </div>
             <ul className="space-y-2 mb-5 flex-1">
-              {DISPLAY_FEATURES.free.map((f) => (
+              {[
+                t('pricing.feature1Session'),
+                t('pricing.featureAiListens'),
+                t('pricing.featureReport'),
+              ].map((f) => (
                 <li key={f} className="flex items-start gap-2 text-[13px] text-slate-400">
                   <CheckIcon />
                   <span>{f}</span>
@@ -148,14 +130,14 @@ export default function PricingPage() {
             {isCurrentPlan("free") ? (
               <div className="mt-auto flex flex-col gap-2">
                 <div className="w-full py-2 text-center text-xs text-slate-600 border border-slate-800 rounded-xl">
-                  Current plan
+                  {t('pricing.currentPlan')}
                 </div>
                 <button
                   onClick={() => handleCheckout("extra_lesson")}
                   disabled={loadingPlan === "extra_lesson"}
                   className="w-full py-2 text-center text-xs text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 rounded-xl transition-colors"
                 >
-                  {loadingPlan === "extra_lesson" ? "Loading..." : "Buy extra session — $1.99"}
+                  {loadingPlan === "extra_lesson" ? t('common.loading') : t('pricing.buyExtraSession')}
                 </button>
               </div>
             ) : !user?.authenticated ? (
@@ -163,7 +145,7 @@ export default function PricingPage() {
                 href="/register"
                 className="mt-auto w-full py-2 text-center text-sm text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors block"
               >
-                Get started
+                {t('pricing.getStarted')}
               </Link>
             ) : null}
           </div>
@@ -171,15 +153,21 @@ export default function PricingPage() {
           {/* Regular */}
           <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-5 flex flex-col relative min-w-[240px] snap-start shrink-0 xl:min-w-0 xl:shrink">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-slate-200 text-slate-900 text-[11px] font-medium rounded-full">
-              Popular
+              {t('pricing.popular')}
             </div>
-            <p className="text-sm text-slate-400 mb-1">{PLANS.regular.name}</p>
+            <p className="text-sm text-slate-400 mb-1">{t('pricing.regular')}</p>
             <div className="flex items-baseline gap-1 mb-3">
               <span className="text-2xl font-bold text-white">$4.99</span>
               <span className="text-sm text-slate-600">/mo</span>
             </div>
             <ul className="space-y-2 mb-5 flex-1">
-              {DISPLAY_FEATURES.regular.map((f) => (
+              {[
+                t('pricing.feature5Sessions'),
+                t('pricing.featureExtra199'),
+                t('pricing.featureUpload'),
+                t('pricing.featureCustomize'),
+                t('pricing.featureHistory'),
+              ].map((f) => (
                 <li key={f} className="flex items-start gap-2 text-[13px] text-slate-400">
                   <CheckIcon />
                   <span>{f}</span>
@@ -189,14 +177,14 @@ export default function PricingPage() {
             {isCurrentPlan("regular") ? (
               <div className="mt-auto flex flex-col gap-2">
                 <div className="w-full py-2 text-center text-xs text-slate-600 border border-slate-800 rounded-xl">
-                  Current plan
+                  {t('pricing.currentPlan')}
                 </div>
                 <button
                   onClick={() => handleCheckout("extra_lesson")}
                   disabled={loadingPlan === "extra_lesson"}
                   className="w-full py-2 text-center text-xs text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 rounded-xl transition-colors"
                 >
-                  {loadingPlan === "extra_lesson" ? "Loading..." : "Buy extra session — $1.99"}
+                  {loadingPlan === "extra_lesson" ? t('common.loading') : t('pricing.buyExtraSession')}
                 </button>
               </div>
             ) : (
@@ -205,20 +193,27 @@ export default function PricingPage() {
                 disabled={loadingPlan === "regular"}
                 className="mt-auto w-full py-2 text-center text-sm font-medium text-slate-900 bg-slate-200 hover:bg-white disabled:opacity-50 rounded-xl transition-colors"
               >
-                {loadingPlan === "regular" ? "Loading..." : "Subscribe"}
+                {loadingPlan === "regular" ? t('common.loading') : t('pricing.subscribe')}
               </button>
             )}
           </div>
 
           {/* Pro */}
           <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 flex flex-col min-w-[240px] snap-start shrink-0 xl:min-w-0 xl:shrink">
-            <p className="text-sm text-slate-400 mb-1">{PLANS.pro.name}</p>
+            <p className="text-sm text-slate-400 mb-1">{t('pricing.pro')}</p>
             <div className="flex items-baseline gap-1 mb-3">
               <span className="text-2xl font-bold text-white">$14.99</span>
               <span className="text-sm text-slate-600">/mo</span>
             </div>
             <ul className="space-y-2 mb-5 flex-1">
-              {DISPLAY_FEATURES.pro.map((f) => (
+              {[
+                t('pricing.featureUnlimited'),
+                t('pricing.featureUpload'),
+                t('pricing.featureCustomize'),
+                t('pricing.featureHistory'),
+                t('pricing.featurePrioritySupport'),
+                t('pricing.featureApiAccess'),
+              ].map((f) => (
                 <li key={f} className="flex items-start gap-2 text-[13px] text-slate-400">
                   <CheckIcon />
                   <span>{f}</span>
@@ -227,7 +222,7 @@ export default function PricingPage() {
             </ul>
             {isCurrentPlan("pro") ? (
               <div className="mt-auto w-full py-2 text-center text-xs text-slate-600 border border-slate-800 rounded-xl">
-                {user?.isAdmin ? "Admin — unlimited" : "Current plan"}
+                {user?.isAdmin ? t('pricing.adminUnlimited') : t('pricing.currentPlan')}
               </div>
             ) : (
               <button
@@ -235,7 +230,7 @@ export default function PricingPage() {
                 disabled={loadingPlan === "pro"}
                 className="mt-auto w-full py-2 text-center text-sm text-white bg-slate-800 hover:bg-slate-700 disabled:opacity-50 rounded-xl transition-colors"
               >
-                {loadingPlan === "pro" ? "Loading..." : "Subscribe"}
+                {loadingPlan === "pro" ? t('common.loading') : t('pricing.subscribe')}
               </button>
             )}
           </div>
@@ -243,36 +238,35 @@ export default function PricingPage() {
           {/* $UNSYS Token */}
           <div className="rounded-xl border border-purple-500/30 bg-gradient-to-b from-purple-950/40 to-slate-900/50 p-5 flex flex-col relative min-w-[240px] snap-start shrink-0 xl:min-w-0 xl:shrink">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-[11px] font-medium rounded-full whitespace-nowrap">
-              Crypto
+              {t('pricing.crypto')}
             </div>
-            <p className="text-sm text-purple-400 mb-1">$UNSYS Token</p>
+            <p className="text-sm text-purple-400 mb-1">{t('pricing.unstakeToken')}</p>
             <div className="flex items-baseline gap-1 mb-3">
-              <span className="text-2xl font-bold text-white">Stake</span>
-              <span className="text-sm text-slate-600">once</span>
+              <span className="text-2xl font-bold text-white">{t('pricing.stake')}</span>
+              <span className="text-sm text-slate-600">{t('pricing.once')}</span>
             </div>
 
             <p className="text-xs text-slate-400 mb-3 leading-relaxed">
-              $UNSYS is the native Solana token behind openLesson. Stake to get permanent plan access
-              and earn up to 50% revenue share from every user you refer as a partner.
+              {t('pricing.tokenDescription')}
             </p>
 
             <div className="space-y-1.5 mb-3">
               <div className="flex items-center justify-between text-xs bg-slate-950/60 rounded-lg px-2.5 py-1.5">
-                <span className="text-slate-400">1M</span>
-                <span className="text-slate-300">Regular + 10%</span>
+                <span className="text-slate-400">{t('pricing.token1M')}</span>
+                <span className="text-slate-300">{t('pricing.tierBenefitRegular10')}</span>
               </div>
               <div className="flex items-center justify-between text-xs bg-slate-950/60 rounded-lg px-2.5 py-1.5">
-                <span className="text-slate-400">2M</span>
-                <span className="text-slate-300">Regular + 30%</span>
+                <span className="text-slate-400">{t('pricing.token2M')}</span>
+                <span className="text-slate-300">{t('pricing.tierBenefitRegular30')}</span>
               </div>
               <div className="flex items-center justify-between text-xs bg-slate-950/60 rounded-lg px-2.5 py-1.5">
-                <span className="text-slate-400">5M</span>
-                <span className="text-purple-300 font-medium">Pro + 50%</span>
+                <span className="text-slate-400">{t('pricing.token5M')}</span>
+                <span className="text-purple-300 font-medium">{t('pricing.tierBenefitPro50')}</span>
               </div>
             </div>
 
             <p className="text-[10px] text-slate-600 font-mono mb-3 truncate">
-              CA: Dza3Bey5tvyYiPgcGRKo...pump
+              {t('pricing.tokenContract')}
             </p>
 
             <div className="mt-auto flex flex-col gap-2">
@@ -282,52 +276,52 @@ export default function PricingPage() {
                 rel="noopener noreferrer"
                 className="w-full py-2 text-center text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 rounded-xl transition-colors"
               >
-                Buy on pump.fun
+                {t('pricing.buyOnPumpFun')}
               </a>
               <Link
                 href="/dashboard/partner"
                 className="w-full py-2 text-center text-xs text-purple-400 hover:text-purple-300 border border-purple-500/30 hover:border-purple-500/50 rounded-xl transition-colors"
               >
-                Stake &amp; become a partner
+                {t('pricing.stakeBecomePartner')}
               </Link>
             </div>
           </div>
 
           {/* Enterprise */}
           <div className="rounded-xl border border-slate-800 bg-gradient-to-b from-slate-900/60 to-slate-900/30 p-5 flex flex-col min-w-[240px] snap-start shrink-0 xl:min-w-0 xl:shrink">
-            <p className="text-sm text-slate-400 mb-1">Enterprise</p>
+            <p className="text-sm text-slate-400 mb-1">{t('pricing.enterprise')}</p>
             <div className="flex items-baseline gap-1 mb-3">
-              <span className="text-2xl font-bold text-white">Custom</span>
+              <span className="text-2xl font-bold text-white">{t('pricing.custom')}</span>
             </div>
 
             <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-              For teams, schools, and organizations. Custom features, dedicated support, and volume pricing.
+              {t('pricing.enterpriseDesc')}
             </p>
 
             <ul className="space-y-2 mb-5 flex-1">
               <li className="flex items-start gap-2 text-[13px] text-slate-400">
                 <CheckIcon />
-                <span>Dedicated onboarding</span>
+                <span>{t('pricing.dedicatedOnboarding')}</span>
               </li>
               <li className="flex items-start gap-2 text-[13px] text-slate-400">
                 <CheckIcon />
-                <span>Custom topic libraries</span>
+                <span>{t('pricing.customTopicLibraries')}</span>
               </li>
               <li className="flex items-start gap-2 text-[13px] text-slate-400">
                 <CheckIcon />
-                <span>Analytics &amp; reporting</span>
+                <span>{t('pricing.analyticsReporting')}</span>
               </li>
               <li className="flex items-start gap-2 text-[13px] text-slate-400">
                 <CheckIcon />
-                <span>Volume pricing</span>
+                <span>{t('pricing.volumePricing')}</span>
               </li>
               <li className="flex items-start gap-2 text-[13px] text-slate-500 opacity-60">
                 <ClockIcon />
-                <span>SSO (coming soon)</span>
+                <span>{t('pricing.ssoComingSoon')}</span>
               </li>
               <li className="flex items-start gap-2 text-[13px] text-slate-500 opacity-60">
                 <ClockIcon />
-                <span>LMS (coming soon)</span>
+                <span>{t('pricing.lmsComingSoon')}</span>
               </li>
             </ul>
 
@@ -336,7 +330,7 @@ export default function PricingPage() {
                 href="mailto:daniel@uncertain.systems"
                 className="w-full py-2 text-center text-sm font-medium text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors"
               >
-                Contact us
+                {t('pricing.contactUs')}
               </a>
               <a
                 href="https://x.com/uncertainsys"
@@ -353,8 +347,7 @@ export default function PricingPage() {
         {/* All plans include */}
         <div className="text-center text-xs text-slate-600 mb-12">
           <p>
-            All plans include real-time audio analysis and AI-generated session reports.
-            Cancel monthly anytime. Staked tokens grant permanent access while staked.
+            {t('pricing.allPlansInclude')}
           </p>
         </div>
 

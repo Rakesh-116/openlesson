@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n";
 
 function LoginForm() {
   const [email, setEmail] = useState("");
@@ -13,6 +14,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useI18n();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +37,7 @@ function LoginForm() {
       router.push(redirectTo);
       router.refresh();
     } catch {
-      setError("An unexpected error occurred.");
+      setError(t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -43,13 +45,13 @@ function LoginForm() {
 
   return (
     <div className="w-full max-w-sm">
-      <h2 className="text-xl font-semibold text-white mb-1">Welcome back</h2>
-      <p className="text-sm text-neutral-500 mb-8">Sign in to continue your sessions.</p>
+      <h2 className="text-xl font-semibold text-white mb-1">{t('auth.welcomeBack')}</h2>
+      <p className="text-sm text-neutral-500 mb-8">{t('auth.signInSubtitle')}</p>
 
       <form onSubmit={handleLogin} className="space-y-3.5">
         <div>
           <label htmlFor="email" className="block text-[11px] text-neutral-500 uppercase tracking-wider mb-1.5">
-            Email
+            {t('auth.email')}
           </label>
           <input
             id="email"
@@ -63,7 +65,7 @@ function LoginForm() {
 
         <div>
           <label htmlFor="password" className="block text-[11px] text-neutral-500 uppercase tracking-wider mb-1.5">
-            Password
+            {t('auth.password')}
           </label>
           <input
             id="password"
@@ -86,14 +88,14 @@ function LoginForm() {
           disabled={loading}
           className="w-full py-2.5 bg-white hover:bg-neutral-200 disabled:bg-neutral-800 disabled:text-neutral-600 text-black text-sm font-medium rounded-xl transition-colors mt-2"
         >
-          {loading ? "Signing in..." : "Sign In"}
+          {loading ? t('auth.signingIn') : t('auth.signIn')}
         </button>
       </form>
 
       <p className="text-center text-xs text-neutral-600 mt-6">
-        Don&apos;t have an account?{" "}
+        {t('auth.noAccount')}{" "}
         <Link href="/register" className="text-neutral-400 hover:text-white transition-colors">
-          Sign up
+          {t('auth.signUp')}
         </Link>
       </p>
     </div>
@@ -101,13 +103,15 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  const { t } = useI18n();
+  
   return (
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
       <Navbar showNav={false} />
 
       <div className="flex-1 flex items-center justify-center px-6">
         <Suspense fallback={
-          <div className="w-full max-w-sm text-center text-neutral-600 text-sm">Loading...</div>
+          <div className="w-full max-w-sm text-center text-neutral-600 text-sm">{t('common.loading')}</div>
         }>
           <LoginForm />
         </Suspense>

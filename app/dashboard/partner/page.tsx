@@ -6,6 +6,7 @@ import { Navbar } from "@/components/Navbar";
 import { createClient } from "@/lib/supabase/client";
 import { PARTNER_TIERS, UNSTAKE_LOCKUP_DAYS, PartnerTier } from "@/lib/partners";
 import { Copy, ExternalLink, DollarSign, Users, Link2, AlertTriangle, Check, X, Wallet, ArrowRight } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 declare global {
   interface Window {
@@ -43,6 +44,7 @@ interface PartnerData {
 
 export default function PartnerPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
   const [partnerData, setPartnerData] = useState<PartnerData | null>(null);
@@ -204,17 +206,17 @@ export default function PartnerPage() {
       <div className="min-h-screen bg-[#0a0a0a]">
         <Navbar />
         <div className="max-w-4xl mx-auto px-6 py-12">
-          <h1 className="text-3xl font-bold text-white mb-4">Partner Program</h1>
-          <p className="text-neutral-400 mb-8">Become an openLesson partner and earn revenue from your referrals.</p>
+          <h1 className="text-3xl font-bold text-white mb-4">{t('partner.program') || 'Partner Program'}</h1>
+          <p className="text-neutral-400 mb-8">{t('partner.becomePartner') || "Become an openLesson partner and earn revenue from your referrals."}</p>
           
           {stakeStep === "done" ? (
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Check className="w-8 h-8 text-emerald-400" />
               </div>
-              <h2 className="text-2xl font-bold text-white mb-2">You&apos;re now a partner!</h2>
-              <p className="text-neutral-400 mb-2">Your partner account has been created.</p>
-              <p className="text-sm text-emerald-400 mb-6">Your plan has been automatically upgraded based on your stake tier.</p>
+              <h2 className="text-2xl font-bold text-white mb-2">{t('partner.nowPartner') || "You're now a partner!"}</h2>
+              <p className="text-neutral-400 mb-2">{t('partner.accountCreated') || "Your partner account has been created."}</p>
+              <p className="text-sm text-emerald-400 mb-6">{t('partner.planUpgraded') || "Your plan has been automatically upgraded based on your stake tier."}</p>
               <button
                 onClick={() => router.push("/dashboard")}
                 className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500"
@@ -353,14 +355,14 @@ export default function PartnerPage() {
               </div>
 
               <div className="mt-8 p-4 bg-neutral-900 rounded-lg border border-neutral-800">
-                <h3 className="font-semibold text-white mb-2">How it works</h3>
+                <h3 className="font-semibold text-white mb-2">{t('partner.howItWorks') || 'How it works'}</h3>
                 <ol className="text-sm text-neutral-400 space-y-1 list-decimal list-inside">
-                  <li>Select a tier and connect your wallet</li>
-                  <li>Send $UNSYS tokens to the staking address</li>
-                  <li>Get a unique invite link to share with others</li>
-                  <li>Earn revenue when your referred users subscribe</li>
-                  <li>Connect your Stripe account to receive payouts</li>
-                  <li>Request unstake anytime (60-day lockup applies)</li>
+                  <li>{t('partner.step1') || 'Select a tier and connect your wallet'}</li>
+                  <li>{t('partner.step2') || 'Send $UNSYS tokens to the staking address'}</li>
+                  <li>{t('partner.step3') || 'Get a unique invite link to share with others'}</li>
+                  <li>{t('partner.step4') || 'Earn revenue when your referred users subscribe'}</li>
+                  <li>{t('partner.step5') || 'Connect your Stripe account to receive payouts'}</li>
+                  <li>{t('partner.step6') || 'Request unstake anytime (60-day lockup applies)'}</li>
                 </ol>
               </div>
             </>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
+import { I18nProvider } from "../lib/i18n";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -115,7 +116,9 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased min-h-screen">
-        {children}
+        <I18nProvider>
+          {children}
+        </I18nProvider>
         <Analytics />
       </body>
     </html>

@@ -8,10 +8,12 @@ import { createClient } from "@/lib/supabase/client";
 import { getSessions, deleteSession, getLearningPlans, type Session, type LearningPlan } from "@/lib/storage";
 import { DEFAULT_PROMPTS, PROMPT_META, type PromptKey, type UserPrompts } from "@/lib/openrouter";
 import { Crown, Users, DollarSign, Copy, Check, ExternalLink, AlertTriangle, Link2 } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 type Tab = "home" | "usage" | "config" | "partner";
 
 function PartnerTabContent() {
+  const { t } = useI18n();
   const [partnerData, setPartnerData] = useState<{
     partner: {
       tier: string;
@@ -82,7 +84,7 @@ function PartnerTabContent() {
 
   if (!partnerData) {
     return (
-      <div className="text-center py-12 text-neutral-400">Loading partner data...</div>
+      <div className="text-center py-12 text-neutral-400">{t('dashboard.loadingPartner')}</div>
     );
   }
 
@@ -104,8 +106,8 @@ function PartnerTabContent() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">Partner Dashboard</h2>
-          <p className="text-sm text-neutral-400">Manage your partnership and referrals</p>
+          <h2 className="text-lg font-semibold text-white">{t('dashboard.title')}</h2>
+          <p className="text-sm text-neutral-400">{t('dashboard.subtitle')}</p>
         </div>
         <Link
           href="/dashboard/partner"
@@ -119,7 +121,7 @@ function PartnerTabContent() {
         <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
           <div className="flex items-center gap-2 text-neutral-400 mb-2">
             <Crown className="w-4 h-4" />
-            <span className="text-sm">Tier</span>
+            <span className="text-sm">{t('dashboard.tier')}</span>
           </div>
           <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${tierColors[partnerData.partner.tier as keyof typeof tierColors] || tierColors.bronze}`}>
             {partnerData.partner.tier.charAt(0).toUpperCase() + partnerData.partner.tier.slice(1)}
@@ -132,7 +134,7 @@ function PartnerTabContent() {
         <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
           <div className="flex items-center gap-2 text-neutral-400 mb-2">
             <Users className="w-4 h-4" />
-            <span className="text-sm">Referrals</span>
+            <span className="text-sm">{t('dashboard.referrals')}</span>
           </div>
           <div className="text-2xl font-bold text-white">{partnerData.stats.referralCount}</div>
         </div>
@@ -140,7 +142,7 @@ function PartnerTabContent() {
         <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
           <div className="flex items-center gap-2 text-neutral-400 mb-2">
             <DollarSign className="w-4 h-4" />
-            <span className="text-sm">Unclaimed</span>
+            <span className="text-sm">{t('dashboard.unclaimed')}</span>
           </div>
           <div className="text-2xl font-bold text-emerald-400">
             ${partnerData.partner.unclaimedRevenue.toFixed(2)}
@@ -217,6 +219,7 @@ interface AgentApiKey {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("home");
 
@@ -633,7 +636,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-        <div className="text-neutral-400">Loading...</div>
+        <div className="text-neutral-400">{t('common.loading')}</div>
       </div>
     );
   }
@@ -642,7 +645,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       <Navbar />
 
-      {/* Partner CTA for non-partners */}
+            {/* Partner CTA for non-partners */}
       {!loading && !isPartner && (
         <div className="border-b border-neutral-800/60 bg-neutral-900/50">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
@@ -652,15 +655,15 @@ export default function DashboardPage() {
                   <Crown className="w-5 h-5 text-amber-400" />
                 </div>
                 <div>
-                  <div className="text-sm text-white font-medium">Become an openLesson Partner</div>
-                  <div className="text-xs text-neutral-400">Earn up to 50% revenue from your referrals</div>
+                  <div className="text-sm text-white font-medium">{t('dashboard.becomePartner')}</div>
+                  <div className="text-xs text-neutral-400">{t('dashboard.earnUpTo')}</div>
                 </div>
               </div>
               <Link
                 href="/dashboard/partner"
                 className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-500"
               >
-                Learn More
+                {t('dashboard.learnMore') || 'Learn More'}
               </Link>
             </div>
           </div>
@@ -671,10 +674,10 @@ export default function DashboardPage() {
       <div className="border-b border-neutral-800/60">
         <div className="max-w-5xl mx-auto flex gap-1 px-4 sm:px-6">
           {[
-            { id: "home", label: "Home" },
-            { id: "usage", label: "Usage" },
-            ...(user?.isAdmin ? [{ id: "config", label: "Configuration" }] : []),
-            ...(isPartner ? [{ id: "partner", label: "Partner" }] : []),
+            { id: "home", label: t('common.home') || 'Home' },
+            { id: "usage", label: t('dashboard.usage') || 'Usage' },
+            ...(user?.isAdmin ? [{ id: "config", label: t('dashboard.config') || 'Configuration' }] : []),
+            ...(isPartner ? [{ id: "partner", label: t('dashboard.partner') || 'Partner' }] : []),
           ].map((tab) => (
             <button
               key={tab.id}
@@ -701,23 +704,23 @@ export default function DashboardPage() {
           <div className="space-y-8">
             {/* Recent Activity Header */}
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Recent Activity</h2>
+              <h2 className="text-lg font-semibold">{t('dashboard.recentActivity')}</h2>
               <Link
                 href="/"
                 className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
               >
-                Start new session
+                {t('dashboard.startNewSession')}
               </Link>
             </div>
 
             {/* Recent Sessions (last 3) */}
             <div>
-              <h3 className="text-sm font-medium text-neutral-400 mb-3">Recent Sessions</h3>
+              <h3 className="text-sm font-medium text-neutral-400 mb-3">{t('dashboard.recentSessions')}</h3>
               {sessions.length === 0 ? (
                 <div className="text-center py-8 text-neutral-500 border border-neutral-800 rounded-lg">
-                  <p className="text-sm">No sessions yet.</p>
+                  <p className="text-sm">{t('dashboard.noSessionsYet')}</p>
                   <Link href="/" className="text-blue-400 hover:underline mt-2 inline-block text-sm">
-                    Start your first session
+                    {t('dashboard.startYourFirstSession')}
                   </Link>
                 </div>
               ) : (
@@ -778,19 +781,19 @@ export default function DashboardPage() {
             {/* Latest Plan */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-neutral-400">Latest Plan</h3>
+                <h3 className="text-sm font-medium text-neutral-400">{t('dashboard.latestPlanTitle')}</h3>
                 <Link
                   href="/"
                   className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
                 >
-                  Create new plan
+                  {t('dashboard.createNewPlan')}
                 </Link>
               </div>
               {learningPlans.length === 0 ? (
                 <div className="text-center py-8 text-neutral-500 border border-neutral-800 rounded-lg">
-                  <p className="text-sm">No learning plans yet.</p>
+                  <p className="text-sm">{t('dashboard.noLearningPlansYet')}</p>
                   <Link href="/" className="text-blue-400 hover:underline mt-2 inline-block text-sm">
-                    Create your first plan
+                    {t('dashboard.createYourFirstPlan')}
                   </Link>
                 </div>
               ) : (
@@ -844,12 +847,12 @@ export default function DashboardPage() {
 
             {/* All Sessions - Full Search Table */}
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold">All Sessions</h2>
+              <h2 className="text-lg font-semibold">{t('dashboard.allSessions')}</h2>
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="flex-1">
                   <input
                     type="text"
-                    placeholder="Search sessions..."
+                    placeholder={t('dashboard.searchSessions')}
                     value={sessionSearch}
                     onChange={(e) => setSessionSearch(e.target.value)}
                     className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:border-neutral-600"
@@ -860,16 +863,16 @@ export default function DashboardPage() {
                   onChange={(e) => setSessionStatusFilter(e.target.value)}
                   className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-neutral-600"
                 >
-                  <option value="all">All Status</option>
-                  <option value="active">Active</option>
-                  <option value="paused">Paused</option>
-                  <option value="completed">Completed</option>
+                  <option value="all">{t('dashboard.allStatus')}</option>
+                  <option value="active">{t('dashboard.active')}</option>
+                  <option value="paused">{t('dashboard.paused')}</option>
+                  <option value="completed">{t('dashboard.completed')}</option>
                 </select>
               </div>
 
               {filteredSessions.length === 0 ? (
                 <div className="text-center py-8 text-neutral-500">
-                  <p className="text-sm">No matching sessions.</p>
+                  <p className="text-sm">{t('dashboard.noMatchingSessions')}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -928,7 +931,7 @@ export default function DashboardPage() {
               {totalSessionPages > 1 && (
                 <div className="flex items-center justify-between pt-4 border-t border-neutral-800/60">
                   <p className="text-xs text-neutral-500">
-                    Showing {(sessionPage - 1) * sessionPageSize + 1}-{Math.min(sessionPage * sessionPageSize, filteredSessions.length)} of {filteredSessions.length}
+                    {t('dashboard.showingResults', { start: String((sessionPage - 1) * sessionPageSize + 1), end: String(Math.min(sessionPage * sessionPageSize, filteredSessions.length)), total: String(filteredSessions.length) })}
                   </p>
                   <div className="flex gap-2">
                     <button
@@ -936,14 +939,14 @@ export default function DashboardPage() {
                       disabled={sessionPage === 1}
                       className="px-3 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-700 rounded transition-colors"
                     >
-                      Previous
+                      {t('dashboard.previous')}
                     </button>
                     <button
                       onClick={() => setSessionPage((p) => Math.min(totalSessionPages, p + 1))}
                       disabled={sessionPage === totalSessionPages}
                       className="px-3 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-700 rounded transition-colors"
                     >
-                      Next
+                      {t('dashboard.next')}
                     </button>
                   </div>
                 </div>
@@ -952,11 +955,11 @@ export default function DashboardPage() {
 
             {/* All Plans - Full Search Table */}
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold">All Plans</h2>
+              <h2 className="text-lg font-semibold">{t('dashboard.allPlans')}</h2>
               <div className="flex-1">
                 <input
                   type="text"
-                  placeholder="Search plans..."
+                  placeholder={t('dashboard.searchPlans')}
                   value={planSearch}
                   onChange={(e) => setPlanSearch(e.target.value)}
                   className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:border-neutral-600"
@@ -965,7 +968,7 @@ export default function DashboardPage() {
 
               {filteredPlans.length === 0 ? (
                 <div className="text-center py-8 text-neutral-500">
-                  <p className="text-sm">No matching plans.</p>
+                  <p className="text-sm">{t('dashboard.noMatchingPlans')}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -1022,7 +1025,7 @@ export default function DashboardPage() {
               {totalPlanPages > 1 && (
                 <div className="flex items-center justify-between pt-4 border-t border-neutral-800/60">
                   <p className="text-xs text-neutral-500">
-                    Showing {(planPage - 1) * planPageSize + 1}-{Math.min(planPage * planPageSize, filteredPlans.length)} of {filteredPlans.length}
+                    {t('dashboard.showingResults', { start: String((planPage - 1) * planPageSize + 1), end: String(Math.min(planPage * planPageSize, filteredPlans.length)), total: String(filteredPlans.length) })}
                   </p>
                   <div className="flex gap-2">
                     <button
@@ -1030,14 +1033,14 @@ export default function DashboardPage() {
                       disabled={planPage === 1}
                       className="px-3 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-700 rounded transition-colors"
                     >
-                      Previous
+                      {t('dashboard.previous')}
                     </button>
                     <button
                       onClick={() => setPlanPage((p) => Math.min(totalPlanPages, p + 1))}
                       disabled={planPage === totalPlanPages}
                       className="px-3 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-700 rounded transition-colors"
                     >
-                      Next
+                      {t('dashboard.next')}
                     </button>
                   </div>
                 </div>
@@ -1050,13 +1053,13 @@ export default function DashboardPage() {
         {activeTab === "usage" && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Your Subscription</h2>
+              <h2 className="text-lg font-semibold">{t('dashboard.yourSubscription')}</h2>
               <Link href="/pricing" className="text-sm text-emerald-400 hover:text-emerald-300">
-                View all plans
+                {t('dashboard.viewAllPlans')}
               </Link>
             </div>
             {loadingUsage ? (
-              <div className="text-center py-12 text-neutral-400">Loading...</div>
+              <div className="text-center py-12 text-neutral-400">{t('common.loading')}</div>
             ) : usageData ? (
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
@@ -1074,15 +1077,15 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-3xl font-bold text-white mb-1 capitalize">{usageData.plan}</div>
                   <div className="text-sm text-neutral-500">
-                    {usageData.plan === "pro" ? "$14.99/month" : usageData.plan === "regular" ? "$4.99/month" : "Free forever"}
+                    {usageData.plan === "pro" ? t('dashboard.pricePro') : usageData.plan === "regular" ? t('dashboard.priceRegular') : t('dashboard.priceFree')}
                   </div>
                 </div>
 
                 <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
-                  <div className="text-sm text-neutral-400 mb-4">Sessions This Period</div>
+                  <div className="text-sm text-neutral-400 mb-4">{t('dashboard.sessionsThisPeriod')}</div>
                   <div className="flex items-end gap-2 mb-3">
                     <span className="text-3xl font-bold text-white">{usageData.used}</span>
-                    <span className="text-sm text-neutral-500 mb-1">/ {usageData.limit === null ? "∞" : usageData.limit}</span>
+                    <span className="text-sm text-neutral-500 mb-1">/ {usageData.limit === null ? t('dashboard.infinity') : usageData.limit}</span>
                   </div>
                   {usageData.limit !== null && (
                     <div className="w-full bg-neutral-800 rounded-full h-2">
@@ -1100,15 +1103,15 @@ export default function DashboardPage() {
                   )}
                   <div className="mt-3 text-xs text-neutral-500">
                     {usageData.limit === null
-                      ? "Unlimited sessions"
-                      : `${usageData.limit - usageData.used} sessions remaining`}
+                      ? t('dashboard.unlimitedSessions')
+                      : t('dashboard.sessionsRemaining', { count: usageData.limit - usageData.used })}
                   </div>
                 </div>
 
                 <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
-                  <div className="text-sm text-neutral-400 mb-4">Extra Lessons</div>
+                  <div className="text-sm text-neutral-400 mb-4">{t('dashboard.extraLessons')}</div>
                   <div className="text-3xl font-bold text-white mb-1">{usageData.extraLessons}</div>
-                  <div className="text-sm text-neutral-500 mb-4">purchased credits</div>
+                  <div className="text-sm text-neutral-500 mb-4">{t('dashboard.purchasedCredits')}</div>
                   <button
                     onClick={async () => {
                       try {
@@ -1164,7 +1167,7 @@ export default function DashboardPage() {
                 </div>
               </div>
             ) : (
-              <div className="text-center py-12 text-neutral-400">Unable to load usage data</div>
+              <div className="text-center py-12 text-neutral-400">{t('dashboard.unableToLoadUsage')}</div>
             )}
 
             {/* API Access Section (merged from Agentic Usage) */}
@@ -1325,7 +1328,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
               ) : (
-                <p className="text-sm text-neutral-500">Loading provider info...</p>
+                <p className="text-sm text-neutral-500">{t('dashboard.loadingProvider')}</p>
               )}
             </div>
 

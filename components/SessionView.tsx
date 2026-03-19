@@ -7,7 +7,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { AudioRecorder, blobToBase64 } from "@/lib/audio";
+import { AudioRecorder } from "@/lib/audio";
 import { FacialDataPoint } from "./FaceTracker";
 import {
   getSession,
@@ -60,7 +60,7 @@ import {
   openPopOutWindow, 
   type SessionAction 
 } from "@/lib/broadcast-sync";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, languageNames } from "@/lib/i18n";
 
 
 // Configuration
@@ -69,7 +69,7 @@ const ANALYSIS_INTERVAL_MS = 10000;
 
 export function SessionView({ sessionId }: { sessionId: string }) {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale, supportedLocales } = useI18n();
   const [session, setSession] = useState<Session | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -77,6 +77,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tutoringLanguage, setTutoringLanguage] = useState(locale);
 
   // Mic check
   const [micStatus, setMicStatus] = useState<"idle" | "checking" | "ready" | "denied">("idle");
@@ -175,6 +176,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
   const sessionPlanRef = useRef<SessionPlan | null>(null);
+  const [languageConfirmed, setLanguageConfirmed] = useState(false);
+  const [isPreparing, setIsPreparing] = useState(false);
 
   // Prep material for tools
   const [prepToolContent, setPrepToolContent] = useState<{ title: string; content: string } | null>(null);
@@ -328,9 +331,18 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [analysisBeat, setAnalysisBeat] = useState(0);
 
   // Screen capture
-  const screenCaptureRef = useRef<{ captureNow: () => Promise<Blob | null>; start: () => Promise<boolean>; stop: () => void } | null>(null);
+  const screenCaptureRef = useRef<{ captureNow: () => Promise<Blob | null>; start: () => Promise<boolean>; stop: () => void; isCapturing: () => boolean; getStream: () => MediaStream | null } | null>(null);
   const [isScreenCapturing, setIsScreenCapturing] = useState(false);
   const [screenshotCount, setScreenshotCount] = useState(0);
+
+  // Pause/Resume state tracking
+  const wasRecordingRef = useRef(false);
+  const wasScreenCapturingRef = useRef(false);
+  const wasWebcamEnabledRef = useRef(false);
+  const wasMuseStreamingRef = useRef(false);
+  const pausedAudioStreamRef = useRef<MediaStream | null>(null);
+  const pausedScreenStreamRef = useRef<MediaStream | null>(null);
+  const pausedWebcamStreamRef = useRef<MediaStream | null>(null);
 
   const handleFacialData = useCallback((data: FacialDataPoint) => {
     setLatestFacialData(data);
@@ -607,6 +619,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         setSession(s);
         sessionRef.current = s;
         
+        // Reset language confirmation for new session
+        setLanguageConfirmed(false);
+        
+        // Load tutoring language from session metadata if set
+        if (s.metadata?.tutoringLanguage) {
+          setTutoringLanguage(s.metadata.tutoringLanguage as typeof tutoringLanguage);
+        }
+        
         // Set paused state if session was paused
         if (s.status === "paused") {
           setIsPaused(true);
@@ -637,111 +657,29 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           setObjectiveStatuses(loadedObjectives.map(() => "blue"));
         }
 
-        // Load or create session plan
+        // Load or create session plan - but wait for language confirmation first
         setPlanLoading(true);
         setPlanError(null);
         try {
-          // First try to load existing plan
+          // First try to load existing plan - use it but user will need to confirm language to translate if needed
           const existingPlan = await getSessionPlan(s.id);
           // Validate existing plan before using
           if (existingPlan && existingPlan.steps && Array.isArray(existingPlan.steps) && existingPlan.steps.length > 0 && existingPlan.goal) {
             setSessionPlan(existingPlan);
             sessionPlanRef.current = existingPlan;
           } else if (existingPlan) {
-            console.warn("Loaded existing plan is invalid, will create new one:", existingPlan);
+            console.warn("Loaded existing plan is invalid:", existingPlan);
           }
-          
-          if (!existingPlan || !existingPlan.steps || !Array.isArray(existingPlan.steps) || existingPlan.steps.length === 0 || !existingPlan.goal) {
-            // Create new plan
-            const planRes = await fetch("/api/session-plan/create", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ 
-                sessionId: s.id, 
-                problem: s.problem, 
-                objectives: loadedObjectives,
-                planningPrompt: s.planningPrompt, // Pass custom planning prompt if available
-              }),
-            });
-            if (!cancelled) {
-              if (planRes.ok) {
-                const { plan } = await planRes.json();
-                // Validate plan before setting
-                if (plan && plan.steps && Array.isArray(plan.steps) && plan.steps.length > 0 && plan.goal) {
-                  setSessionPlan(plan);
-                  sessionPlanRef.current = plan;
-                } else {
-                  console.warn("Session plan creation returned invalid data:", plan);
-                  setPlanError("Failed to create valid session plan");
-                }
-              } else {
-                const errorData = await planRes.json().catch(() => ({}));
-                setPlanError(errorData.error || "Failed to create session plan");
-                console.warn("Session plan creation failed:", errorData);
-              }
-            }
-          }
+          // Don't create new plan here - wait for user to confirm language first
         } catch (err) {
-          console.warn("Session plan loading/creation failed:", err);
-          if (!cancelled) {
-            setPlanError("Failed to load session plan");
-          }
+          console.warn("Session plan loading failed:", err);
         } finally {
           if (!cancelled) setPlanLoading(false);
         }
 
-        // Fire opening probe (now uses session plan context if available)
-        if (s.probes.length === 0) {
-          setOpeningProbeLoading(true);
-          try {
-            // Get the first step from the plan if available
-            const plan = sessionPlanRef.current;
-            const firstStep = plan?.steps?.[0];
-            
-            // If plan has a first step with valid description, use that as the opening request
-            if (firstStep?.description?.trim()) {
-              const savedProbe = await addProbe(s.id, {
-                timestamp: 0,
-                gapScore: 0,
-                signals: ["opening", "plan_step"],
-                text: firstStep.description,
-                requestType: firstStep.type,
-                planStepId: firstStep.id,
-              });
-              const updated = addProbeToSession(s, savedProbe);
-              setSession(updated);
-              sessionRef.current = updated;
-              setActiveProbe(savedProbe);
-              setViewingProbeIndex(updated.probes.length - 1);
-            } else {
-              // Fallback to regular opening probe (no plan, or plan step has empty description)
-              const res = await fetch("/api/opening-probe", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ problem: s.problem }),
-              });
-              if (!cancelled && res.ok) {
-                const { probe: probeText } = await res.json();
-                // Only create probe if we got a non-empty text
-                if (probeText?.trim()) {
-                  const savedProbe = await addProbe(s.id, {
-                    timestamp: 0,
-                    gapScore: 0,
-                    signals: ["opening"],
-                    text: probeText,
-                    requestType: "question",
-                  });
-                  const updated = addProbeToSession(s, savedProbe);
-                  setSession(updated);
-                  sessionRef.current = updated;
-                  setActiveProbe(savedProbe);
-                  setViewingProbeIndex(updated.probes.length - 1);
-                }
-              }
-            }
-          } catch { /* opening probe is optional */ }
-          finally { if (!cancelled) setOpeningProbeLoading(false); }
-        } else {
+        // Fire opening probe (now uses session plan context if available) - but only if session already has probes
+        // Opening probe generation is now handled after language confirmation
+        if (s.probes.length > 0) {
           // Session already has probes (e.g. page refresh) — show the latest
           const lastProbe = s.probes[s.probes.length - 1];
           setActiveProbe(lastProbe);
@@ -1056,6 +994,18 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     } catch (err) {
       console.error("Analysis error:", err);
     } finally {
+      // Transcribe missing audio chunks (analysis heartbeat)
+      if (currentSession && isRecordingRef.current) {
+        try {
+          await fetch("/api/transcribe-chunks", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId: currentSession.id }),
+          });
+        } catch (err) {
+          console.warn("Transcription heartbeat error:", err);
+        }
+      }
       isAnalyzingRef.current = false;
       setIsAnalyzing(false);
     }
@@ -1084,17 +1034,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           }
           setTransferHealth({ ...transferHealthRef.current });
         }
-      }
-
-      // Transcription: transcribe any missing chunks from the last 15 seconds
-      try {
-        await fetch("/api/transcribe-chunks", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: currentSession.id }),
-        });
-      } catch (err) {
-        console.warn("Transcription heartbeat error:", err);
       }
 
       // Tool data: save whiteboard and notebook content
@@ -1195,22 +1134,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               await saveAudioChunk(session.id, chunk.blob, idx, chunk.timestamp);
               transferHealthRef.current.audio.saved++;
               setTransferHealth({ ...transferHealthRef.current });
-              
-              const formData = new FormData();
-              formData.append("audio", chunk.blob);
-              formData.append("session_id", session.id);
-              formData.append("chunk_index", chunk.chunkIndex.toString());
-              formData.append("timestamp_ms", chunk.timestamp.toString());
-              
-              const transcribeRes = await fetch("/api/transcribe-chunk", {
-                method: "POST",
-                body: formData,
-              });
-              
-              if (!transcribeRes.ok) {
-                console.error("Transcription failed for chunk", chunk.chunkIndex);
-              }
-              
               setPipelineErrors(prev => ({ ...prev, storage: undefined, transcription: undefined }));
             } catch (err) {
               console.error("Chunk storage error:", err);
@@ -1280,30 +1203,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     // Persist to Supabase
     await saveSession(finalSession);
 
-    // Save audio first before navigating - it needs to be done before results page loads
-    if (fullAudio) {
-      await saveSessionAudio(finalSession.id, fullAudio);
-
-      // Trigger transcription for RAG
-      const audioBase64 = await blobToBase64(fullAudio);
-      try {
-        const transcriptResponse = await fetch("/api/process-session-transcript", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: finalSession.id,
-            audioBase64,
-            audioFormat: fullAudio.type.split("/")[1] || "webm",
-          }),
-        });
-        if (!transcriptResponse.ok) {
-          console.warn("[stopRecording] Transcription failed:", await transcriptResponse.text());
-        }
-      } catch (transcribeErr) {
-        console.error("[stopRecording] Transcription error:", transcribeErr);
-      }
-    }
-
     // Save EEG data before navigating
     if (museStatus === "streaming" && eegBufferRef.current.size > 0) {
       const channels: Record<string, number[]> = {};
@@ -1348,11 +1247,35 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     if (timerRef.current) clearInterval(timerRef.current);
     if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
 
+    // Track what was active before pause (for auto-resume)
+    wasRecordingRef.current = !!recorderRef.current;
+    wasScreenCapturingRef.current = isScreenCapturing;
+    wasWebcamEnabledRef.current = isWebcamEnabled;
+    wasMuseStreamingRef.current = museStatus === "streaming";
+
+    // Store stream references for potential resume
+    pausedAudioStreamRef.current = stream;
+    pausedScreenStreamRef.current = screenCaptureRef.current?.getStream() || null;
+    pausedWebcamStreamRef.current = null;
+
     const recorder = recorderRef.current;
     await recorder?.stop();
     recorderRef.current = null;
 
+    // Stop all data flows
     if (stream) { stream.getTracks().forEach((t) => t.stop()); setStream(null); }
+    
+    // Stop screen capture
+    if (screenCaptureRef.current) {
+      screenCaptureRef.current.stop();
+      setIsScreenCapturing(false);
+    }
+
+    // Stop EEG
+    handleDisconnectMuse();
+
+    // Stop webcam (FaceTracker manages its own stream internally)
+    setIsWebcamEnabled(false);
     
     setIsRecording(false);
     setIsPaused(true);
@@ -1366,7 +1289,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     if (!session) return;
 
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Resume audio stream
+      let mediaStream = pausedAudioStreamRef.current;
+      const tracksStillActive = mediaStream?.getTracks().some(t => t.readyState === "live");
+      if (!mediaStream || !tracksStillActive) {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
       setStream(mediaStream);
 
       const AudioRecorderClass = (await import("@/lib/audio")).AudioRecorder;
@@ -1387,22 +1315,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               await saveAudioChunk(session.id, chunk.blob, idx, chunk.timestamp);
               transferHealthRef.current.audio.saved++;
               setTransferHealth({ ...transferHealthRef.current });
-              
-              const formData = new FormData();
-              formData.append("audio", chunk.blob);
-              formData.append("session_id", session.id);
-              formData.append("chunk_index", chunk.chunkIndex.toString());
-              formData.append("timestamp_ms", chunk.timestamp.toString());
-              
-              const transcribeRes = await fetch("/api/transcribe-chunk", {
-                method: "POST",
-                body: formData,
-              });
-              
-              if (!transcribeRes.ok) {
-                console.error("Transcription failed for chunk", chunk.chunkIndex);
-              }
-              
               setPipelineErrors(prev => ({ ...prev, storage: undefined, transcription: undefined }));
             } catch (err) {
               console.error("Chunk storage error:", err);
@@ -1418,11 +1330,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
       setIsRecording(true);
       setIsPaused(false);
-      chunkIndexRef.current = 0;
 
       await resumeSession(session.id);
 
-      const startTime = Date.now();
+      const startTime = Date.now() - (elapsedSeconds * 1000);
       timerRef.current = setInterval(() => {
         setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
       }, 1000);
@@ -1444,6 +1355,38 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         
         heartbeatSecondRef.current = (second + 1) % 10;
       }, 1000);
+
+      // Auto-resume data sources that were active before pause
+      // Screen capture
+      if (wasScreenCapturingRef.current) {
+        if (screenCaptureRef.current) {
+          const existingStream = pausedScreenStreamRef.current;
+          const streamStillActive = existingStream?.getVideoTracks().some(t => t.readyState === "live");
+          if (streamStillActive) {
+            // Try to restart with existing stream if tracks are still active
+            try {
+              await screenCaptureRef.current.start();
+              setIsScreenCapturing(true);
+            } catch (e) {
+              console.warn("[Resume] Could not restart screen capture:", e);
+              wasScreenCapturingRef.current = false;
+            }
+          } else {
+            // Screen sharing was stopped by user, can't auto-resume
+            wasScreenCapturingRef.current = false;
+          }
+        }
+      }
+
+      // Webcam (FaceTracker will auto-start when enabled)
+      if (wasWebcamEnabledRef.current) {
+        setIsWebcamEnabled(true);
+      }
+
+      // EEG (auto-reconnect)
+      if (wasMuseStreamingRef.current) {
+        handleConnectMuse();
+      }
 
     } catch (err) {
       setError("Could not access microphone. Please grant permission and try again.");
@@ -1899,6 +1842,173 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
             {(() => {
               const isSessionReady = sessionPlan && !planLoading && !openingProbeLoading && session?.probes && session.probes.length > 0;
+              
+              // Phase 1: Language selection (before confirmation)
+              if (!languageConfirmed) {
+                const isButtonDisabled = planLoading || isPreparing;
+                
+                return (
+                  <>
+                    <div className="mb-4">
+                      <label className="block text-xs text-neutral-400 mb-2">
+                        Tutor language
+                      </label>
+                      <select
+                        value={tutoringLanguage}
+                        onChange={(e) => {
+                          const newLang = e.target.value as typeof tutoringLanguage;
+                          setTutoringLanguage(newLang);
+                        }}
+                        disabled={isButtonDisabled}
+                        className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:border-neutral-500 disabled:opacity-50"
+                      >
+                        {supportedLocales.map((loc) => (
+                          <option key={loc} value={loc}>
+                            {languageNames[loc]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      onClick={async () => {
+                        if (!session || isPreparing) return;
+                        
+                        setIsPreparing(true);
+                        setPlanLoading(true);
+                        setOpeningProbeLoading(true);
+                        setPlanError(null);
+                        
+                        try {
+                          // Save language to session metadata
+                          const { data: sessionData } = await (await import("@/lib/supabase/client")).createClient()
+                            .from("sessions")
+                            .select("metadata")
+                            .eq("id", session.id)
+                            .single();
+                          if (sessionData?.metadata) {
+                            await (await import("@/lib/supabase/client")).createClient()
+                              .from("sessions")
+                              .update({ metadata: { ...sessionData.metadata, tutoringLanguage } })
+                              .eq("id", session.id);
+                          }
+                          
+                          // Check if plan exists - if so, translate it; otherwise create new
+                          const existingPlan = await getSessionPlan(session.id);
+                          let newPlan = null;
+                          
+                          if (existingPlan && existingPlan.steps && existingPlan.steps.length > 0 && existingPlan.goal) {
+                            // Translate existing plan
+                            console.log("[SessionView] Attempting to translate plan to:", tutoringLanguage);
+                            const translateRes = await fetch("/api/session-plan/translate", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ 
+                                sessionId: session.id, 
+                                tutoringLanguage,
+                                objectives,
+                              }),
+                            });
+                            console.log("[SessionView] Translate response status:", translateRes.status);
+                            if (translateRes.ok) {
+                              const { plan } = await translateRes.json();
+                              newPlan = plan;
+                              console.log("[SessionView] Translation succeeded, plan goal:", plan?.goal);
+                            } else {
+                              const err = await translateRes.json().catch(() => ({}));
+                              console.error("[SessionView] Translation failed:", err);
+                            }
+                          } 
+                          
+                          if (!newPlan) {
+                            // Create new plan with target language
+                            console.log("[SessionView] Creating new plan with language:", tutoringLanguage);
+                            const planRes = await fetch("/api/session-plan/create", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ 
+                                sessionId: session.id, 
+                                problem: session.problem, 
+                                objectives,
+                                planningPrompt: session.planningPrompt,
+                                force: true,
+                                tutoringLanguage,
+                              }),
+                            });
+                            console.log("[SessionView] Create plan response status:", planRes.status);
+                            if (planRes.ok) {
+                              const { plan } = await planRes.json();
+                              newPlan = plan;
+                              console.log("[SessionView] Created plan goal:", plan?.goal);
+                            } else {
+                              const errorData = await planRes.json().catch(() => ({}));
+                              console.error("[SessionView] Create plan failed:", errorData);
+                              setPlanError(errorData.error || "Failed to create session plan");
+                            }
+                          }
+                          
+                          if (newPlan) {
+                            setSessionPlan(newPlan);
+                            sessionPlanRef.current = newPlan;
+                          } else {
+                            console.error("[SessionView] No plan could be created or translated!");
+                            setPlanError("Failed to create session plan. Please try again.");
+                          }
+                          
+                          // Archive existing probes and generate new opening probe
+                          if (session.probes.length > 0) {
+                            for (const probe of session.probes) {
+                              await archiveProbe(probe.id);
+                            }
+                          }
+                          setSession({ ...session, probes: [] });
+                          setActiveProbe(null);
+                          setViewingProbeIndex(-1);
+                          
+                          const probeRes = await fetch("/api/opening-probe", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ problem: session.problem, objectives, sessionId: session.id, tutoringLanguage }),
+                          });
+                          if (probeRes.ok) {
+                            const { probe: probeText } = await probeRes.json();
+                            if (probeText?.trim()) {
+                              const savedProbe = await addProbe(session.id, {
+                                timestamp: 0,
+                                gapScore: 0,
+                                signals: ["opening"],
+                                text: probeText,
+                                requestType: "question",
+                              });
+                              const updated = addProbeToSession({ ...session, probes: [] }, savedProbe);
+                              setSession(updated);
+                              sessionRef.current = updated;
+                              setActiveProbe(savedProbe);
+                              setViewingProbeIndex(updated.probes.length - 1);
+                            }
+                          }
+                          
+                          // Mark language as confirmed
+                          setLanguageConfirmed(true);
+                        } catch (err) {
+                          console.error("Failed to prepare session:", err);
+                          setPlanError("Failed to prepare session");
+                        } finally {
+                          setPlanLoading(false);
+                          setOpeningProbeLoading(false);
+                          setIsPreparing(false);
+                        }
+                      }}
+                      disabled={isButtonDisabled}
+                      className="w-full py-2.5 px-4 font-medium rounded-lg transition-colors bg-cyan-500 hover:bg-cyan-400 text-neutral-900 disabled:bg-neutral-700 disabled:text-neutral-500"
+                    >
+                      {isButtonDisabled ? 'Preparing...' : 'Confirm Language'}
+                    </button>
+                  </>
+                );
+              }
+              
+              // Phase 2: Preparation or Ready (after language confirmed)
               return (
                 <>
                   {!isSessionReady && (
@@ -1993,6 +2103,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         problem={session.problem}
                         messages={chatMessages}
                         onMessagesChange={setChatMessages}
+                        sessionId={session.id}
+                        tutoringLanguage={tutoringLanguage}
                       />
                     )}
 

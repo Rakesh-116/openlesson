@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useI18n } from "@/lib/i18n";
 
 interface AudioVisualizerProps {
   isRecording: boolean;
@@ -8,6 +9,7 @@ interface AudioVisualizerProps {
 }
 
 export function AudioVisualizer({ isRecording, stream }: AudioVisualizerProps) {
+  const { t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationRef = useRef<number>(0);
@@ -181,6 +183,7 @@ function drawWaveform(
 }
 
 export function RecordingIndicator({ isRecording }: { isRecording: boolean }) {
+  const { t } = useI18n();
   return (
     <div className="flex items-center gap-3">
       <div
@@ -189,7 +192,7 @@ export function RecordingIndicator({ isRecording }: { isRecording: boolean }) {
         }`}
       />
       <span className="text-sm text-neutral-400">
-        {isRecording ? "Recording..." : "Not recording"}
+        {isRecording ? t('session.recording') || 'Recording...' : t('session.notRecording') || 'Not recording'}
       </span>
     </div>
   );

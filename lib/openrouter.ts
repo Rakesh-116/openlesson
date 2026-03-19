@@ -514,6 +514,7 @@ export interface AnalyzeGapOptions {
   openProbeCount?: number;
   lastProbeTimestamp?: number;
   promptOverrides?: UserPrompts;
+  tutoringLanguage?: string;
 }
 
 export async function analyzeGap(
@@ -524,10 +525,14 @@ export async function analyzeGap(
     : 0;
   const openProbeCount = options.openProbeCount ?? 0;
 
-  const prompt = getPrompt("gap_detection", options.promptOverrides)
+  let prompt = getPrompt("gap_detection", options.promptOverrides)
     .replace("{problem}", options.problem)
     .replace("{openProbeCount}", openProbeCount.toString())
     .replace("{secondsSinceLastProbe}", secondsSinceLastProbe.toString());
+
+  if (options.tutoringLanguage) {
+    prompt = `IMPORTANT: Respond in ${options.tutoringLanguage} throughout.\n\n${prompt}`;
+  }
 
   const response = await callOpenRouterWithAudio<GapAnalysisResult>(
     prompt,
@@ -561,9 +566,10 @@ export async function analyzeGap(
 export async function generateOpeningProbe(
   problem: string,
   promptOverrides?: UserPrompts,
-  objectives?: string[]
+  objectives?: string[],
+  tutoringLanguage?: string
 ): Promise<{ success: boolean; probe?: string; error?: string }> {
-  const prompt = getPrompt("opening_probe", promptOverrides)
+  let prompt = getPrompt("opening_probe", promptOverrides)
     .replace("{problem}", problem)
     .replace(
       "{objectives}",
@@ -571,6 +577,10 @@ export async function generateOpeningProbe(
         ? `Session goals to work towards:\n${objectives.map((o, i) => `${i + 1}. ${o}`).join("\n")}`
         : ""
     );
+
+  if (tutoringLanguage) {
+    prompt = `IMPORTANT: Respond in ${tutoringLanguage} throughout.\n\n${prompt}`;
+  }
 
   const response = await callOpenRouterText(
     [userMessage(prompt)],
@@ -602,12 +612,13 @@ export interface GenerateProbeOptions {
   audioFormat?: string;
   promptOverrides?: UserPrompts;
   objectives?: string[];
+  tutoringLanguage?: string;
 }
 
 export async function generateProbe(
   options: GenerateProbeOptions
 ): Promise<{ success: boolean; probe?: string; error?: string }> {
-  const prompt = getPrompt("probe_generation", options.promptOverrides)
+  let prompt = getPrompt("probe_generation", options.promptOverrides)
     .replace("{problem}", options.problem)
     .replace(
       "{objectives}",
@@ -630,6 +641,10 @@ export async function generateProbe(
         : ""
     );
 
+  if (options.tutoringLanguage) {
+    prompt = `IMPORTANT: Respond in ${options.tutoringLanguage} throughout.\n\n${prompt}`;
+  }
+
   // Use optional audio if provided
   const audio = options.audioBase64 && options.audioFormat
     ? { data: options.audioBase64, format: options.audioFormat }
@@ -650,44 +665,6 @@ export async function generateProbe(
   }
 
   return { success: true, probe: response.data };
-}
-
-// ============================================
-// SESSION END CHECK (Tutor-Initiated)
-// ============================================
-
-export interface SessionEndCheckResult {
-  should_end: boolean;
-  reason: string;
-}
-
-export async function checkSessionEnd(options: {
-  elapsed: string;
-  probeCount: number;
-  recentScores: number[];
-  problem: string;
-  promptOverrides?: UserPrompts;
-}): Promise<{ success: boolean; result?: SessionEndCheckResult; error?: string }> {
-  const prompt = getPrompt("session_end_check", options.promptOverrides)
-    .replace("{elapsed}", options.elapsed)
-    .replace("{count}", options.probeCount.toString())
-    .replace("{recent_scores}", options.recentScores.map(s => s.toFixed(2)).join(", ") || "none yet")
-    .replace("{problem}", options.problem);
-
-  const response = await callOpenRouterJSON<SessionEndCheckResult>(
-    [userMessage(prompt)],
-    {
-      model: MODEL,
-      maxTokens: 100,
-      temperature: RECOMMENDED_TEMPS.sessionEndCheck,
-    }
-  );
-
-  if (!response.success || !response.data) {
-    return { success: false, error: response.error || "No response" };
-  }
-
-  return { success: true, result: response.data };
 }
 
 // ============================================
@@ -733,190 +710,6 @@ export async function generateReport(options: {
 }
 
 // ============================================
-// TRANSCRIPT GENERATION (Full session audio → text)
-// ============================================
-
-export async function transcribeAudio(options: {
-  audioBase64: string;
-  audioFormat: string;
-  problem: string;
-}): Promise<{ success: boolean; transcript?: string; error?: string }> {
-  if (!options.audioBase64 || options.audioBase64.trim().length === 0) {
-    return { success: false, error: "Empty audio data" };
-  }
-
-  const prompt = `Transcribe this audio recording of a student thinking aloud while working through a problem.
-
-Problem being worked on: ${options.problem}
-
-Produce a faithful, verbatim transcript of everything the student says. Include:
-- All words spoken, including filler words (um, uh, like, you know)
-- Indicate notable pauses with [pause]
-- Indicate long silences with [long silence]
-- Indicate unclear speech with [inaudible]
-- Use natural paragraph breaks when the student shifts topics or takes a significant pause
-
-Do NOT summarize. Do NOT add commentary or analysis. Do NOT include timestamps.
-Output ONLY the transcript text, nothing else.`;
-
-  const response = await callOpenRouterWithFile(
-    prompt,
-    {
-      data: options.audioBase64,
-      filename: `session.${options.audioFormat}`,
-      mimeType: `audio/${options.audioFormat}`,
-    },
-    {
-      model: MULTIMODAL_MODEL, // Must use audio-capable model
-      maxTokens: 8000,
-      temperature: RECOMMENDED_TEMPS.transcription,
-    }
-  );
-
-  if (!response.success || !response.data) {
-    return { success: false, error: response.error || "No transcript generated" };
-  }
-
-  return { success: true, transcript: response.data };
-}
-
-// ============================================
-// WHITEBOARD ANALYSIS (Image-based gap detection)
-// ============================================
-
-export interface WhiteboardAnalysisResult {
-  should_probe: boolean;
-  gap_score: number;
-  signals: string[];
-  observation: string;
-}
-
-export interface AnalyzeWhiteboardOptions {
-  imageBase64: string;
-  problem: string;
-  promptOverrides?: UserPrompts;
-}
-
-export async function analyzeWhiteboard(
-  options: AnalyzeWhiteboardOptions
-): Promise<{ success: boolean; result?: WhiteboardAnalysisResult; error?: string }> {
-  const prompt = `You are analyzing a student's whiteboard/drawing during a tutoring session.
-
-Problem being worked on: ${options.problem}
-
-Look at this drawing and analyze what the student is thinking. Look for:
-- Confusion or uncertainty (messy, crossed-out areas, question marks)
-- Assumptions being made (diagrams with unstated premises)
-- Gaps in reasoning (incomplete equations, missing steps)
-- Conceptual misunderstandings (incorrect relationships shown)
-- Progress or breakthroughs (organized, clear solutions)
-
-Rate the gap level from 0.0 to 1.0:
-- 0.0-0.3: Clear, confident work
-- 0.4-0.6: Some confusion or incomplete thinking
-- 0.7-1.0: Significant gaps, misconceptions, or stuck thinking
-
-Return ONLY valid JSON:
-{"should_probe": true/false, "gap_score": <0.0-1.0>, "signals": ["signal1", "signal2"], "observation": "brief description of what you see"}
-
-Max 3 signals. Use categories like: "incomplete_diagram", "misconception", "confusion", "assumption", "contradiction", "missing_step".`;
-
-  const response = await callOpenRouterWithImage<WhiteboardAnalysisResult>(
-    prompt,
-    { data: options.imageBase64, mimeType: "image/png" },
-    {
-      model: MULTIMODAL_MODEL, // Must use image-capable model
-      maxTokens: 300,
-      temperature: 0.2,
-      responseFormat: "json",
-    }
-  );
-
-  if (!response.success || !response.data) {
-    return { success: false, error: response.error || "No response" };
-  }
-
-  // Normalize the result
-  const result = response.data;
-  result.gap_score = Math.max(0, Math.min(1, result.gap_score || 0));
-  result.should_probe = result.should_probe ?? result.gap_score >= 0.5;
-  result.signals = result.signals || [];
-  result.observation = result.observation || "";
-
-  return { success: true, result };
-}
-
-// ============================================
-// NOTEBOOK ANALYSIS (Text-based gap detection)
-// ============================================
-
-export interface NotebookAnalysisResult {
-  should_probe: boolean;
-  gap_score: number;
-  signals: string[];
-  observation: string;
-}
-
-export interface AnalyzeNotebookOptions {
-  content: string;
-  problem: string;
-  promptOverrides?: UserPrompts;
-}
-
-export async function analyzeNotebook(
-  options: AnalyzeNotebookOptions
-): Promise<{ success: boolean; result?: NotebookAnalysisResult; error?: string }> {
-  const prompt = `You are analyzing a student's written notes during a tutoring session.
-
-Problem being worked on: ${options.problem}
-
-Analyze these notes and look for gaps in the student's thinking:
-- Confusion or uncertainty (questions, doubt, "I don't know")
-- Unclear reasoning (incomplete explanations, missing connections)
-- Assumptions taken for granted without examination
-- Contradictions or inconsistencies
-- Circular thinking or looping back
-- Skipped steps in problem-solving
-- Misconceptions or incorrect understanding
-
-Rate the gap level from 0.0 to 1.0:
-- 0.0-0.3: Clear, confident reasoning in notes
-- 0.4-0.6: Some confusion or incomplete thinking shown
-- 0.7-1.0: Significant gaps, misconceptions, or stuck thinking
-
-Return ONLY valid JSON:
-{"should_probe": true/false, "gap_score": <0.0-1.0>, "signals": ["signal1", "signal2"], "observation": "brief description of what you observe in the notes"}
-
-Max 3 signals. Use categories like: "unclear_reasoning", "confusion", "assumption", "contradiction", "missing_step", "misconception".
-
-Here are the student's notes:
-
-${options.content}`;
-
-  const response = await callOpenRouterJSON<NotebookAnalysisResult>(
-    [userMessage(prompt)],
-    {
-      model: MODEL,
-      maxTokens: 300,
-      temperature: 0.2,
-    }
-  );
-
-  if (!response.success || !response.data) {
-    return { success: false, error: response.error || "No response" };
-  }
-
-  // Normalize the result
-  const result = response.data;
-  result.gap_score = Math.max(0, Math.min(1, result.gap_score || 0));
-  result.should_probe = result.should_probe ?? result.gap_score >= 0.5;
-  result.signals = result.signals || [];
-  result.observation = result.observation || "";
-
-  return { success: true, result };
-}
-
-// ============================================
 // AVAILABLE MODELS (for user selection in Dashboard)
 // ============================================
 
@@ -930,67 +723,6 @@ export const AVAILABLE_MODELS = [
 ] as const;
 
 export type ModelId = (typeof AVAILABLE_MODELS)[number]["id"] | string;
-
-// ============================================
-// EXPAND PROBE
-// ============================================
-
-export async function expandProbe(options: {
-  problem: string;
-  probe: string;
-  promptOverrides?: UserPrompts;
-}): Promise<{ success: boolean; expanded?: string; error?: string }> {
-  const prompt = getPrompt("expand_probe", options.promptOverrides)
-    .replace("{problem}", options.problem)
-    .replace("{probe}", options.probe);
-
-  const response = await callOpenRouterText(
-    [userMessage(prompt)],
-    {
-      model: MODEL,
-      maxTokens: 300,
-      temperature: RECOMMENDED_TEMPS.probeGeneration,
-    }
-  );
-
-  if (!response.success || !response.data) {
-    return { success: false, error: response.error || "No expansion generated" };
-  }
-
-  return { success: true, expanded: response.data };
-}
-
-// ============================================
-// ASK QUESTION (Direct question from student)
-// ============================================
-
-export async function askQuestion(options: {
-  problem: string;
-  probe: string;
-  question: string;
-  model?: string;
-  promptOverrides?: UserPrompts;
-}): Promise<{ success: boolean; answer?: string; error?: string }> {
-  const prompt = getPrompt("ask_question", options.promptOverrides)
-    .replace("{problem}", options.problem)
-    .replace("{probe}", options.probe)
-    .replace("{question}", options.question);
-
-  const response = await callOpenRouterText(
-    [userMessage(prompt)],
-    {
-      model: options.model || MODEL,
-      maxTokens: 800,
-      temperature: RECOMMENDED_TEMPS.askQuestion,
-    }
-  );
-
-  if (!response.success || !response.data) {
-    return { success: false, error: response.error || "No answer generated" };
-  }
-
-  return { success: true, answer: response.data };
-}
 
 // ============================================
 // EMBEDDINGS GENERATION (for RAG)
@@ -1073,78 +805,6 @@ export async function generateObjectives(
 }
 
 // ============================================
-// FEEDBACK + QUESTION (Get Feedback button)
-// ============================================
-
-export interface FeedbackAndQuestionOptions {
-  problem: string;
-  previousProbes: string[];
-  recentContext?: string;
-  promptOverrides?: UserPrompts;
-}
-
-export async function feedbackAndQuestion(
-  options: FeedbackAndQuestionOptions
-): Promise<{ success: boolean; feedback?: string; question?: string; error?: string }> {
-  const prompt = getPrompt("feedback_and_question", options.promptOverrides)
-    .replace("{problem}", options.problem)
-    .replace("{previous_probes}", options.previousProbes.length > 0 
-      ? options.previousProbes.map((p, i) => `${i + 1}. ${p}`).join("\n")
-      : "None yet")
-    .replace("{recent_context}", options.recentContext || "No recent context available");
-
-  const response = await callOpenRouterJSON<{ feedback?: string; question?: string }>(
-    [userMessage(prompt)],
-    {
-      model: MODEL,
-      maxTokens: 400,
-      temperature: 0.3,
-    }
-  );
-
-  if (!response.success || !response.data) {
-    return { success: false, error: response.error || "No feedback generated" };
-  }
-
-  return {
-    success: true,
-    feedback: response.data.feedback,
-    question: response.data.question,
-  };
-}
-
-// ============================================
-// FRESH QUESTION (I'm stuck button)
-// ============================================
-
-export async function freshQuestion(
-  problem: string,
-  previousProbes: string[],
-  promptOverrides?: UserPrompts
-): Promise<{ success: boolean; question?: string; error?: string }> {
-  const prompt = getPrompt("fresh_question", promptOverrides)
-    .replace("{problem}", problem)
-    .replace("{previous_probes}", previousProbes.length > 0 
-      ? previousProbes.map((p, i) => `${i + 1}. ${p}`).join("\n")
-      : "None asked yet");
-
-  const response = await callOpenRouterText(
-    [userMessage(prompt)],
-    {
-      model: MODEL,
-      maxTokens: 150,
-      temperature: RECOMMENDED_TEMPS.freshQuestion,
-    }
-  );
-
-  if (!response.success || !response.data) {
-    return { success: false, error: response.error || "No question generated" };
-  }
-
-  return { success: true, question: response.data };
-}
-
-// ============================================
 // SESSION PLAN CREATION
 // ============================================
 
@@ -1169,6 +829,7 @@ export async function createSessionPlanLLM(options: {
   calibration?: string;
   promptOverrides?: UserPrompts;
   planningPrompt?: string; // Custom instructions for plan generation
+  tutoringLanguage?: string; // Full language name for LLM response
 }): Promise<{ success: boolean; plan?: CreateSessionPlanResult; error?: string }> {
   let prompt = getPrompt("session_plan_create", options.promptOverrides)
     .replace("{problem}", options.problem)
@@ -1176,6 +837,11 @@ export async function createSessionPlanLLM(options: {
       ? options.objectives.map((o, i) => `${i + 1}. ${o}`).join("\n")
       : "No specific objectives defined")
     .replace("{calibration}", options.calibration || "No prior learning data available");
+
+  // Prepend language instruction if tutoring language specified
+  if (options.tutoringLanguage) {
+    prompt = `IMPORTANT: Respond in ${options.tutoringLanguage} throughout.\n\n${prompt}`;
+  }
 
   // Append custom planning prompt if provided
   if (options.planningPrompt) {
@@ -1367,56 +1033,4 @@ export async function updateSessionPlanLLM(options: {
   };
 
   return { success: true, result };
-}
-
-// ============================================
-// PROBE ARCHIVE CHECK
-// ============================================
-
-export interface ProbeArchiveCheckResult {
-  canArchive: boolean;
-  reason: string;
-}
-
-export async function checkProbeArchivable(options: {
-  probeText: string;
-  sessionGoal: string;
-  transcript?: string;
-  whiteboardData?: string;
-  activityData?: string;
-  promptOverrides?: UserPrompts;
-}): Promise<{ success: boolean; result?: ProbeArchiveCheckResult; error?: string }> {
-  const prompt = getPrompt("check_probe_archive", options.promptOverrides)
-    .replace("{probe_text}", options.probeText)
-    .replace("{session_goal}", options.sessionGoal || "Not specified")
-    .replace("{transcript}", options.transcript || "No recent transcript available")
-    .replace("{whiteboard_data}", options.whiteboardData || "No whiteboard data")
-    .replace("{activity_data}", options.activityData || "No activity data");
-
-  interface RawArchiveCheck {
-    can_archive?: boolean;
-    reason?: string;
-  }
-
-  const response = await callOpenRouterJSON<RawArchiveCheck>(
-    [userMessage(prompt)],
-    {
-      model: MODEL,
-      maxTokens: 300,
-      temperature: 0.2,
-    }
-  );
-
-  if (!response.success || !response.data) {
-    return { success: false, error: response.error || "Archive check failed" };
-  }
-
-  const parsed = response.data;
-  return {
-    success: true,
-    result: {
-      canArchive: parsed.can_archive ?? false,
-      reason: parsed.reason || "Unable to determine",
-    },
-  };
 }

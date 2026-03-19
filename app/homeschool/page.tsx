@@ -7,19 +7,21 @@ import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import { RoadmapBadge } from "@/components/FeatureStatus";
 import { DemoBanner } from "@/components/DemoBanner";
+import { useI18n } from "@/lib/i18n";
 
 type Mode = "session" | "plan";
 
-const HOMESCHOOL_TOPICS = [
-  { topic: "Multiplication: why 7 × 8 = 56", category: "Math", emoji: "✖️" },
-  { topic: "World War II: causes and key events", category: "History", emoji: "🌍" },
-  { topic: "Photosynthesis: how plants make food", category: "Science", emoji: "🌱" },
-  { topic: "Fractions: adding unlike denominators", category: "Math", emoji: "½" },
-];
-
 export default function HomeschoolPage() {
+  const { t } = useI18n();
   const [selectedTopic, setSelectedTopic] = useState("");
   const [mode, setMode] = useState<Mode>("session");
+
+  const homeschoolTopics = [
+    { topic: t('homeschool.topic1'), category: t('homeschool.categoryMath'), emoji: "✖️" },
+    { topic: t('homeschool.topic2'), category: t('homeschool.categoryHistory'), emoji: "🌍" },
+    { topic: t('homeschool.topic3'), category: t('homeschool.categoryScience'), emoji: "🌱" },
+    { topic: t('homeschool.topic4'), category: t('homeschool.categoryMath'), emoji: "½" },
+  ];
 
   return (
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
@@ -32,10 +34,10 @@ export default function HomeschoolPage() {
           <div className="w-full max-w-xl mx-auto flex flex-col gap-8">
             {/* Mockup */}
             <div className="rounded-2xl border border-slate-700 bg-slate-800/30 overflow-hidden flex flex-col relative">
-              <RoadmapBadge label="Family Dashboard Preview" eta="Q2 2026" />
+              <RoadmapBadge label={t('homeschool.mockupLabel')} eta={t('homeschool.mockupEta')} />
               <div className="bg-slate-700/50 px-5 py-2.5 border-b border-slate-700 flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-300">Family Dashboard</span>
-                <span className="text-xs text-slate-500">Parent View</span>
+                <span className="text-sm font-medium text-slate-300">{t('homeschool.mockupTitle')}</span>
+                <span className="text-xs text-slate-500">{t('homeschool.mockupView')}</span>
               </div>
               <div className="p-5 flex flex-col">
                 <div className="grid grid-cols-2 gap-3 mb-4">
@@ -45,7 +47,7 @@ export default function HomeschoolPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white">Emma</p>
-                      <p className="text-[10px] text-slate-500">Grade 4</p>
+                      <p className="text-[10px] text-slate-500">{t('homeschool.gradeLabel')} 4</p>
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-bold text-emerald-400">85%</p>
@@ -58,7 +60,7 @@ export default function HomeschoolPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white">Lucas</p>
-                      <p className="text-[10px] text-slate-500">Grade 7</p>
+                      <p className="text-[10px] text-slate-500">{t('homeschool.gradeLabel')} 7</p>
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-bold text-amber-400">72%</p>
@@ -67,12 +69,12 @@ export default function HomeschoolPage() {
                   </div>
                 </div>
                 <div className="bg-slate-700/30 rounded-xl p-4">
-                  <p className="text-xs text-slate-400 mb-2">Recent Sessions</p>
+                  <p className="text-xs text-slate-400 mb-2">{t('homeschool.recentSessions')}</p>
                   <div className="space-y-2">
                     {[
-                      { child: "Emma", topic: "Photosynthesis", result: "Strong", time: "2h ago" },
-                      { child: "Lucas", topic: "World War II", result: "Gaps", time: "Yesterday" },
-                      { child: "Emma", topic: "Multiplication", result: "Review", time: "2 days ago" },
+                      { child: "Emma", topic: "Photosynthesis", result: t('homeschool.strongLabel'), time: `2${t('homeschool.hoursAgo')}` },
+                      { child: "Lucas", topic: "World War II", result: t('homeschool.gapsLabel'), time: "Yesterday" },
+                      { child: "Emma", topic: "Multiplication", result: t('homeschool.reviewLabel'), time: `2 ${t('homeschool.daysAgo')}` },
                     ].map(({ child, topic, result, time }) => (
                       <div key={`${child}-${topic}`} className="flex items-center justify-between py-1.5 border-b border-slate-700 last:border-0">
                         <div className="flex items-center gap-2">
@@ -82,8 +84,8 @@ export default function HomeschoolPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <span className={`text-[10px] px-2 py-0.5 rounded ${
-                            result === "Strong" ? "bg-emerald-500/20 text-emerald-400" :
-                            result === "Gaps" ? "bg-amber-500/20 text-amber-400" :
+                            result === t('homeschool.strongLabel') ? "bg-emerald-500/20 text-emerald-400" :
+                            result === t('homeschool.gapsLabel') ? "bg-amber-500/20 text-amber-400" :
                             "bg-rose-500/20 text-rose-400"
                           }`}>{result}</span>
                           <span className="text-[10px] text-slate-600">{time}</span>
@@ -93,9 +95,9 @@ export default function HomeschoolPage() {
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-slate-700 flex items-center justify-between">
-                  <span className="text-xs text-slate-500">Curriculum: State Standards ✓</span>
+                  <span className="text-xs text-slate-500">{t('homeschool.curriculumLabel')} {t('homeschool.stateStandards')} ✓</span>
                   <button className="text-xs bg-slate-600/50 hover:bg-slate-600 text-slate-300 px-3 py-1.5 rounded-lg transition-colors">
-                    Add Child
+                    {t('homeschool.addChild')}
                   </button>
                 </div>
               </div>
@@ -103,35 +105,35 @@ export default function HomeschoolPage() {
 
             {/* Value Proposition - Updated to bullet format */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-white">The Homeschool Challenge</h3>
+              <h3 className="text-lg font-semibold text-white">{t('homeschool.problemTitle')}</h3>
               <ul className="space-y-2">
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-red-400 mt-0.5">✗</span>
-                  <span>You can't be an expert in every subject</span>
+                  <span>{t('homeschool.problem1')}</span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-red-400 mt-0.5">✗</span>
-                  <span>Hard to know if they truly understand or just memorized</span>
+                  <span>{t('homeschool.problem2')}</span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-red-400 mt-0.5">✗</span>
-                  <span>One-on-one tutoring is expensive</span>
+                  <span>{t('homeschool.problem3')}</span>
                 </li>
               </ul>
               
-              <h3 className="text-lg font-semibold text-white pt-4">How openLesson Helps</h3>
+              <h3 className="text-lg font-semibold text-white pt-4">{t('homeschool.howItHelps')}</h3>
               <ul className="space-y-2">
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-emerald-400 mt-0.5">✓</span>
-                  <span>Patient AI tutor available anytime, any subject</span>
+                  <span>{t('homeschool.solution1')}</span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-emerald-400 mt-0.5">✓</span>
-                  <span>Your child explains concepts back — gaps become visible</span>
+                  <span>{t('homeschool.solution2')}</span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-emerald-400 mt-0.5">✓</span>
-                  <span>You see reports showing what they actually understand</span>
+                  <span>{t('homeschool.solution3')}</span>
                 </li>
               </ul>
             </div>
@@ -139,10 +141,10 @@ export default function HomeschoolPage() {
             {/* Affordability Message */}
             <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
               <p className="text-sm text-emerald-400 font-medium mb-1">
-                Unlimited learning for less than a single tutoring session
+                {t('homeschool.affordabilityTitle')}
               </p>
               <p className="text-xs text-slate-400">
-                Pro plan: $14.99/month vs. $50-100/hour for human tutors
+                {t('homeschool.affordabilitySubtitle')}
               </p>
             </div>
           </div>
@@ -153,7 +155,7 @@ export default function HomeschoolPage() {
           <div className="w-full max-w-xl flex flex-col">
             {/* Solution Label */}
             <div className="flex justify-center mb-4">
-              <span className="text-xs text-slate-500 uppercase tracking-widest">For Families</span>
+              <span className="text-xs text-slate-500 uppercase tracking-widest">{t('homeschool.label')}</span>
             </div>
 
             {/* Mode Toggle */}
@@ -167,7 +169,7 @@ export default function HomeschoolPage() {
                       : "text-slate-500 hover:text-white"
                   }`}
                 >
-                  Start Lesson
+                  {t('homeschool.startLesson')}
                 </button>
                 <button
                   onClick={() => setMode("plan")}
@@ -177,7 +179,7 @@ export default function HomeschoolPage() {
                       : "text-slate-500 hover:text-white"
                   }`}
                 >
-                  Build Curriculum
+                  {t('homeschool.buildCurriculum')}
                 </button>
               </div>
             </div>
@@ -186,10 +188,10 @@ export default function HomeschoolPage() {
               <div className="flex flex-col flex-1">
                 <div className="text-center mb-5">
                   <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">
-                    Be Your Child's Learning Partner, Not Their Expert
+                    {t('homeschool.title')}
                   </h2>
                   <p className="text-slate-500 max-w-md mx-auto text-sm leading-relaxed">
-                    When they get stuck on topics you don't know, openLesson steps in with patient, guided tutoring.
+                    {t('homeschool.subtitle')}
                   </p>
                 </div>
 
@@ -197,16 +199,16 @@ export default function HomeschoolPage() {
                   <ProblemInput 
                     initialTopic={selectedTopic} 
                     theme="slate" 
-                    placeholder="What should your child learn today? (e.g., Fractions, Photosynthesis, WWII)"
+                    placeholder={t('homeschool.placeholder')}
                   />
                 </div>
 
                 <div className="mt-6 flex-1 flex flex-col">
                   <p className="text-sm text-slate-500 mb-3 text-center">
-                    Popular topics for homeschool:
+                    {t('homeschool.popularTopics')}
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 flex-1">
-                    {HOMESCHOOL_TOPICS.map(({ topic, category, emoji }) => (
+                    {homeschoolTopics.map(({ topic, category, emoji }) => (
                       <button
                         key={topic}
                         onClick={() => setSelectedTopic(topic)}
@@ -230,10 +232,10 @@ export default function HomeschoolPage() {
               <div className="w-full flex-1 flex flex-col">
                 <PlanModeSelect 
                   theme="slate"
-                  title="Build Your Curriculum"
-                  subtitle="Create a structured learning plan aligned with your child's grade level."
-                  placeholder="What subject or unit should we plan? (e.g., 4th Grade Math, US History, Biology)"
-                  exampleTopics={["4th Grade Math", "US History", "Life Science", "Grammar & Writing", "World Geography", "Chemistry"]}
+                  title={t('homeschool.buildCurriculum')}
+                  subtitle={t('homeschool.buildCurriculumSubtitle')}
+                  placeholder={t('homeschool.placeholder')}
+                  exampleTopics={t('homeschool.buildCurriculumExamples').split(', ')}
                   showYouTubeTab={false}
                 />
               </div>

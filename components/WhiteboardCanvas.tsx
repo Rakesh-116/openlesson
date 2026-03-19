@@ -35,6 +35,10 @@ export function WhiteboardCanvas({ onCanvasChange, initialData }: WhiteboardCanv
   const dragStartRef = useRef<{ mouseX: number; mouseY: number; objX: number; objY: number; objW: number; objH: number } | null>(null);
   const pastedImageRef = useRef<HTMLImageElement | null>(null);
 
+  // File upload ref
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+
   // Convert canvas-space coords to CSS-space coords relative to the container
   const canvasToCss = useCallback((cx: number, cy: number, cw?: number, ch?: number) => {
     const canvas = canvasRef.current;
@@ -327,6 +331,164 @@ export function WhiteboardCanvas({ onCanvasChange, initialData }: WhiteboardCanv
     }
   }, [onCanvasChange]);
 
+  // --- Image from file upload ---
+  const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      if (!dataUrl) return;
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const img = new Image();
+      img.onload = () => {
+        const canvasW = canvas.width;
+        const canvasH = canvas.height;
+        const maxW = canvasW * 0.8;
+        const maxH = canvasH * 0.8;
+
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+
+        if (w > maxW || h > maxH) {
+          const scale = Math.min(maxW / w, maxH / h);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+
+        const x = Math.round((canvasW - w) / 2);
+        const y = Math.round((canvasH - h) / 2);
+
+        setPastedObject((prev) => {
+          if (prev) {
+            const ctx = canvas.getContext("2d");
+            if (ctx && prev.type === "image" && prev.dataUrl && pastedImageRef.current?.complete) {
+              ctx.drawImage(pastedImageRef.current, prev.x, prev.y, prev.width, prev.height);
+              onCanvasChange?.(canvas.toDataURL("image/png"));
+            }
+          }
+          return null;
+        });
+
+        pastedImageRef.current = img;
+        setTimeout(() => {
+          setPastedObject({
+            type: "image",
+            dataUrl,
+            x,
+            y,
+            width: w,
+            height: h,
+            aspectRatio: w / h,
+          });
+        }, 0);
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  }, [onCanvasChange]);
+
+  // --- Capture from camera ---
+  const captureFromCamera = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      setCameraStream(stream);
+
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.setAttribute("playsinline", "true");
+      video.play();
+
+      video.onloadedmetadata = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) {
+          stream.getTracks().forEach((t) => t.stop());
+          setCameraStream(null);
+          return;
+        }
+
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = video.videoWidth;
+        tempCanvas.height = video.videoHeight;
+        const ctx = tempCanvas.getContext("2d");
+        if (!ctx) {
+          stream.getTracks().forEach((t) => t.stop());
+          setCameraStream(null);
+          return;
+        }
+
+        ctx.drawImage(video, 0, 0);
+        const dataUrl = tempCanvas.toDataURL("image/jpeg", 0.9);
+
+        stream.getTracks().forEach((t) => t.stop());
+        setCameraStream(null);
+
+        const img = new Image();
+        img.onload = () => {
+          const canvasW = canvas.width;
+          const canvasH = canvas.height;
+          const maxW = canvasW * 0.8;
+          const maxH = canvasH * 0.8;
+
+          let w = img.naturalWidth;
+          let h = img.naturalHeight;
+
+          if (w > maxW || h > maxH) {
+            const scale = Math.min(maxW / w, maxH / h);
+            w = Math.round(w * scale);
+            h = Math.round(h * scale);
+          }
+
+          const x = Math.round((canvasW - w) / 2);
+          const y = Math.round((canvasH - h) / 2);
+
+          setPastedObject((prev) => {
+            if (prev) {
+              const ctx = canvas.getContext("2d");
+              if (ctx && prev.type === "image" && prev.dataUrl && pastedImageRef.current?.complete) {
+                ctx.drawImage(pastedImageRef.current, prev.x, prev.y, prev.width, prev.height);
+                onCanvasChange?.(canvas.toDataURL("image/png"));
+              }
+            }
+            return null;
+          });
+
+          pastedImageRef.current = img;
+          setTimeout(() => {
+            setPastedObject({
+              type: "image",
+              dataUrl,
+              x,
+              y,
+              width: w,
+              height: h,
+              aspectRatio: w / h,
+            });
+          }, 0);
+        };
+        img.src = dataUrl;
+      };
+    } catch (err) {
+      console.error("Camera capture failed:", err);
+    }
+  }, [onCanvasChange]);
+
+  // Cleanup camera stream on unmount
+  useEffect(() => {
+    return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, [cameraStream]);
+
   // --- Paste: drag and resize handlers ---
   const handleOverlayMouseDown = useCallback((e: React.MouseEvent, mode: "move" | "resize") => {
     e.preventDefault();
@@ -562,6 +724,35 @@ export function WhiteboardCanvas({ onCanvasChange, initialData }: WhiteboardCanv
             Enter to place, Esc to cancel
           </span>
         )}
+
+        <button
+          onClick={captureFromCamera}
+          className="lg:hidden p-2 rounded-lg bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
+          title="Take Photo"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </button>
+
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="hidden lg:inline-flex p-2 rounded-lg bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
+          title="Upload Image"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </button>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileUpload}
+          className="hidden"
+        />
         
         <button
           onClick={clearCanvas}

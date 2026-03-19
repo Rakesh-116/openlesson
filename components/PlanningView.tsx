@@ -10,9 +10,11 @@ import {
   type Session,
   type Probe,
 } from "@/lib/storage";
+import { useI18n } from "@/lib/i18n";
 
 export function PlanningView({ sessionId }: { sessionId: string }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -208,7 +210,7 @@ export function PlanningView({ sessionId }: { sessionId: string }) {
       <div className="flex items-center justify-center h-full bg-black">
         <div className="flex flex-col items-center gap-4">
           <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-neutral-400 text-sm">Loading session...</p>
+          <p className="text-neutral-400 text-sm">{t('session.loadingSession')}</p>
         </div>
       </div>
     );
@@ -289,7 +291,7 @@ export function PlanningView({ sessionId }: { sessionId: string }) {
         {calibrationLoading && (
           <div className="flex flex-col items-center justify-center py-8">
             <div className="w-6 h-6 border border-neutral-700 border-t-cyan-500 rounded-full animate-spin mb-3" />
-            <p className="text-xs text-neutral-500">Analyzing your learning history...</p>
+            <p className="text-xs text-neutral-500">{t('planning.analyzingHistory') || t('session.preparing')}</p>
           </div>
         )}
 

@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateProbe } from "@/lib/openrouter";
 import { getUserPrompts } from "@/lib/prompts";
 import type { RequestType, SessionPlan } from "@/lib/storage";
+import { createClient } from "@/lib/supabase/server";
+
+const LOCALE_TO_LANGUAGE: Record<string, string> = {
+  en: "English",
+  vi: "Vietnamese",
+  zh: "Chinese",
+  es: "Spanish",
+  de: "German",
+  pl: "Polish",
+};
+
+function getLanguageName(locale: string): string {
+  return LOCALE_TO_LANGUAGE[locale] || "English";
+}
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -21,6 +35,8 @@ export async function POST(request: NextRequest) {
       objectives,
       sessionPlan,
       requestType,
+      sessionId,
+      tutoringLanguage: bodyLanguage,
     } = body;
 
     if (!problem) {
@@ -29,6 +45,21 @@ export async function POST(request: NextRequest) {
     if (typeof gapScore !== "number") {
       return NextResponse.json({ error: "Missing gapScore" }, { status: 400 });
     }
+
+    // Get tutoring language from body or session metadata
+    let tutoringLanguage = bodyLanguage;
+    if (!tutoringLanguage && sessionId) {
+      const supabase = await createClient();
+      const { data: sessionData } = await supabase
+        .from("sessions")
+        .select("metadata")
+        .eq("id", sessionId)
+        .single();
+      if (sessionData?.metadata?.tutoringLanguage) {
+        tutoringLanguage = sessionData.metadata.tutoringLanguage;
+      }
+    }
+    const languageName = tutoringLanguage ? getLanguageName(tutoringLanguage) : undefined;
 
     const promptOverrides = await getUserPrompts();
 
@@ -66,6 +97,7 @@ IMPORTANT: Your question MUST be specifically about the current step topic: "${c
       audioFormat,
       promptOverrides,
       objectives,
+      tutoringLanguage: languageName,
     });
 
     if (!result.success) {

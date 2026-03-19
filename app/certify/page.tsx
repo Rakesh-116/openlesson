@@ -7,23 +7,25 @@ import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import { RoadmapBadge } from "@/components/FeatureStatus";
 import { DemoBanner } from "@/components/DemoBanner";
+import { useI18n } from "@/lib/i18n";
 
 type Mode = "session" | "plan";
-
-const CERTIFY_TOPICS = [
-  { topic: "AWS Solutions Architect: design a multi-region architecture", category: "Cloud", emoji: "☁️" },
-  { topic: "CompTIA A+: troubleshoot a network connectivity issue", category: "Hardware", emoji: "🔧" },
-  { topic: "PMP: estimate project duration using PERT", category: "Management", emoji: "📋" },
-  { topic: "Google Cloud: design a scalable data pipeline", category: "Cloud", emoji: "📊" },
-];
 
 const CERTIFICATION_BADGES = [
   "AWS", "GCP", "Azure", "PMP", "CompTIA", "CISSP", "CPA", "CCNA"
 ];
 
 export default function CertifyPage() {
+  const { t } = useI18n();
   const [selectedTopic, setSelectedTopic] = useState("");
   const [mode, setMode] = useState<Mode>("session");
+
+  const certifyTopics = [
+    { topic: t('certify.topic1'), category: t('certify.categoryCloud'), emoji: "☁️" },
+    { topic: t('certify.topic2'), category: t('certify.categoryHardware'), emoji: "🔧" },
+    { topic: t('certify.topic3'), category: t('certify.categoryManagement'), emoji: "📋" },
+    { topic: t('certify.topic4'), category: t('certify.categoryCloud'), emoji: "📊" },
+  ];
 
   return (
     <main className="min-h-screen flex flex-col bg-[#0a0a0a]">
@@ -36,10 +38,10 @@ export default function CertifyPage() {
           <div className="w-full max-w-xl mx-auto flex flex-col gap-8">
             {/* Mockup */}
             <div className="rounded-2xl border border-slate-700 bg-slate-800/30 overflow-hidden flex flex-col relative">
-              <RoadmapBadge label="Roadmap Preview" eta="Q2 2026" />
+              <RoadmapBadge label={t('certify.mockupLabel')} eta={t('certify.mockupEta')} />
               <div className="bg-slate-700/50 px-5 py-2.5 border-b border-slate-700 flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-300">Certification Roadmap</span>
-                <span className="text-xs text-slate-500">AWS Solutions Architect</span>
+                <span className="text-sm font-medium text-slate-300">{t('certify.mockupTitle')}</span>
+                <span className="text-xs text-slate-500">{t('certify.mockupSubtitle')}</span>
               </div>
               <div className="p-5 flex flex-col">
                 <div className="flex items-center justify-between mb-4">
@@ -48,16 +50,16 @@ export default function CertifyPage() {
                       <span className="text-lg font-bold text-slate-300">45%</span>
                     </div>
                     <div>
-                      <p className="text-base font-medium text-white">In Progress</p>
-                      <p className="text-xs text-slate-500">Target: June 2026</p>
+                      <p className="text-base font-medium text-white">{t('certify.inProgress')}</p>
+                      <p className="text-xs text-slate-500">{t('certify.target')}: {t('certify.june2026')}</p>
                     </div>
                   </div>
                   <div className="flex gap-2">
                     <button className="text-xs bg-slate-600/50 hover:bg-slate-600 text-slate-300 px-3 py-1.5 rounded-lg transition-colors">
-                      Blueprint
+                      {t('certify.blueprint')}
                     </button>
                     <button className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors">
-                      Schedule
+                      {t('certify.schedule')}
                     </button>
                   </div>
                 </div>
@@ -94,19 +96,19 @@ export default function CertifyPage() {
 
                 <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-700">
                   <div>
-                    <p className="text-[10px] text-slate-500 uppercase mb-0.5">Practice Score</p>
+                    <p className="text-[10px] text-slate-500 uppercase mb-0.5">{t('certify.practiceScore')}</p>
                     <p className="text-lg font-bold text-white">72%</p>
-                    <p className="text-[10px] text-emerald-400">↑ 8% this week</p>
+                    <p className="text-[10px] text-emerald-400">{t('certify.thisWeek')}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-500 uppercase mb-0.5">Weak Areas</p>
+                    <p className="text-[10px] text-slate-500 uppercase mb-0.5">{t('certify.weakAreas')}</p>
                     <p className="text-lg font-bold text-white">3</p>
                     <p className="text-[10px] text-rose-400">Multi-AZ</p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-500 uppercase mb-0.5">Streak</p>
-                    <p className="text-lg font-bold text-white">12 days</p>
-                    <p className="text-[10px] text-slate-500">Keep it up!</p>
+                    <p className="text-[10px] text-slate-500 uppercase mb-0.5">{t('certify.streak')}</p>
+                    <p className="text-lg font-bold text-white">12 {t('certify.days')}</p>
+                    <p className="text-[10px] text-slate-500">{t('certify.keepItUp')}</p>
                   </div>
                 </div>
               </div>
@@ -114,42 +116,42 @@ export default function CertifyPage() {
 
             {/* Value Proposition - Updated to bullet format */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-white">The Problem With Cert Prep</h3>
+              <h3 className="text-lg font-semibold text-white">{t('certify.problemTitle')}</h3>
               <ul className="space-y-2">
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-red-400 mt-0.5">✗</span>
-                  <span>Brain dumps teach pattern matching, not understanding</span>
+                  <span>{t('certify.problem1')}</span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-red-400 mt-0.5">✗</span>
-                  <span>You pass the exam but can't apply knowledge on the job</span>
+                  <span>{t('certify.problem2')}</span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-red-400 mt-0.5">✗</span>
-                  <span>Concepts fade within weeks of passing</span>
+                  <span>{t('certify.problem3')}</span>
                 </li>
               </ul>
               
-              <h3 className="text-lg font-semibold text-white pt-4">How openLesson Helps</h3>
+              <h3 className="text-lg font-semibold text-white pt-4">{t('certify.howItHelps')}</h3>
               <ul className="space-y-2">
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-emerald-400 mt-0.5">✓</span>
-                  <span>Explain concepts back — see exactly what you don't understand</span>
+                  <span>{t('certify.solution1')}</span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-emerald-400 mt-0.5">✓</span>
-                  <span>Guiding questions build lasting comprehension</span>
+                  <span>{t('certify.solution2')}</span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-slate-400">
                   <span className="text-emerald-400 mt-0.5">✓</span>
-                  <span>Walk into your exam confident because you actually know it</span>
+                  <span>{t('certify.solution3')}</span>
                 </li>
               </ul>
             </div>
 
             {/* Certification Badges */}
             <div>
-              <p className="text-sm text-slate-400 mb-3">Works for any certification</p>
+              <p className="text-sm text-slate-400 mb-3">{t('certify.worksForCert')}</p>
               <div className="flex flex-wrap gap-2">
                 {CERTIFICATION_BADGES.map((badge) => (
                   <span 
@@ -160,7 +162,7 @@ export default function CertifyPage() {
                   </span>
                 ))}
                 <span className="text-xs px-2.5 py-1 rounded-lg bg-slate-800/50 border border-slate-700/50 text-slate-500">
-                  + more
+                  {t('certify.moreBadges')}
                 </span>
               </div>
             </div>
@@ -172,7 +174,7 @@ export default function CertifyPage() {
           <div className="w-full max-w-xl flex flex-col">
             {/* Solution Label */}
             <div className="flex justify-center mb-4">
-              <span className="text-xs text-slate-500 uppercase tracking-widest">For Careers</span>
+              <span className="text-xs text-slate-500 uppercase tracking-widest">{t('certify.label')}</span>
             </div>
 
             {/* Mode Toggle */}
@@ -186,7 +188,7 @@ export default function CertifyPage() {
                       : "text-slate-500 hover:text-white"
                   }`}
                 >
-                  Practice Now
+                  {t('certify.practiceNow')}
                 </button>
                 <button
                   onClick={() => setMode("plan")}
@@ -196,7 +198,7 @@ export default function CertifyPage() {
                       : "text-slate-500 hover:text-white"
                   }`}
                 >
-                  Build Roadmap
+                  {t('certify.buildRoadmap')}
                 </button>
               </div>
             </div>
@@ -205,10 +207,10 @@ export default function CertifyPage() {
               <div className="flex flex-col flex-1">
                 <div className="text-center mb-5">
                   <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">
-                    Pass Your Certification by Actually Understanding It
+                    {t('certify.title')}
                   </h2>
                   <p className="text-slate-500 max-w-md mx-auto text-sm leading-relaxed">
-                    Memorizing dumps gets you a pass. Understanding gets you a career. Our AI helps you build genuine mastery.
+                    {t('certify.subtitle')}
                   </p>
                 </div>
 
@@ -216,16 +218,16 @@ export default function CertifyPage() {
                   <ProblemInput 
                     initialTopic={selectedTopic} 
                     theme="slate" 
-                    placeholder="Practice a certification topic (e.g., AWS VPC design, PMP risk assessment)"
+                    placeholder={t('certify.placeholder')}
                   />
                 </div>
 
                 <div className="mt-6 flex-1 flex flex-col">
                   <p className="text-sm text-slate-500 mb-3 text-center">
-                    Popular certification topics:
+                    {t('certify.popularTopics')}
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 flex-1">
-                    {CERTIFY_TOPICS.map(({ topic, category, emoji }) => (
+                    {certifyTopics.map(({ topic, category, emoji }) => (
                       <button
                         key={topic}
                         onClick={() => setSelectedTopic(topic)}
@@ -249,10 +251,10 @@ export default function CertifyPage() {
               <div className="w-full flex-1 flex flex-col">
                 <PlanModeSelect 
                   theme="slate"
-                  title="Build Your Certification Roadmap"
-                  subtitle="Enter a certification and we'll create a structured study plan with milestones."
-                  placeholder="Which certification are you preparing for? (e.g., AWS SAA, PMP, CPA)"
-                  exampleTopics={["AWS Solutions Architect", "PMP", "CPA", "CompTIA A+", "CISSP", "Google Cloud"]}
+                  title={t('certify.buildRoadmap')}
+                  subtitle={t('certify.buildRoadmapSubtitle')}
+                  placeholder={t('certify.placeholder')}
+                  exampleTopics={t('certify.buildRoadmapExamples').split(', ')}
                   showYouTubeTab={false}
                 />
               </div>

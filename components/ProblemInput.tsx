@@ -4,13 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSession } from "@/lib/storage";
-
-const EXAMPLE_PROMPTS = [
-  "Explain quantum entanglement to me like I'm 5",
-  "Help me understand the French Revolution",
-  "What are the main arguments for and against utilitarianism?",
-  "How does photosynthesis work?",
-];
+import { useI18n } from "@/lib/i18n";
 
 type ThemeColor = "neutral" | "teal" | "slate" | "blue" | "amber" | "violet";
 
@@ -57,11 +51,20 @@ interface ProblemInputProps {
   placeholder?: string;
 }
 
-export function ProblemInput({ initialTopic, theme = "neutral", placeholder = "What do you want to learn today? (e.g., Explain recursion, How does GPS work?)" }: ProblemInputProps) {
+export function ProblemInput({ initialTopic, theme = "neutral", placeholder: propPlaceholder }: ProblemInputProps) {
+  const { t } = useI18n();
+  const placeholder = propPlaceholder || t('problemInput.placeholder');
   const [problem, setProblem] = useState(initialTopic || "");
   const [isLoading, setIsLoading] = useState(false);
   const [usageError, setUsageError] = useState<string | null>(null);
   const router = useRouter();
+
+  const examplePrompts = [
+    t('problemInput.examplePrompt1'),
+    t('problemInput.examplePrompt2'),
+    t('problemInput.examplePrompt3'),
+    t('problemInput.examplePrompt4'),
+  ];
 
   const styles = themeStyles[theme];
 
@@ -81,19 +84,19 @@ export function ProblemInput({ initialTopic, theme = "neutral", placeholder = "W
       if (res.ok) {
         const usage = await res.json();
         if (!usage.allowed) {
-          setUsageError(usage.reason || "Session limit reached.");
+          setUsageError(t('problemInput.sessionLimitReached'));
           setIsLoading(false);
           return;
         }
       } else {
         // If check fails, block to be safe
-        setUsageError("Could not verify usage. Please try again.");
+        setUsageError(t('problemInput.usageError'));
         setIsLoading(false);
         return;
       }
     } catch {
       // If network fails, block to be safe
-      setUsageError("Could not verify usage. Please try again.");
+      setUsageError(t('problemInput.usageError'));
       setIsLoading(false);
       return;
     }
@@ -133,14 +136,14 @@ export function ProblemInput({ initialTopic, theme = "neutral", placeholder = "W
           ) : (
             <MicIcon />
           )}
-          {isLoading ? "Starting..." : "Start"}
+          {isLoading ? t('problemInput.starting') : t('problemInput.start')}
         </button>
       </div>
       {usageError && (
         <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
           {usageError}{" "}
           <Link href="/pricing" className="underline hover:text-red-300">
-            View plans
+            {t('problemInput.viewPlans')}
           </Link>
         </div>
       )}

@@ -574,22 +574,16 @@ export const RECOMMENDED_TEMPS = {
 
   // Analysis/detection - low temperature for accuracy
   gapDetection: 0.1,
-  sessionEndCheck: 0.2,
 
   // Creative/generative - moderate temperature
   probeGeneration: 0.7,
   openingProbe: 0.7,
-  freshQuestion: 0.7, // Lowered from 0.9
 
   // Conversational - moderate temperature
   chat: 0.7,
-  askQuestion: 0.7,
 
   // Reports/summaries - moderate temperature
   report: 0.6,
-
-  // Transcription - very low for accuracy
-  transcription: 0.1,
 } as const;
 
 // ============================================
