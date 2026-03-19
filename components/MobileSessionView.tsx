@@ -127,6 +127,7 @@ export function MobileSessionView({
   const [cameraMode, setCameraMode] = useState<'closed' | 'open' | 'preview'>('closed');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [flashEnabled, setFlashEnabled] = useState(false);
+  const [pendingWhiteboardImage, setPendingWhiteboardImage] = useState<string | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -211,6 +212,16 @@ export function MobileSessionView({
     return () => releaseWakeLock();
   }, [isRecording]);
 
+  // Attach camera stream to video element when camera opens
+  useEffect(() => {
+    if (cameraMode === 'open' && cameraStreamRef.current && videoRef.current) {
+      videoRef.current.srcObject = cameraStreamRef.current;
+      videoRef.current.play().catch(err => {
+        console.error("[Camera] Failed to play video:", err);
+      });
+    }
+  }, [cameraMode]);
+
   // Start/stop timer based on recording state (and paused state)
   useEffect(() => {
     if (isRecording && !isPaused && !timerRef.current) {
@@ -266,7 +277,11 @@ export function MobileSessionView({
             }
           }
           if (whiteboardDataRef.current) {
-            logToolUsage(session.id, 'canvas', 'canvas_draw', Date.now(), { data: whiteboardDataRef.current });
+            const dataStr = whiteboardDataRef.current;
+            console.log("[Mobile] Saving canvas data, fullSize:", dataStr.length);
+            console.log("[Mobile] Canvas data START:", dataStr.substring(0, 100));
+            console.log("[Mobile] Canvas data END:", dataStr.substring(dataStr.length - 100));
+            logToolUsage(session.id, 'canvas', 'canvas_draw', Date.now(), { data: dataStr });
           }
         } catch (err) {
           console.warn("[Mobile] Storage heartbeat error:", err);
@@ -752,10 +767,6 @@ export function MobileSessionView({
         video: { facingMode: "environment" },
       });
       cameraStreamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
       setCameraMode('open');
     } catch (err) {
       console.error("Camera access failed:", err);
@@ -787,9 +798,9 @@ export function MobileSessionView({
     setCameraMode('preview');
   }, []);
 
-  const confirmCapture = useCallback((onCapture: (dataUrl: string) => void) => {
+  const confirmCapture = useCallback(() => {
     if (!capturedImage) return;
-    onCapture(capturedImage);
+    setPendingWhiteboardImage(capturedImage);
     closeCamera();
   }, [capturedImage, closeCamera]);
 
@@ -977,7 +988,10 @@ export function MobileSessionView({
         <div className="h-full relative">
           <MobileWhiteboardCanvas
             initialData={whiteboardData || undefined}
+            pendingImage={pendingWhiteboardImage}
+            onPendingImageUsed={() => setPendingWhiteboardImage(null)}
             onCanvasChange={(dataUrl: string) => {
+              console.log("[Mobile] Canvas changed, size:", dataUrl.length);
               whiteboardDataRef.current = dataUrl;
               setWhiteboardData(dataUrl);
             }}
@@ -1257,10 +1271,7 @@ export function MobileSessionView({
                   Retake
                 </button>
                 <button
-                  onClick={() => confirmCapture((dataUrl) => {
-                    whiteboardDataRef.current = dataUrl;
-                    setWhiteboardData(dataUrl);
-                  })}
+                  onClick={confirmCapture}
                   className="flex-1 py-4 bg-cyan-500 text-black font-medium rounded-2xl flex items-center justify-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -1323,76 +1334,95 @@ function SwipeableTabContent({ tabs, activeTab, onTabChange }: SwipeableTabConte
   const touchCurrentRef = useRef<number>(0);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
+  const [isFirstMove, setIsFirstMove] = useState(false);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    touchStartRef.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-      time: Date.now(),
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      touchStartRef.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+        time: Date.now(),
+      };
+      touchCurrentRef.current = touch.clientX;
+      setIsDragging(true);
+      setIsFirstMove(true);
     };
-    touchCurrentRef.current = touch.clientX;
-    setIsDragging(true);
-  };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStartRef.current) return;
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!touchStartRef.current) return;
 
-    const touch = e.touches[0];
-    const deltaX = touch.clientX - touchStartRef.current.x;
-    const deltaY = touch.clientY - touchStartRef.current.y;
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - touchStartRef.current.x;
+      const deltaY = touch.clientY - touchStartRef.current.y;
 
-    if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10) {
+      if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10) {
+        touchStartRef.current = null;
+        setIsDragging(false);
+        setDragOffset(0);
+        return;
+      }
+
+      if (isFirstMove && Math.abs(deltaX) > 10) {
+        e.preventDefault();
+        setIsFirstMove(false);
+      }
+
+      touchCurrentRef.current = touch.clientX;
+      
+      let offset = deltaX;
+      if ((activeTab === 0 && deltaX > 0) || (activeTab === tabs.length - 1 && deltaX < 0)) {
+        offset = deltaX * 0.3;
+      }
+      
+      setDragOffset(offset);
+    };
+
+    const handleTouchEnd = () => {
+      if (!touchStartRef.current) {
+        setIsDragging(false);
+        setDragOffset(0);
+        return;
+      }
+
+      const deltaX = touchCurrentRef.current - touchStartRef.current.x;
+      const deltaTime = Date.now() - touchStartRef.current.time;
+      const velocity = Math.abs(deltaX) / deltaTime;
+
+      const containerWidth = containerRef.current?.offsetWidth || 300;
+      const threshold = containerWidth * 0.2;
+      const velocityThreshold = 0.3;
+
+      let newTab = activeTab;
+
+      if (Math.abs(deltaX) > threshold || velocity > velocityThreshold) {
+        if (deltaX < 0 && activeTab < tabs.length - 1) {
+          newTab = activeTab + 1;
+        } else if (deltaX > 0 && activeTab > 0) {
+          newTab = activeTab - 1;
+        }
+      }
+
+      onTabChange(newTab);
       touchStartRef.current = null;
       setIsDragging(false);
       setDragOffset(0);
-      return;
-    }
+      setIsFirstMove(false);
+    };
 
-    if (Math.abs(deltaX) > 10) {
-      e.preventDefault();
-    }
+    container.addEventListener("touchstart", handleTouchStart, { passive: true });
+    container.addEventListener("touchmove", handleTouchMove, { passive: false });
+    container.addEventListener("touchend", handleTouchEnd, { passive: true });
 
-    touchCurrentRef.current = touch.clientX;
-    
-    let offset = deltaX;
-    if ((activeTab === 0 && deltaX > 0) || (activeTab === tabs.length - 1 && deltaX < 0)) {
-      offset = deltaX * 0.3;
-    }
-    
-    setDragOffset(offset);
-  };
-
-  const handleTouchEnd = () => {
-    if (!touchStartRef.current) {
-      setIsDragging(false);
-      setDragOffset(0);
-      return;
-    }
-
-    const deltaX = touchCurrentRef.current - touchStartRef.current.x;
-    const deltaTime = Date.now() - touchStartRef.current.time;
-    const velocity = Math.abs(deltaX) / deltaTime;
-
-    const containerWidth = containerRef.current?.offsetWidth || 300;
-    const threshold = containerWidth * 0.2;
-    const velocityThreshold = 0.3;
-
-    let newTab = activeTab;
-
-    if (Math.abs(deltaX) > threshold || velocity > velocityThreshold) {
-      if (deltaX < 0 && activeTab < tabs.length - 1) {
-        newTab = activeTab + 1;
-      } else if (deltaX > 0 && activeTab > 0) {
-        newTab = activeTab - 1;
-      }
-    }
-
-    onTabChange(newTab);
-    touchStartRef.current = null;
-    setIsDragging(false);
-    setDragOffset(0);
-  };
+    return () => {
+      container.removeEventListener("touchstart", handleTouchStart);
+      container.removeEventListener("touchmove", handleTouchMove);
+      container.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [activeTab, onTabChange, tabs.length, isFirstMove]);
 
   const getContentTransform = () => {
     const stepPercent = 100 / tabs.length;
@@ -1408,10 +1438,7 @@ function SwipeableTabContent({ tabs, activeTab, onTabChange }: SwipeableTabConte
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 overflow-hidden touch-pan-y"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      className="absolute inset-0 overflow-hidden"
     >
       <div
         className="absolute top-0 bottom-0 left-0 flex"

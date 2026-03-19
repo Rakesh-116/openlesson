@@ -673,15 +673,42 @@ export async function logToolUsage(
     const toolDataJson = JSON.stringify(toolData);
     const toolStoragePath = `${user.id}/${sessionId}/tool_${timestampMs}.json`;
 
+    console.log("[logToolUsage] Data to upload:", {
+      sessionId,
+      toolName,
+      toolAction,
+      dataSize: toolDataJson.length,
+      toolDataKeys: Object.keys(toolData),
+    });
+    if (toolData.data) {
+      const dataStr = String(toolData.data);
+      console.log("[logToolUsage] toolData.data preview:", dataStr.substring(0, 200) + "...");
+    }
+
     try {
-      await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from("session-tool")
         .upload(toolStoragePath, toolDataJson, {
           contentType: "application/json",
           upsert: true,
         });
+      
+      console.log("[logToolUsage] Storage upload result:", { uploadData, uploadError });
+      
+      if (!uploadError) {
+        const { data: downloadData, error: downloadError } = await supabase.storage
+          .from("session-tool")
+          .download(toolStoragePath);
+        
+        if (downloadError) {
+          console.error("[logToolUsage] Storage download verify failed:", downloadError);
+        } else {
+          const text = await downloadData.text();
+          console.log("[logToolUsage] Storage verify - downloaded size:", text.length, "startsWith:", text.substring(0, 50));
+        }
+      }
     } catch (e) {
-      console.warn("[logToolUsage] Storage upload failed (non-critical):", e);
+      console.error("[logToolUsage] Storage upload failed:", e);
     }
 
     const { error } = await supabase

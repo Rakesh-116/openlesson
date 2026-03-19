@@ -7,6 +7,8 @@ interface MobileWhiteboardCanvasProps {
   initialData?: string;
   onOpenCamera?: () => void;
   onCapture?: () => void;
+  pendingImage?: string | null;
+  onPendingImageUsed?: () => void;
 }
 
 interface PastedObject {
@@ -17,6 +19,7 @@ interface PastedObject {
   y: number;
   width: number;
   height: number;
+  scale: number;
   aspectRatio: number;
 }
 
@@ -25,6 +28,8 @@ export function MobileWhiteboardCanvas({
   initialData,
   onOpenCamera,
   onCapture,
+  pendingImage,
+  onPendingImageUsed,
 }: MobileWhiteboardCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -36,6 +41,8 @@ export function MobileWhiteboardCanvas({
   const [tool, setTool] = useState<"draw" | "eraser">("draw");
   const [pastedObject, setPastedObject] = useState<PastedObject | null>(null);
   const [showPalette, setShowPalette] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const isDrawingRef = useRef(false);
@@ -169,6 +176,7 @@ export function MobileWhiteboardCanvas({
           y,
           width: w,
           height: h,
+          scale: 1,
           aspectRatio: img.naturalWidth / img.naturalHeight,
         });
       };
@@ -188,17 +196,80 @@ export function MobileWhiteboardCanvas({
     if (pastedObject.type === "image" && pastedObject.dataUrl) {
       const img = new window.Image();
       img.onload = () => {
-        ctx.drawImage(img, pastedObject.x, pastedObject.y, pastedObject.width, pastedObject.height);
-        onCanvasChange?.(canvas.toDataURL("image/png"));
+        const finalWidth = pastedObject.width * pastedObject.scale;
+        const finalHeight = pastedObject.height * pastedObject.scale;
+        console.log("[Canvas] Drawing image:", { x: pastedObject.x, y: pastedObject.y, w: finalWidth, h: finalHeight });
+        ctx.drawImage(img, pastedObject.x, pastedObject.y, finalWidth, finalHeight);
+        const dataUrl = canvas.toDataURL("image/png");
+        console.log("[Canvas] Canvas after draw, size:", dataUrl.length, "startsWith:", dataUrl.substring(0, 50));
+        onCanvasChange?.(dataUrl);
         setPastedObject(null);
+        setIsDragging(false);
       };
+      img.onerror = () => {
+        console.error("[Canvas] Image failed to load");
+      };
+      console.log("[Canvas] Starting to load image from dataUrl");
       img.src = pastedObject.dataUrl;
     }
   }, [pastedObject, onCanvasChange]);
 
   const cancelPaste = useCallback(() => {
     setPastedObject(null);
+    setIsDragging(false);
   }, []);
+
+  const handlePasteDragStart = useCallback((e: React.PointerEvent) => {
+    if (!pastedObject || !containerRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const rect = containerRef.current.getBoundingClientRect();
+    const pasteWidth = (pastedObject.width * pastedObject.scale / canvasRef.current!.width) * rect.width;
+    const pasteHeight = (pastedObject.height * pastedObject.scale / canvasRef.current!.height) * rect.height;
+    const pasteX = (pastedObject.x / canvasRef.current!.width) * rect.width;
+    const pasteY = (pastedObject.y / canvasRef.current!.height) * rect.height;
+    
+    setDragOffset({
+      x: e.clientX - pasteX,
+      y: e.clientY - pasteY,
+    });
+    setIsDragging(true);
+  }, [pastedObject]);
+
+  const handlePasteDragMove = useCallback((e: React.PointerEvent) => {
+    if (!isDragging || !pastedObject || !containerRef.current || !canvasRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const rect = containerRef.current.getBoundingClientRect();
+    const newX = ((e.clientX - dragOffset.x) / rect.width) * canvasRef.current.width;
+    const newY = ((e.clientY - dragOffset.y) / rect.height) * canvasRef.current.height;
+    
+    setPastedObject(prev => prev ? {
+      ...prev,
+      x: Math.max(0, Math.min(newX, canvasRef.current!.width - prev.width * prev.scale)),
+      y: Math.max(0, Math.min(newY, canvasRef.current!.height - prev.height * prev.scale)),
+    } : null);
+  }, [isDragging, pastedObject, dragOffset]);
+
+  const handlePasteDragEnd = useCallback((e: React.PointerEvent) => {
+    setIsDragging(false);
+  }, []);
+
+  const handleScaleChange = useCallback((delta: number) => {
+    if (!pastedObject || !canvasRef.current) return;
+    setPastedObject(prev => {
+      if (!prev) return null;
+      const newScale = Math.max(0.25, Math.min(3, prev.scale + delta));
+      return { ...prev, scale: newScale };
+    });
+  }, [pastedObject]);
+
+  const handleResetScale = useCallback(() => {
+    if (!pastedObject) return;
+    setPastedObject(prev => prev ? { ...prev, scale: 1 } : null);
+  }, [pastedObject]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -269,6 +340,44 @@ export function MobileWhiteboardCanvas({
     });
   }, [initialData]);
 
+  useEffect(() => {
+    if (!pendingImage || !canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const img = new window.Image();
+    img.onload = () => {
+      const canvasW = canvas.width;
+      const canvasH = canvas.height;
+      const maxW = canvasW * 0.8;
+      const maxH = canvasH * 0.8;
+
+      let w = img.naturalWidth;
+      let h = img.naturalHeight;
+
+      if (w > maxW || h > maxH) {
+        const scale = Math.min(maxW / w, maxH / h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+
+      const x = Math.round((canvasW - w) / 2);
+      const y = Math.round((canvasH - h) / 2);
+
+      setPastedObject({
+        type: "image",
+        dataUrl: pendingImage,
+        x,
+        y,
+        width: w,
+        height: h,
+        scale: 1,
+        aspectRatio: img.naturalWidth / img.naturalHeight,
+      });
+      onPendingImageUsed?.();
+    };
+    img.src = pendingImage;
+  }, [pendingImage, onPendingImageUsed]);
+
   return (
     <div className="flex flex-col h-full bg-[#0a0a0a]">
       {/* Canvas - fills space above toolbar */}
@@ -290,26 +399,60 @@ export function MobileWhiteboardCanvas({
           <>
             <div className="absolute inset-0 bg-black/20 pointer-events-none z-10" />
             <div
-              className="absolute z-20 bg-black/40 border-2 border-dashed border-cyan-400/80"
+              className="absolute z-20 cursor-move"
               style={{
                 left: `${(pastedObject.x / (canvasRef.current?.width || 1)) * 100}%`,
                 top: `${(pastedObject.y / (canvasRef.current?.height || 1)) * 100}%`,
-                width: `${(pastedObject.width / (canvasRef.current?.width || 1)) * 100}%`,
-                height: `${(pastedObject.height / (canvasRef.current?.height || 1)) * 100}%`,
+                width: `${(pastedObject.width * pastedObject.scale / (canvasRef.current?.width || 1)) * 100}%`,
+                height: `${(pastedObject.height * pastedObject.scale / (canvasRef.current?.height || 1)) * 100}%`,
               }}
+              onPointerDown={handlePasteDragStart}
+              onPointerMove={handlePasteDragMove}
+              onPointerUp={handlePasteDragEnd}
+              onPointerLeave={handlePasteDragEnd}
             >
-              {pastedObject.type === "image" && pastedObject.dataUrl ? (
-                <img
-                  src={pastedObject.dataUrl}
-                  alt="Pasted"
-                  className="w-full h-full object-contain pointer-events-none"
-                  draggable={false}
-                />
-              ) : null}
+              <div className="w-full h-full border-2 border-dashed border-cyan-400/80 rounded-lg overflow-hidden">
+                {pastedObject.type === "image" && pastedObject.dataUrl ? (
+                  <img
+                    src={pastedObject.dataUrl}
+                    alt="Pasted"
+                    className="w-full h-full object-contain pointer-events-none"
+                    draggable={false}
+                  />
+                ) : null}
+              </div>
             </div>
           </>
         )}
       </div>
+
+      {/* Scale controls */}
+      {pastedObject && (
+        <div className="absolute top-[120px] left-1/2 -translate-x-1/2 bg-neutral-900/90 rounded-full px-4 py-2 flex items-center gap-3 z-30 shadow-lg">
+          <button
+            onClick={() => handleScaleChange(-0.25)}
+            className="w-8 h-8 rounded-full bg-neutral-800 text-white flex items-center justify-center active:scale-95"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
+            </svg>
+          </button>
+          <button
+            onClick={handleResetScale}
+            className="px-2 py-1 text-xs text-cyan-400 font-medium min-w-[50px] text-center"
+          >
+            {Math.round(pastedObject.scale * 100)}%
+          </button>
+          <button
+            onClick={() => handleScaleChange(0.25)}
+            className="w-8 h-8 rounded-full bg-neutral-800 text-white flex items-center justify-center active:scale-95"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Paste buttons - above toolbar */}
       {pastedObject && (
