@@ -135,6 +135,7 @@ export function MobileSessionView({
   // Refs
   const recorderRef = useRef<AudioRecorder | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerBaseRef = useRef<number>(0);
   const analysisRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chunkIndexRef = useRef(0);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
@@ -225,12 +226,9 @@ export function MobileSessionView({
   // Start/stop timer based on recording state (and paused state)
   useEffect(() => {
     if (isRecording && !isPaused && !timerRef.current) {
-      const sessionStartMs = session?.durationMs 
-        ? Date.now() - session.durationMs 
-        : Date.now();
-      
+      const baseMs = timerBaseRef.current || (session?.durationMs ?? Date.now());
       timerRef.current = setInterval(() => {
-        setElapsedSeconds(Math.floor((Date.now() - sessionStartMs) / 1000));
+        setElapsedSeconds(Math.floor((Date.now() - baseMs) / 1000));
       }, 1000);
       
       setMicStatus("ready");
@@ -387,15 +385,11 @@ export function MobileSessionView({
       recorderRef.current = recorder;
       await recorder.start(stream);
       await startSession(session.id);
+      timerBaseRef.current = Date.now();
       setIsRecording(true);
       setIsPaused(false);
       setMicStatus("ready");
-
-      const startTime = Date.now();
-      timerRef.current = setInterval(() => {
-        setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
-      }, 1000);
-      // Heartbeat is handled by the effect based on isRecording state
+      // Timer is handled by the effect based on isRecording/isPaused state
 
     } catch (err) {
       setMicStatus("denied");
@@ -539,13 +533,10 @@ export function MobileSessionView({
       recorderRef.current = recorder;
       await recorder.start(stream);
       await startSession(session.id);
+      timerBaseRef.current = Date.now();
       setIsRecording(true);
       setIsPaused(false);
-
-      const startTime = Date.now();
-      timerRef.current = setInterval(() => {
-        setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
-      }, 1000);
+      // Timer is handled by the effect based on isRecording/isPaused state
 
       // Dual heartbeat: storage every 5s, analysis every 10s
       analysisRef.current = setInterval(async () => {
@@ -640,14 +631,16 @@ export function MobileSessionView({
     if (!session) return;
     recorderRef.current?.pause();
     setIsPaused(true);
+    timerBaseRef.current = Date.now() - elapsedSeconds * 1000;
     await pauseSession(session.id);
-  }, [session]);
+  }, [session, elapsedSeconds]);
 
   // Resume recording
   const resumeRecording = useCallback(async () => {
     if (!session) return;
 
     if (recorderRef.current) {
+      timerBaseRef.current = Date.now() - elapsedSeconds * 1000;
       recorderRef.current.resume();
       setIsPaused(false);
       await resumeSession(session.id);
@@ -679,17 +672,13 @@ export function MobileSessionView({
       await recorder.start(stream);
       setIsPaused(false);
       setIsRecording(true);
+      timerBaseRef.current = Date.now() - elapsedSeconds * 1000;
       await resumeSession(session.id);
-
-      const startTime = Date.now();
-      timerRef.current = setInterval(() => {
-        setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
-      }, 1000);
     } catch (err) {
       setMicStatus("denied");
       setError("Could not access microphone. Please grant permission and try again.");
     }
-  }, [session]);
+  }, [session, elapsedSeconds]);
 
   // Archive probe
   const handleArchiveProbe = useCallback(async (probeId: string) => {
