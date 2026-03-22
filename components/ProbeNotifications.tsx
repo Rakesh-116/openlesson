@@ -55,6 +55,8 @@ interface ProbeNotificationsProps {
   planError?: string | null;
   onAdvanceStep?: () => Promise<void>;
   onRollbackToStep?: (stepIndex: number) => Promise<void>;
+  autoAdvance?: boolean;
+  onToggleAutoAdvance?: (value: boolean) => void;
   // Loading and celebration states
   isInitializing?: boolean;
   isCelebrating?: boolean;
@@ -109,6 +111,8 @@ export function ProbeNotifications({
   planError,
   onAdvanceStep,
   onRollbackToStep,
+  autoAdvance = true,
+  onToggleAutoAdvance,
   isInitializing = false,
   isCelebrating = false,
 }: ProbeNotificationsProps) {
@@ -642,6 +646,9 @@ export function ProbeNotifications({
                 error={planError ?? null} 
                 onAdvanceStep={onAdvanceStep}
                 onRollbackToStep={onRollbackToStep}
+                autoAdvance={autoAdvance}
+                onToggleAutoAdvance={onToggleAutoAdvance}
+                sessionId={sessionId}
               />
             </div>
           </div>

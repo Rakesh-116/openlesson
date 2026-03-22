@@ -93,6 +93,7 @@ export interface Session {
     whiteboardData?: string | null;
     notebookData?: string | null;
     tutoringLanguage?: string;
+    autoAdvance?: boolean;
   };
 }
 

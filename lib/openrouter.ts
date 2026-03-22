@@ -365,10 +365,23 @@ Based on these observations, decide:
    - For "task" type requests, consider which ILE tools would help and include 1-2 suggested_tools
    - The question should push them to the next concrete insight within the current step
 
-4. Should any probes be auto-archived?
+ 4. Should any probes be auto-archived?
    - Check if focused probes have been addressed (evidence in transcript, whiteboard, or actions)
    - Check if any non-focused probes are clearly resolved
    - Only archive if there's clear evidence the student has engaged with and addressed the probe
+
+ 5. CAN THE STEP AUTO-ADVANCE? (for automatic mode)
+   - Consider: Has the student demonstrated sufficient understanding of the current step's topic?
+   - Look for: verbal confirmation, applying concepts, solving related problems, moving to next logical subtopic
+   - Set can_auto_advance to true ONLY if:
+     * Gap score is < 0.5 (student is progressing well)
+     * There are positive signals of progress (not just neutral)
+     * The student is clearly moving toward or past the current step's objective
+   - Set can_auto_advance to false if:
+     * Gap score >= 0.5 (hesitation or gaps present)
+     * Confusion signals detected
+     * Student seems stuck or is going in circles
+     * There's insufficient evidence the step is complete
 
 Return ONLY valid JSON:
 {
@@ -385,6 +398,8 @@ Return ONLY valid JSON:
   } | null,
   "probes_to_archive": ["probe_id_1", "probe_id_2"],
   "can_generate_probe": true/false,
+  "can_auto_advance": true/false,
+  "advance_reasoning": "Brief explanation of why the step can or cannot auto-advance (used in manual mode dialog)",
   "reasoning": "Brief 1-sentence explanation of your decision"
 }
 
@@ -392,7 +407,9 @@ If plan_changed is false, updated_steps can be omitted or be the same as current
 If no probes should be archived, probes_to_archive should be an empty array.
 Set can_generate_probe to false if at probe cap (5) and cannot archive any.
 The next_request should be ready to display directly to the student - make it specific, concrete, and directly about the current step's topic.
-suggested_tools is optional - only include it for "task" or "suggestion" types where specific tools would help. Use tool IDs from the list above (chat, canvas, notebook, grokipedia).`,
+suggested_tools is optional - only include it for "task" or "suggestion" types where specific tools would help. Use tool IDs from the list above (chat, canvas, notebook, grokipedia).
+can_auto_advance: Only set to true if the student has clearly demonstrated sufficient progress on the current step (gap < 0.5, positive signals, evidence of understanding). Otherwise false.
+advance_reasoning: A brief (1-2 sentence) human-readable explanation of why the step can or cannot advance, displayed in the manual mode override dialog.`,
 
   // ============================================
   // PROBE ARCHIVE CHECK
@@ -912,6 +929,8 @@ export interface SessionPlanUpdateResult {
   reasoning: string;
   gapScore: number;
   signals: string[];
+  canAutoAdvance: boolean;
+  advanceReasoning: string;
 }
 
 export interface FocusedProbeInfo {
@@ -971,6 +990,8 @@ export async function updateSessionPlanLLM(options: {
     reasoning?: string;
     gap_score?: number;
     signals?: string[];
+    can_auto_advance?: boolean;
+    advance_reasoning?: string;
   }
 
   const response = await callOpenRouterJSON<RawPlanUpdate>(
@@ -1030,6 +1051,8 @@ export async function updateSessionPlanLLM(options: {
     reasoning: parsed.reasoning || "",
     gapScore: Math.max(0, Math.min(1, parsed.gap_score ?? 0.5)),
     signals: parsed.signals || [],
+    canAutoAdvance: parsed.can_auto_advance ?? false,
+    advanceReasoning: parsed.advance_reasoning || "",
   };
 
   return { success: true, result };

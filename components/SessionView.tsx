@@ -78,6 +78,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tutoringLanguage, setTutoringLanguage] = useState(locale);
+  const [autoAdvance, setAutoAdvance] = useState(true);
 
   // Mic check
   const [micStatus, setMicStatus] = useState<"idle" | "checking" | "ready" | "denied">("idle");
@@ -1870,6 +1871,34 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                       </select>
                     </div>
 
+                    <div className={`mb-4 p-3 rounded-xl border transition-all ${autoAdvance ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <div className="relative shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={autoAdvance}
+                            onChange={(e) => setAutoAdvance(e.target.checked)}
+                            className="sr-only"
+                          />
+                          <div className={`w-10 h-5.5 rounded-full transition-colors ${autoAdvance ? 'bg-cyan-500' : 'bg-amber-500'}`}>
+                            <div className={`absolute top-0.5 w-4.5 h-4.5 rounded-full bg-white shadow transition-transform ${autoAdvance ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                          </div>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium leading-tight">
+                            <span className={autoAdvance ? 'text-cyan-400' : 'text-amber-400'}>
+                              {autoAdvance ? 'Auto-advance ON' : 'Manual mode'}
+                            </span>
+                          </span>
+                          <span className="text-xs text-neutral-500 leading-tight mt-0.5">
+                            {autoAdvance 
+                              ? 'AI decides when to move forward automatically' 
+                              : 'You click to advance — AI analyzes but you decide'}
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+
                     <button
                       onClick={async () => {
                         if (!session || isPreparing) return;
@@ -2406,15 +2435,17 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   onArchiveProbe={handleArchiveProbe}
                   onToggleFocus={handleToggleFocus}
                   onToolSelect={(tool) => setActiveTool(tool as Tool)}
-                   onReset={handleReset}
-                   onClose={handleClose}
-                   archivingProbeId={archivingProbeId}
-                   planLoading={planLoading}
-                   planError={planError}
-                   onAdvanceStep={handleAdvanceStep}
-                   onRollbackToStep={handleRollbackToStep}
-                   isInitializing={planLoading || openingProbeLoading}
-                   isCelebrating={isCelebrating}
+                  onReset={handleReset}
+                  onClose={handleClose}
+                  archivingProbeId={archivingProbeId}
+                  planLoading={planLoading}
+                  planError={planError}
+                  onAdvanceStep={handleAdvanceStep}
+                  onRollbackToStep={handleRollbackToStep}
+                  autoAdvance={autoAdvance}
+                  onToggleAutoAdvance={setAutoAdvance}
+                  isInitializing={planLoading || openingProbeLoading}
+                  isCelebrating={isCelebrating}
                 />
               }
             />

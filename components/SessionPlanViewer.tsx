@@ -10,14 +10,20 @@ interface SessionPlanViewerProps {
   error?: string | null;
   onAdvanceStep?: () => Promise<void>;
   onRollbackToStep?: (stepIndex: number) => Promise<void>;
+  autoAdvance?: boolean;
+  onToggleAutoAdvance?: (value: boolean) => void;
+  sessionId?: string;
 }
 
-export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollbackToStep }: SessionPlanViewerProps) {
+export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollbackToStep, autoAdvance = true, onToggleAutoAdvance, sessionId }: SessionPlanViewerProps) {
   const { t } = useI18n();
   const [advancing, setAdvancing] = useState(false);
   const [rollingBack, setRollingBack] = useState(false);
   const [rollbackTargetIdx, setRollbackTargetIdx] = useState<number | null>(null);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
+  const [showAdvanceDialog, setShowAdvanceDialog] = useState(false);
+  const [advanceDialogReasoning, setAdvanceDialogReasoning] = useState("");
+  const [analyzingAdvance, setAnalyzingAdvance] = useState(false);
 
   const toggleStep = (stepId: string) => {
     setExpandedSteps(prev => {
@@ -34,6 +40,58 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
   const handleAdvanceStep = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!onAdvanceStep || advancing) return;
+
+    if (autoAdvance) {
+      setAdvancing(true);
+      try {
+        await onAdvanceStep();
+      } finally {
+        setAdvancing(false);
+      }
+    } else {
+      setAnalyzingAdvance(true);
+      try {
+        const res = await fetch("/api/session-plan/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: sessionId,
+            previousProbes: [],
+            focusedProbes: [],
+            openProbeCount: 0,
+            lastProbeTimestamp: 0,
+          }),
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          if (data.canAutoAdvance) {
+            setAdvancing(true);
+            try {
+              await onAdvanceStep();
+            } finally {
+              setAdvancing(false);
+            }
+          } else {
+            setAdvanceDialogReasoning(data.advanceReasoning || "The AI suggests staying on the current step.");
+            setShowAdvanceDialog(true);
+          }
+        } else {
+          setAdvanceDialogReasoning("Unable to analyze session. Please review if the student is ready to move forward.");
+          setShowAdvanceDialog(true);
+        }
+      } catch {
+        setAdvanceDialogReasoning("Unable to analyze session. Please review if the student is ready to move forward.");
+        setShowAdvanceDialog(true);
+      } finally {
+        setAnalyzingAdvance(false);
+      }
+    }
+  };
+
+  const handleForceAdvance = async () => {
+    setShowAdvanceDialog(false);
+    if (!onAdvanceStep) return;
     setAdvancing(true);
     try {
       await onAdvanceStep();
@@ -170,7 +228,7 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
   return (
     <div className="h-full w-full flex flex-col p-4 overflow-hidden">
       {/* Progress bar */}
-      <div className="mb-4">
+      <div className="mb-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs text-neutral-500">{t('sessionPlan.progress')}</span>
           <span className="text-xs font-medium text-white">
@@ -184,6 +242,37 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
           />
         </div>
       </div>
+
+      {/* Auto/Manual toggle */}
+      {onToggleAutoAdvance && (
+        <div className={`mb-3 p-2.5 rounded-lg border transition-all ${autoAdvance ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
+          <button
+            onClick={() => onToggleAutoAdvance(!autoAdvance)}
+            className="w-full flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {autoAdvance ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+                )}
+              </svg>
+              <div className="flex flex-col items-start">
+                <span className={`text-xs font-medium ${autoAdvance ? 'text-cyan-400' : 'text-amber-400'}`}>
+                  {autoAdvance ? 'Auto-advance' : 'Manual mode'}
+                </span>
+                <span className="text-[10px] text-neutral-500">
+                  {autoAdvance ? 'AI controls advancement' : 'You control advancement'}
+                </span>
+              </div>
+            </div>
+            <div className={`relative w-10 h-5 rounded-full transition-colors ${autoAdvance ? 'bg-cyan-500' : 'bg-amber-500'}`}>
+              <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${autoAdvance ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Steps list */}
       <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden space-y-1 pr-1">
@@ -300,10 +389,10 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
                     {step.description}
                   </p>
                   {/* Mark Complete button - only on active step */}
-                  {isActive && onAdvanceStep && (
+                  {isActive && !autoAdvance && onAdvanceStep && (
                     <button
                       onClick={handleAdvanceStep}
-                      disabled={advancing}
+                      disabled={advancing || analyzingAdvance}
                       className="mt-2.5 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-green-500/15 text-green-400 border border-green-500/25 hover:bg-green-500/25 hover:border-green-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1.5"
                     >
                       {advancing ? (
@@ -313,6 +402,14 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
                           Completing...
+                        </>
+                      ) : analyzingAdvance ? (
+                        <>
+                          <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Checking...
                         </>
                       ) : (
                         <>
@@ -324,8 +421,8 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
                       )}
                     </button>
                   )}
-                  {/* Rollback button - only on completed steps */}
-                  {isCompleted && onRollbackToStep && (
+                  {/* Rollback button - only on completed steps, hidden in auto mode */}
+                  {!autoAdvance && isCompleted && onRollbackToStep && (
                     <button
                       onClick={(e) => handleRollbackToStep(e, idx)}
                       disabled={rollingBack}
@@ -367,6 +464,42 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
           );
         })}
       </div>
+
+      {/* Advance Confirmation Dialog */}
+      {showAdvanceDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 max-w-sm mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-base font-semibold text-white">AI Suggests Staying</h3>
+            </div>
+            <p className="text-sm text-neutral-400 mb-4 leading-relaxed">
+              {advanceDialogReasoning}
+            </p>
+            <p className="text-xs text-neutral-500 mb-4">
+              You can still choose to advance if you think the student is ready.
+            </p>
+            <div className="flex gap-2.5">
+              <button
+                onClick={() => setShowAdvanceDialog(false)}
+                className="flex-1 py-2.5 text-sm text-neutral-400 border border-neutral-700 hover:border-neutral-600 rounded-lg transition-colors"
+              >
+                Stay on Step
+              </button>
+              <button
+                onClick={handleForceAdvance}
+                className="flex-1 py-2.5 text-sm text-white bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded-lg transition-colors"
+              >
+                Continue Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

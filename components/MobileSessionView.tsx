@@ -95,6 +95,7 @@ export function MobileSessionView({
   const [tutoringLanguage, setTutoringLanguage] = useState<SupportedLocale>(
     (initialSession?.metadata?.tutoringLanguage as SupportedLocale) || 'en'
   );
+  const [autoAdvance, setAutoAdvance] = useState(true);
   const [isPreparing, setIsPreparing] = useState(false);
   const [planLoading, setPlanLoading] = useState(false);
   const [openingProbeLoading, setOpeningProbeLoading] = useState(false);
@@ -906,6 +907,34 @@ export function MobileSessionView({
                   ))}
                 </select>
               </div>
+
+              <div className={`mb-5 p-3.5 rounded-xl border transition-all ${autoAdvance ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className="relative shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={autoAdvance}
+                      onChange={(e) => setAutoAdvance(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div className={`w-11 h-6 rounded-full transition-colors ${autoAdvance ? 'bg-cyan-500' : 'bg-amber-500'}`}>
+                      <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${autoAdvance ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </div>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium leading-tight">
+                      <span className={autoAdvance ? 'text-cyan-400' : 'text-amber-400'}>
+                        {autoAdvance ? 'Auto-advance ON' : 'Manual mode'}
+                      </span>
+                    </span>
+                    <span className="text-xs text-neutral-500 leading-tight mt-0.5">
+                      {autoAdvance 
+                        ? 'AI decides when to move forward' 
+                        : 'You click to advance — AI analyzes but you decide'}
+                    </span>
+                  </div>
+                </label>
+              </div>
               
               <button
                 onClick={prepareSession}
@@ -967,6 +996,9 @@ export function MobileSessionView({
           plan={sessionPlan}
           onAdvanceStep={handleAdvanceStep}
           onRollbackToStep={handleRollbackToStep}
+          autoAdvance={autoAdvance}
+          onToggleAutoAdvance={setAutoAdvance}
+          sessionId={session?.id}
         />
       ),
     },

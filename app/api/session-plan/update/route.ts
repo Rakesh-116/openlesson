@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { planChanged, shouldPause, pauseReason, updatedSteps, currentStepIndex, nextRequest, probesToArchive, canGenerateProbe, reasoning, gapScore, signals } = result.result;
+    const { planChanged, shouldPause, pauseReason, updatedSteps, currentStepIndex, nextRequest, probesToArchive, canGenerateProbe, reasoning, gapScore, signals, canAutoAdvance, advanceReasoning } = result.result;
 
     // Update plan in database if it changed
     let updatedPlan = currentPlan;
@@ -190,6 +190,8 @@ export async function POST(request: NextRequest) {
       reasoning,
       gapScore: gapScore ?? 0.5,
       signals: signals || [],
+      canAutoAdvance: canAutoAdvance ?? false,
+      advanceReasoning: advanceReasoning ?? "",
       transcript: transcriptText.slice(0, 1000),
     });
   } catch (error) {
