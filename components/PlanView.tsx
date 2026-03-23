@@ -204,7 +204,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-        <div className="text-neutral-400">Loading plan...</div>
+        <div className="text-neutral-400">{t('planView.loading')}</div>
       </div>
     );
   }
@@ -212,9 +212,9 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
   if (error || !plan) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center gap-4">
-        <div className="text-red-400">{error || "Plan not found"}</div>
+        <div className="text-red-400">{error || t('planView.planNotFound')}</div>
         <Link href="/" className="text-blue-400 hover:underline">
-          Go back home
+          {t('planView.goBackHome')}
         </Link>
       </div>
     );
@@ -320,24 +320,24 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                     <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
                     </svg>
-                    YouTube
+                    {t('planView.youtube')}
                   </span>
                 )}
                 {plan.is_public ? (
-                  <span className="text-green-400 font-medium">Public</span>
+                  <span className="text-green-400 font-medium">{t('planView.public')}</span>
                 ) : (
-                  <span className="text-neutral-400 font-medium">Private</span>
+                  <span className="text-neutral-400 font-medium">{t('planView.private')}</span>
                 )}
                 {plan.is_public && (
                   <span className="text-neutral-500">
-                    · {(plan.remix_count || 0)} {(plan.remix_count || 0) === 1 ? "fork" : "forks"}
+                    · {(plan.remix_count || 0)} {(plan.remix_count || 0) === 1 ? t('planView.fork') : t('planView.forks', { count: plan.remix_count || 0 })}
                   </span>
                 )}
                 {plan.is_public && plan.author_username && (
-                  <span className="text-neutral-500">by @{plan.author_username}</span>
+                  <span className="text-neutral-500">{t('planView.by')} @{plan.author_username}</span>
                 )}
                 {plan.original_plan_id && (
-                  <span className="text-neutral-500">· Remixed</span>
+                  <span className="text-neutral-500">· {t('planView.remixed')}</span>
                 )}
               </div>
               
@@ -392,7 +392,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                       onClick={() => setIsEditingDescription(true)}
                       className="text-sm text-neutral-500 hover:text-neutral-400 transition-colors"
                     >
-                      + Add description
+                      {t('planView.addDescriptionBtn')}
                     </button>
                   ) : null}
                 </div>
@@ -405,7 +405,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                     onClick={handleShare}
                     className="text-xs px-3 py-1.5 rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors whitespace-nowrap"
                   >
-                    {copied ? "Copied!" : "Share"}
+                    {copied ? t('planView.copied') : t('planView.share')}
                   </button>
                 )}
                 <button
@@ -434,7 +434,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                       : "bg-green-900/30 border-green-800 text-green-400 hover:bg-green-900/50"
                   }`}
                 >
-                  {plan.is_public ? "Make Private" : "Make Public"}
+                  {plan.is_public ? t('planView.makePrivate') : t('planView.makePublic')}
                 </button>
               </div>
             ) : !currentUserId ? (
@@ -444,14 +444,14 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                     onClick={handleShare}
                     className="text-xs px-3 py-1.5 rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors whitespace-nowrap"
                   >
-                    {copied ? "Copied!" : "Share"}
+                    {copied ? t('planView.copied') : t('planView.share')}
                   </button>
                 )}
                 <Link
                   href="/register"
                   className="text-xs px-3 py-1.5 rounded-lg border border-blue-500/50 text-blue-400 hover:bg-blue-500/10 transition-colors whitespace-nowrap"
                 >
-                  Fork / Remix
+                  {t('planView.forkRemix')}
                 </Link>
               </div>
             ) : (
@@ -461,14 +461,14 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                     onClick={handleShare}
                     className="text-xs px-3 py-1.5 rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors whitespace-nowrap"
                   >
-                    {copied ? "Copied!" : "Share"}
+                    {copied ? t('planView.copied') : t('planView.share')}
                   </button>
                 )}
                 <button
                   onClick={() => setShowRemixModal(true)}
                   className="text-xs px-3 py-1.5 rounded-lg border border-blue-500/50 text-blue-400 hover:bg-blue-500/10 transition-colors whitespace-nowrap"
                 >
-                  Fork / Remix
+                  {t('planView.forkRemix')}
                 </button>
               </div>
             )}

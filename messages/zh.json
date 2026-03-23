@@ -667,7 +667,9 @@
   },
   "sessionEnd": {
     "endSession": "结束课程",
-    "keepGoing": "继续"
+    "keepGoing": "继续",
+    "confirmEndTitle": "结束课程？",
+    "confirmEndMessage": "您确定要结束此课程吗？您的课程数据将被保存，您将被带到结果页面。"
   },
   "planning": {
     "analyzingHistory": "正在分析您的学习历史...",
@@ -675,7 +677,24 @@
     "feelingLost": "感到迷茫或缺乏信心？",
     "generatingMaterial": "正在生成您的准备材料...",
     "relevantPastSessions": "相关的过去课程",
-    "noMaterialAvailable": "暂无材料"
+    "noMaterialAvailable": "暂无材料",
+    "yourStartingQuestion": "您的起始问题",
+    "prepareForSession": "准备课程",
+    "searchGrokipedia": "搜索 Grokipedia",
+    "explainOutLoud": "思考如何用自己的话解释 {topic}。",
+    "whenReady": "准备好后，检查麦克风并开始课程。",
+    "starting": "正在开始...",
+    "beginSession": "开始课程",
+    "checkingMicrophone": "正在检查麦克风...",
+    "microphoneDenied": "麦克风被拒绝 - 重试",
+    "checkMicrophoneFirst": "先检查麦克风",
+    "consent": "开始此课程即表示您同意我们收集和使用您的语音数据用于研究目的和产品改进。",
+    "preparationMaterial": "准备材料",
+    "generatingMaterial2": "正在生成您的准备材料...",
+    "selectToInclude": "（选择以包含）",
+    "patterns": "{selected}/{total} 个模式",
+    "previousSession": "上一课程",
+    "match": "{percent}% 匹配"
   },
   "sessionPlan": {
     "creating": "正在创建课程计划...",
@@ -1049,7 +1068,18 @@
     "schoolPilotSubtitle": "我们正在与早期采用的教育工作者合作，构建课堂工具。"
   },
   "communityPlans": {
+    "title": "社区计划",
+    "description": "探索其他学习者创建的学习计划",
     "searchPlaceholder": "搜索主题..."
+  },
+  "learningPlanChat": {
+    "welcome": "欢迎使用您的学习计划！",
+    "intro": "使用此聊天来自定义您的计划。您可以：",
+    "addSessions": "添加课程 – \"添加一个关于高级主题的课程\"",
+    "removeSessions": "删除课程 – \"删除介绍课程\"",
+    "reorder": "重新排序 – \"将课程3移到课程2之前\"",
+    "modifyContent": "修改内容 – \"让课程2更侧重实践\"",
+    "changesAppear": "您的更改将显示在右侧的课程面板中。"
   },
   "activeProbe": {
     "placeholder": "输入您的问题..."
@@ -1174,14 +1204,55 @@
     "customInstructions": "此会话的自定义说明..."
   },
   "planView": {
-    "addDescription": "添加学习计划描述..."
+    "addDescription": "添加学习计划描述...",
+    "loading": "加载计划中...",
+    "planNotFound": "未找到计划",
+    "goBackHome": "返回首页",
+    "youtube": "YouTube",
+    "public": "公开",
+    "private": "私有",
+    "forks": "{count} 个分支",
+    "fork": "分支",
+    "by": "作者",
+    "remixed": "已改编",
+    "addDescriptionBtn": "+ 添加描述",
+    "cancel": "取消",
+    "share": "分享",
+    "copied": "已复制！",
+    "makePrivate": "设为私有",
+    "makePublic": "设为公开",
+    "forkRemix": "复制 / 改编",
+    "failedToLoadNodes": "加载节点失败"
+  },
+  "planChat": {
+    "chat": "聊天",
+    "sessions": "课程",
+    "deleteSession": "删除课程？",
+    "deleteSessionConfirm": "这将移除课程并更新您的学习计划。您可以通过聊天添加新课程。",
+    "delete": "删除"
+  },
+  "sessionList": {
+    "sessions": "课程",
+    "activeDone": "{active} 进行中，{done} 已完成",
+    "sessionOrderHint": "您不必按推荐顺序进行。随时开始任何课程，想重学多少次都可以。",
+    "noSessions": "还没有课程。 用聊天来构建您的计划！",
+    "completed": "已完成"
+  },
+  "remixModal": {
+    "remixTitle": "改编「{topic}」",
+    "originallyBy": "原始作者",
+    "giveTitle": "为您的计划命名",
+    "howAdapt": "您想如何改编这个计划？",
+    "titleRequired": "请为您的计划命名",
+    "promptRequired": "请描述您想如何改编这个计划",
+    "remixFailed": "改编计划失败",
+    "remixing": "改编中...",
+    "remixPlan": "改编计划",
+    "topicPlaceholder": "例如，Python数据科学",
+    "modificationsPlaceholder": "例如，让它更适合初学者，专注于实际应用，更短的课程..."
   },
   "register": {
     "usernamePlaceholder": "学习者42"
-  },
-  "remixModal": {
-    "topicPlaceholder": "例如，Python数据科学",
-    "modificationsPlaceholder": "例如，让它更适合初学者，专注于实际应用，更短的课程..."
   },
   "organization": {
     "orgNamePlaceholder": "ABC公司",

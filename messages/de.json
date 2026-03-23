@@ -667,7 +667,9 @@
   },
   "sessionEnd": {
     "endSession": "Sitzung beenden",
-    "keepGoing": "Weitermachen"
+    "keepGoing": "Weitermachen",
+    "confirmEndTitle": "Sitzung beenden?",
+    "confirmEndMessage": "Bist du sicher, dass du diese Sitzung beenden möchtest? Deine Sitzungsdaten werden gespeichert und du wirst zur Ergebnisseite geleitet."
   },
   "planning": {
     "analyzingHistory": "Lernverlauf wird analysiert...",
@@ -675,7 +677,24 @@
     "feelingLost": "Fühlst du dich verloren oder unsicher?",
     "generatingMaterial": "Vorbereitungsmaterial wird erstellt...",
     "relevantPastSessions": "Relevante vergangene Sitzungen",
-    "noMaterialAvailable": "Kein Material verfügbar"
+    "noMaterialAvailable": "Kein Material verfügbar",
+    "yourStartingQuestion": "Deine Startfrage",
+    "prepareForSession": "Auf Sitzung vorbereiten",
+    "searchGrokipedia": "Grokipedia durchsuchen",
+    "explainOutLoud": "Überlege, wie du {topic} laut erklären würdest.",
+    "whenReady": "Wenn du bereit bist, überprüfe dein Mikrofon und beginne die Sitzung.",
+    "starting": "Starten...",
+    "beginSession": "Sitzung beginnen",
+    "checkingMicrophone": "Mikrofon wird überprüft...",
+    "microphoneDenied": "Mikrofon verweigert - Erneut versuchen",
+    "checkMicrophoneFirst": "Zuerst Mikrofon überprüfen",
+    "consent": "Mit dem Start dieser Sitzung stimmst du zu, dass wir deine Sprachdaten für Forschungszwecke und Produktverbesserung sammeln und nutzen dürfen.",
+    "preparationMaterial": "Vorbereitungsmaterial",
+    "generatingMaterial2": "Vorbereitungsmaterial wird erstellt...",
+    "selectToInclude": "(auswählen zum Einschließen)",
+    "patterns": "{selected} von {total} Mustern",
+    "previousSession": "Vorherige Sitzung",
+    "match": "{percent}% Übereinstimmung"
   },
   "sessionPlan": {
     "creating": "Sitzungsplan wird erstellt...",
@@ -1049,7 +1068,18 @@
     "schoolPilotSubtitle": "Wir arbeiten mit Pionieren im Bildungsbereich zusammen, um Klassenzimmer-Tools zu entwickeln."
   },
   "communityPlans": {
+    "title": "Community-Pläne",
+    "description": "Entdecke Lernpläne von anderen Lernenden",
     "searchPlaceholder": "Themen suchen..."
+  },
+  "learningPlanChat": {
+    "welcome": "Willkommen bei deinem Lernplan!",
+    "intro": "Nutze diesen Chat, um deinen Plan anzupassen. Du kannst:",
+    "addSessions": "Sitzungen hinzufügen – \"Füge eine Sitzung zu fortgeschrittenen Themen hinzu\"",
+    "removeSessions": "Sitzungen entfernen – \"Entferne die Einführungssitzung\"",
+    "reorder": "Neu ordnen – \"Verschiebe Sitzung 3 vor Sitzung 2\"",
+    "modifyContent": "Inhalt ändern – \"Mach Sitzung 2 praktischer\"",
+    "changesAppear": "Deine Änderungen erscheinen im Sitzungen-Panel auf der rechten Seite."
   },
   "activeProbe": {
     "placeholder": "Stelle deine Frage..."
@@ -1174,14 +1204,55 @@
     "customInstructions": "Benutzerdefinierte Anweisungen für diese Sitzung..."
   },
   "planView": {
-    "addDescription": "Beschreibung für diesen Lernplan hinzufügen..."
+    "addDescription": "Beschreibung für diesen Lernplan hinzufügen...",
+    "loading": "Plan wird geladen...",
+    "planNotFound": "Plan nicht gefunden",
+    "goBackHome": "Zurück zur Startseite",
+    "youtube": "YouTube",
+    "public": "Öffentlich",
+    "private": "Privat",
+    "forks": "{count} Forks",
+    "fork": "Fork",
+    "by": "von",
+    "remixed": "Remixt",
+    "addDescriptionBtn": "+ Beschreibung hinzufügen",
+    "cancel": "Abbrechen",
+    "share": "Teilen",
+    "copied": "Kopiert!",
+    "makePrivate": "Privat machen",
+    "makePublic": "Öffentlich machen",
+    "forkRemix": "Fork / Remix",
+    "failedToLoadNodes": "Knoten konnten nicht geladen werden"
+  },
+  "planChat": {
+    "chat": "Chat",
+    "sessions": "Sitzungen",
+    "deleteSession": "Sitzung löschen?",
+    "deleteSessionConfirm": "Dies entfernt die Sitzung und aktualisiert deinen Lernplan. Du kannst jederzeit neue Sitzungen über den Chat hinzufügen.",
+    "delete": "Löschen"
+  },
+  "sessionList": {
+    "sessions": "Sitzungen",
+    "activeDone": "{active} aktiv, {done} abgeschlossen",
+    "sessionOrderHint": "Du musst der empfohlenen Reihenfolge nicht folgen. Starte jederzeit beliebige Sitzungen und wiederhole sie so oft du möchtest.",
+    "noSessions": "Noch keine Sitzungen. Verwende den Chat, um deinen Plan zu erstellen!",
+    "completed": "Abgeschlossen"
+  },
+  "remixModal": {
+    "remixTitle": "\"{topic}\" remixen",
+    "originallyBy": "Original von",
+    "giveTitle": "Gib deinem Plan einen Titel",
+    "howAdapt": "Wie möchtest du diesen Plan anpassen?",
+    "titleRequired": "Bitte gib deinem Plan einen Titel",
+    "promptRequired": "Bitte beschreibe, wie du den Plan anpassen möchtest",
+    "remixFailed": "Remix fehlgeschlagen",
+    "remixing": "Remixe...",
+    "remixPlan": "Plan remixen",
+    "topicPlaceholder": "z.B., Python für Data Science",
+    "modificationsPlaceholder": "z.B., Anfängerfreundlicher machen, auf praktische Anwendungen konzentrieren, kürzere Sitzungen..."
   },
   "register": {
     "usernamePlaceholder": "lerner42"
-  },
-  "remixModal": {
-    "topicPlaceholder": "z.B., Python für Data Science",
-    "modificationsPlaceholder": "z.B., Anfängerfreundlicher machen, auf praktische Anwendungen konzentrieren, kürzere Sitzungen..."
   },
   "organization": {
     "orgNamePlaceholder": "ABC Firma",

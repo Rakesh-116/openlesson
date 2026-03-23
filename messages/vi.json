@@ -667,7 +667,9 @@
   },
   "sessionEnd": {
     "endSession": "Kết thúc phiên",
-    "keepGoing": "Tiếp tục"
+    "keepGoing": "Tiếp tục",
+    "confirmEndTitle": "Kết thúc phiên?",
+    "confirmEndMessage": "Bạn có chắc chắn muốn kết thúc phiên học này không? Dữ liệu phiên của bạn sẽ được lưu và bạn sẽ được đưa đến trang kết quả."
   },
   "planning": {
     "analyzingHistory": "Đang phân tích lịch sử học tập của bạn...",
@@ -675,7 +677,24 @@
     "feelingLost": "Cảm thấy mất phương hướng hoặc thiếu tự tin?",
     "generatingMaterial": "Đang tạo tài liệu chuẩn bị của bạn...",
     "relevantPastSessions": "Các phiên trước liên quan",
-    "noMaterialAvailable": "Không có tài liệu nào"
+    "noMaterialAvailable": "Không có tài liệu nào",
+    "yourStartingQuestion": "Câu hỏi khởi đầu của bạn",
+    "prepareForSession": "Chuẩn bị cho phiên",
+    "searchGrokipedia": "Tìm kiếm Grokipedia",
+    "explainOutLoud": "Hãy nghĩ về cách bạn sẽ giải thích {topic} bằng lời.",
+    "whenReady": "Khi sẵn sàng, kiểm tra mic và bắt đầu phiên.",
+    "starting": "Đang bắt đầu...",
+    "beginSession": "Bắt đầu phiên",
+    "checkingMicrophone": "Đang kiểm tra mic...",
+    "microphoneDenied": "Mic bị từ chối - Thử lại",
+    "checkMicrophoneFirst": "Kiểm tra mic trước",
+    "consent": "Bằng cách bắt đầu phiên này, bạn đồng ý cho phép chúng tôi thu thập và sử dụng dữ liệu giọng nói của bạn cho mục đích nghiên cứu và cải thiện sản phẩm.",
+    "preparationMaterial": "Tài liệu chuẩn bị",
+    "generatingMaterial2": "Đang tạo tài liệu chuẩn bị...",
+    "selectToInclude": "(chọn để bao gồm)",
+    "patterns": "{selected} trên {total} mẫu",
+    "previousSession": "Phiên trước",
+    "match": "{percent}% khớp"
   },
   "sessionPlan": {
     "creating": "Đang tạo kế hoạch phiên...",
@@ -1049,7 +1068,18 @@
     "schoolPilotSubtitle": "Chúng tôi đang hợp tác với các nhà giáo dục tiên phong để xây dựng công cụ lớp học."
   },
   "communityPlans": {
+    "title": "Kế hoạch cộng đồng",
+    "description": "Khám phá các kế hoạch học tập do người học khác tạo",
     "searchPlaceholder": "Tìm kiếm chủ đề..."
+  },
+  "learningPlanChat": {
+    "welcome": "Chào mừng đến với Kế hoạch Học tập của bạn!",
+    "intro": "Sử dụng chat này để tùy chỉnh kế hoạch của bạn. Bạn có thể:",
+    "addSessions": "Thêm phiên – \"Thêm một phiên về chủ đề nâng cao\"",
+    "removeSessions": "Xóa phiên – \"Xóa phiên giới thiệu\"",
+    "reorder": "Sắp xếp lại – \"Di chuyển phiên 3 lên trước phiên 2\"",
+    "modifyContent": "Sửa đổi nội dung – \"Làm cho phiên 2 thực hành hơn\"",
+    "changesAppear": "Các thay đổi của bạn sẽ xuất hiện trong panel Phiên ở bên phải."
   },
   "activeProbe": {
     "placeholder": "Nhập câu hỏi của bạn..."
@@ -1174,14 +1204,55 @@
     "customInstructions": "Hướng dẫn tùy chỉnh cho phiên này..."
   },
   "planView": {
-    "addDescription": "Thêm mô tả cho kế hoạch học tập này..."
+    "addDescription": "Thêm mô tả cho kế hoạch học tập này...",
+    "loading": "Đang tải kế hoạch...",
+    "planNotFound": "Không tìm thấy kế hoạch",
+    "goBackHome": "Quay về trang chủ",
+    "youtube": "YouTube",
+    "public": "Công khai",
+    "private": "Riêng tư",
+    "forks": "{count} bản sao",
+    "fork": "bản sao",
+    "by": "bởi",
+    "remixed": "Đã sao chép",
+    "addDescriptionBtn": "+ Thêm mô tả",
+    "cancel": "Hủy",
+    "share": "Chia sẻ",
+    "copied": "Đã sao chép!",
+    "makePrivate": "Chuyển sang riêng tư",
+    "makePublic": "Chuyển sang công khai",
+    "forkRemix": "Sao chép / Remix",
+    "failedToLoadNodes": "Không thể tải các node"
+  },
+  "planChat": {
+    "chat": "Chat",
+    "sessions": "Phiên",
+    "deleteSession": "Xóa phiên?",
+    "deleteSessionConfirm": "Thao tác này sẽ xóa phiên và cập nhật kế hoạch học tập của bạn. Bạn luôn có thể thêm phiên mới qua chat.",
+    "delete": "Xóa"
+  },
+  "sessionList": {
+    "sessions": "Phiên",
+    "activeDone": "{active} đang hoạt động, {done} đã hoàn thành",
+    "sessionOrderHint": "Bạn không cần tuân theo thứ tự được đề xuất. Bắt đầu bất kỳ phiên nào bất kỳ lúc nào và chạy lại bao nhiêu lần tùy thích.",
+    "noSessions": "Chưa có phiên nào. Sử dụng chat để xây dựng kế hoạch của bạn!",
+    "completed": "Hoàn thành"
+  },
+  "remixModal": {
+    "remixTitle": "Remix \"{topic}\"",
+    "originallyBy": "Ban đầu bởi",
+    "giveTitle": "Đặt tiêu đề cho kế hoạch của bạn",
+    "howAdapt": "Bạn muốn điều chỉnh kế hoạch này như thế nào?",
+    "titleRequired": "Vui lòng đặt tiêu đề cho kế hoạch",
+    "promptRequired": "Vui lòng mô tả cách bạn muốn điều chỉnh kế hoạch",
+    "remixFailed": "Không thể remix kế hoạch",
+    "remixing": "Đang remix...",
+    "remixPlan": "Remix kế hoạch",
+    "topicPlaceholder": "ví dụ, Python cho Khoa học Dữ liệu",
+    "modificationsPlaceholder": "ví dụ, Làm cho nó thân thiện hơn với người mới bắt đầu, tập trung vào ứng dụng thực tế, các phiên ngắn hơn..."
   },
   "register": {
     "usernamePlaceholder": "nguoihoc42"
-  },
-  "remixModal": {
-    "topicPlaceholder": "ví dụ, Python cho Khoa học Dữ liệu",
-    "modificationsPlaceholder": "ví dụ, Làm cho nó thân thiện hơn với người mới bắt đầu, tập trung vào ứng dụng thực tế, các phiên ngắn hơn..."
   },
   "organization": {
     "orgNamePlaceholder": "Công ty ABC",

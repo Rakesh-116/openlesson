@@ -667,7 +667,9 @@
   },
   "sessionEnd": {
     "endSession": "Zakończ sesję",
-    "keepGoing": "Kontynuuj"
+    "keepGoing": "Kontynuuj",
+    "confirmEndTitle": "Zakończyć sesję?",
+    "confirmEndMessage": "Czy na pewno chcesz zakończyć tę sesję? Dane sesji zostaną zapisane i zostaniesz przekierowany do strony z wynikami."
   },
   "planning": {
     "analyzingHistory": "Analizowanie historii uczenia...",
@@ -675,7 +677,24 @@
     "feelingLost": "Czujesz się zagubiony lub brak pewności?",
     "generatingMaterial": "Generowanie materiału przygotowawczego...",
     "relevantPastSessions": "Odpowiednie poprzednie sesje",
-    "noMaterialAvailable": "Brak dostępnego materiału"
+    "noMaterialAvailable": "Brak dostępnego materiału",
+    "yourStartingQuestion": "Twoje pytanie początkowe",
+    "prepareForSession": "Przygotuj się do sesji",
+    "searchGrokipedia": "Przeszukaj Grokipedia",
+    "explainOutLoud": "Pomyśl, jak wytłumaczyłbyś {topic} na głos.",
+    "whenReady": "Kiedy będziesz gotowy, sprawdź mikrofon i rozpocznij sesję.",
+    "starting": "Uruchamianie...",
+    "beginSession": "Rozpocznij sesję",
+    "checkingMicrophone": "Sprawdzanie mikrofonu...",
+    "microphoneDenied": "Mikrofon odrzucony - Spróbuj ponownie",
+    "checkMicrophoneFirst": "Najpierw sprawdź mikrofon",
+    "consent": "Rozpoczynając sesję, zgadzasz się na zbieranie i wykorzystywanie Twoich danych głosowych do celów badawczych i ulepszania produktu.",
+    "preparationMaterial": "Materiał przygotowawczy",
+    "generatingMaterial2": "Generowanie materiału przygotowawczego...",
+    "selectToInclude": "(wybierz aby uwzględnić)",
+    "patterns": "{selected} z {total} wzorców",
+    "previousSession": "Poprzednia sesja",
+    "match": "{percent}% dopasowania"
   },
   "sessionPlan": {
     "creating": "Tworzenie planu sesji...",
@@ -1049,7 +1068,18 @@
     "schoolPilotSubtitle": "Współpracujemy z pionierami edukacji, aby budować narzędzia klasowe."
   },
   "communityPlans": {
+    "title": "Plany społeczności",
+    "description": "Odkryj plany uczenia się stworzone przez innych uczących się",
     "searchPlaceholder": "Szukaj tematów..."
+  },
+  "learningPlanChat": {
+    "welcome": "Witaj w swoim Planie Uczenia się!",
+    "intro": "Użyj tego czatu, aby dostosować swój plan. Możesz:",
+    "addSessions": "Dodawać sesje – \"Dodaj sesję o zaawansowanych tematach\"",
+    "removeSessions": "Usuwać sesje – \"Usuń sesję wprowadzającą\"",
+    "reorder": "Zmieniać kolejność – \"Przesuń sesję 3 przed sesję 2\"",
+    "modifyContent": "Modyfikować treść – \"Zrób sesję 2 bardziej praktyczną\"",
+    "changesAppear": "Twoje zmiany pojawią się w panelu Sesje po prawej stronie."
   },
   "activeProbe": {
     "placeholder": "Wpisz swoje pytanie..."
@@ -1174,14 +1204,55 @@
     "customInstructions": "Niestandardowe instrukcje dla tej sesji..."
   },
   "planView": {
-    "addDescription": "Dodaj opis tego planu nauki..."
+    "addDescription": "Dodaj opis tego planu nauki...",
+    "loading": "Ładowanie planu...",
+    "planNotFound": "Plan nie znaleziony",
+    "goBackHome": "Wróć do strony głównej",
+    "youtube": "YouTube",
+    "public": "Publiczny",
+    "private": "Prywatny",
+    "forks": "{count} forków",
+    "fork": "fork",
+    "by": "przez",
+    "remixed": "Zremiksowany",
+    "addDescriptionBtn": "+ Dodaj opis",
+    "cancel": "Anuluj",
+    "share": "Udostępnij",
+    "copied": "Skopiowano!",
+    "makePrivate": "Zrób prywatnym",
+    "makePublic": "Zrób publicznym",
+    "forkRemix": "Fork / Remiksuj",
+    "failedToLoadNodes": "Nie udało się załadować węzłów"
+  },
+  "planChat": {
+    "chat": "Czat",
+    "sessions": "Sesje",
+    "deleteSession": "Usunąć sesję?",
+    "deleteSessionConfirm": "To usunie sesję i zaktualizuje Twój plan nauki. Zawsze możesz dodać nowe sesje przez czat.",
+    "delete": "Usuń"
+  },
+  "sessionList": {
+    "sessions": "Sesje",
+    "activeDone": "{active} aktywnych, {done} ukończonych",
+    "sessionOrderHint": "Nie musisz followować zalecanej kolejności. Rozpocznij dowolną sesję w dowolnym momencie i uruchamiaj ją ponownie tyle razy, ile chcesz.",
+    "noSessions": "Brak sesji. Użyj czatu, aby zbudować swój plan!",
+    "completed": "Ukończone"
+  },
+  "remixModal": {
+    "remixTitle": "Remiksuj \"{topic}\"",
+    "originallyBy": "Oryginalnie przez",
+    "giveTitle": "Nazwij swój plan",
+    "howAdapt": "Jak chcesz dostosować ten plan?",
+    "titleRequired": "Proszę nazwać swój plan",
+    "promptRequired": "Proszę opisać, jak chcesz dostosować plan",
+    "remixFailed": "Nie udało się zremiksować planu",
+    "remixing": "Remiksowanie...",
+    "remixPlan": "Remiksuj plan",
+    "topicPlaceholder": "np., Python dla Data Science",
+    "modificationsPlaceholder": "np., Sprawdź żeby było bardziej przyjazne dla początkujących, skup się na praktycznych zastosowaniach, krótsze sesje..."
   },
   "register": {
     "usernamePlaceholder": "uczen42"
-  },
-  "remixModal": {
-    "topicPlaceholder": "np., Python dla Data Science",
-    "modificationsPlaceholder": "np., Sprawdź żeby było bardziej przyjazne dla początkujących, skup się na praktycznych zastosowaniach, krótsze sesje..."
   },
   "organization": {
     "orgNamePlaceholder": "Firma ABC",

@@ -1209,7 +1209,7 @@ export function MobileSessionView({
           {isSaving && (
             <div className="flex items-center justify-center gap-2 py-2">
               <div className="w-4 h-4 border-2 border-neutral-600 border-t-cyan-500 rounded-full animate-spin" />
-              <span className="text-xs text-neutral-400">Saving session...</span>
+              <span className="text-xs text-neutral-400">{t('session.savingSession')}</span>
             </div>
           )}
         </div>
@@ -1219,9 +1219,9 @@ export function MobileSessionView({
       {showEndConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 max-w-sm w-full">
-            <h3 className="text-sm font-semibold text-white mb-2">End Session?</h3>
+            <h3 className="text-sm font-semibold text-white mb-2">{t('sessionEnd.confirmEndTitle')}</h3>
             <p className="text-neutral-400 mb-4 text-xs leading-relaxed">
-              Are you sure you want to end this session? Your session data will be saved and you'll be taken to the results page.
+              {t('sessionEnd.confirmEndMessage')}
             </p>
             <div className="flex gap-2">
               <button 

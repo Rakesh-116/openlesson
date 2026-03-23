@@ -73,9 +73,9 @@ export function CommunityPlans({ user }: CommunityPlansProps) {
   return (
     <div className="w-full max-w-2xl mx-auto mt-12 pt-8 border-t border-neutral-800">
       <div className="text-center mb-6">
-        <h3 className="text-xl font-semibold text-white mb-2">Community Plans</h3>
+        <h3 className="text-xl font-semibold text-white mb-2">{t('communityPlans.title')}</h3>
         <p className="text-sm text-neutral-500">
-          Explore learning plans created by other learners
+          {t('communityPlans.description')}
         </p>
       </div>
 

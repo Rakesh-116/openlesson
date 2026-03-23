@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+import { useI18n } from "@/lib/i18n";
 
 interface Message {
   id: string;
@@ -15,6 +16,14 @@ interface Message {
   content: string;
   timestamp: Date;
   planModified?: boolean;
+  images?: UploadedImage[];
+}
+
+interface UploadedImage {
+  id: string;
+  data: string;
+  mimeType: string;
+  preview: string;
 }
 
 interface PlanNode {
@@ -40,12 +49,16 @@ interface ChatPanelProps {
 
 export function ChatPanel({ planId, model, onModelChange, onRefresh, onNodesUpdate, supabase, isOwner = true, currentUserId }: ChatPanelProps) {
   const router = useRouter();
+  const { t, locale } = useI18n();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showModelSelect, setShowModelSelect] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const models = [
     { id: "x-ai/grok-4", name: "Grok 4" },
@@ -58,15 +71,15 @@ export function ChatPanel({ planId, model, onModelChange, onRefresh, onNodesUpda
 
   const currentModel = model || "x-ai/grok-4";
 
-  const instructionalMessage = `**Welcome to your Learning Plan!**
+  const instructionalMessage = `**${t('learningPlanChat.welcome')}**
 
-Use this chat to customize your plan. You can:
-- **Add sessions** – "Add a session on advanced topics"
-- **Remove sessions** – "Remove the intro session"  
-- **Reorder** – "Move session 3 before session 2"
-- **Modify content** – "Make session 2 more hands-on"
+${t('learningPlanChat.intro')}
+- **${t('learningPlanChat.addSessions').split(' – ')[0]}** – "${t('learningPlanChat.addSessions').split(' – ')[1]}"
+- **${t('learningPlanChat.removeSessions').split(' – ')[0]}** – "${t('learningPlanChat.removeSessions').split(' – ')[1]}"
+- **${t('learningPlanChat.reorder').split(' – ')[0]}** – "${t('learningPlanChat.reorder').split(' – ')[1]}"
+- **${t('learningPlanChat.modifyContent').split(' – ')[0]}** – "${t('learningPlanChat.modifyContent').split(' – ')[1]}"
 
-Your changes will appear in the Sessions panel on the right.`;
+${t('learningPlanChat.changesAppear')}`;
 
   useEffect(() => {
     if (messages.length === 0) {
@@ -87,21 +100,22 @@ Your changes will appear in the Sessions panel on the right.`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && uploadedImages.length === 0) || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input.trim(),
+      content: input.trim() || (uploadedImages.length > 0 ? `[Sent ${uploadedImages.length} image(s)]` : ""),
       timestamp: new Date(),
+      images: uploadedImages.length > 0 ? [...uploadedImages] : undefined,
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
+    setUploadedImages([]);
     setIsLoading(true);
 
     try {
-      // Include full message history for context
       const conversationHistory = messages.map(m => ({
         role: m.role,
         content: m.content
@@ -115,6 +129,11 @@ Your changes will appear in the Sessions panel on the right.`;
           userPrompt: userMessage.content,
           conversationHistory,
           model: currentModel,
+          locale,
+          images: uploadedImages.map(img => ({
+            data: img.data,
+            mimeType: img.mimeType,
+          })),
         }),
       });
 
@@ -188,6 +207,66 @@ Your changes will appear in the Sessions panel on the right.`;
     }
   };
 
+  const processFile = (file: File): Promise<UploadedImage> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.split(",")[1];
+        resolve({
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          data: base64,
+          mimeType: file.type || "image/png",
+          preview: result,
+        });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files) return;
+    const imageFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    const newImages = await Promise.all(imageFiles.map(processFile));
+    setUploadedImages((prev) => [...prev, ...newImages]);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    await handleFiles(e.dataTransfer.files);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const imageItems = Array.from(items).filter((item) => item.type.startsWith("image/"));
+    const files = imageItems.map((item) => item.getAsFile()).filter(Boolean) as File[];
+    if (files.length > 0) {
+      const newImages = await Promise.all(files.map(processFile));
+      setUploadedImages((prev) => [...prev, ...newImages]);
+    }
+  };
+
+  const removeImage = (id: string) => {
+    setUploadedImages((prev) => prev.filter((img) => img.id !== id));
+  };
+
+  const triggerFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center mb-3 px-1">
@@ -207,13 +286,39 @@ Your changes will appear in the Sessions panel on the right.`;
                   : "bg-neutral-800 text-neutral-200 rounded-bl-sm"
               }`}
             >
-              <div className="prose prose-invert prose-sm max-w-none prose-p:my-2 prose-p:leading-relaxed prose-headings:mt-3 prose-headings:mb-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-pre:my-2 prose-blockquote:my-2">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={[rehypeKatex]}
-                >
-                  {msg.content}
-                </ReactMarkdown>
+              {msg.images && msg.images.length > 0 && (
+                <div className="flex gap-2 mb-2 flex-wrap">
+                  {msg.images.map((img) => (
+                    <img
+                      key={img.id}
+                      src={img.preview}
+                      alt="Sent image"
+                      className="w-16 h-16 object-cover rounded-lg border border-neutral-600"
+                    />
+                  ))}
+                </div>
+              )}
+              <div className="prose prose-invert prose-sm max-w-none 
+                prose-p:my-2 prose-p:leading-7 prose-p:text-neutral-300
+                prose-headings:mt-4 prose-headings:mb-2 prose-headings:text-neutral-100 prose-headings:font-semibold
+                prose-ul:my-2 prose-ul:pl-4 prose-ul:space-y-1
+                prose-ol:my-2 prose-ol:pl-4 prose-ol:space-y-1
+                prose-li:my-1 prose-li:text-neutral-300
+                prose-strong:text-neutral-100 prose-strong:font-semibold
+                prose-em:text-neutral-200
+                prose-code:text-cyan-300 prose-code:bg-neutral-700 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-xs
+                prose-pre:bg-neutral-900 prose-pre:text-neutral-200 prose-pre:rounded-lg prose-pre:my-3
+                prose-blockquote:border-l-4 prose-blockquote:border-cyan-500/50 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-neutral-400 prose-blockquote:my-3
+                prose-hr:border-neutral-700 prose-hr:my-4
+                [&>p]:whitespace-pre-wrap">
+                {msg.content && (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false }]]}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+                )}
               </div>
               <p className={`text-[10px] mt-1.5 ${
                 msg.role === "user" ? "text-blue-200" : "text-neutral-500"
@@ -271,26 +376,72 @@ Your changes will appear in the Sessions panel on the right.`;
           </button>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="relative flex items-center gap-2">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Add, remove, or reorder sessions..."
-            className="flex-1 px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-xl text-white placeholder-neutral-500 text-sm resize-none focus:outline-none focus:border-neutral-600 focus:ring-1 focus:ring-neutral-600"
-            rows={3}
-            disabled={isLoading}
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || isLoading}
-            className="p-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white rounded-xl transition-colors self-center"
+        <form onSubmit={handleSubmit} className="relative">
+          {uploadedImages.length > 0 && (
+            <div className="flex gap-2 mb-2 flex-wrap">
+              {uploadedImages.map((img) => (
+                <div key={img.id} className="relative group">
+                  <img
+                    src={img.preview}
+                    alt="Upload preview"
+                    className="w-16 h-16 object-cover rounded-lg border border-neutral-700"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(img.id)}
+                    className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div
+            className={`relative flex items-center gap-2 ${isDragging ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-neutral-900 rounded-xl" : ""}`}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-            </svg>
-          </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => handleFiles(e.target.files)}
+            />
+            <button
+              type="button"
+              onClick={triggerFilePicker}
+              className="p-2.5 text-neutral-400 hover:text-white hover:bg-neutral-700 rounded-xl transition-colors self-center"
+              title="Upload images"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </button>
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              placeholder="Add, remove, or reorder sessions... (paste or drag images)"
+              className="flex-1 px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-xl text-white placeholder-neutral-500 text-sm resize-none focus:outline-none focus:border-neutral-600 focus:ring-1 focus:ring-neutral-600"
+              rows={3}
+              disabled={isLoading}
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() && uploadedImages.length === 0 || isLoading}
+              className="p-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white rounded-xl transition-colors self-center"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+            </button>
+          </div>
         </form>
       )}
     </div>

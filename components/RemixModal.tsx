@@ -78,12 +78,12 @@ export function RemixModal({ plan, onClose, onComplete }: RemixModalProps) {
         </div>
 
         <p className="text-sm text-neutral-400 mb-4">
-          Originally by <span className="text-white">@{plan.author_username}</span>
+          {t('remixModal.originallyBy')} <span className="text-white">@{plan.author_username}</span>
         </p>
 
         <div className="mb-4">
           <label className="block text-sm text-neutral-400 mb-2">
-            Give your plan a title
+            {t('remixModal.giveTitle')}
           </label>
           <input
             type="text"
@@ -96,7 +96,7 @@ export function RemixModal({ plan, onClose, onComplete }: RemixModalProps) {
 
         <div className="mb-4">
           <label className="block text-sm text-neutral-400 mb-2">
-            How would you like to adapt this plan?
+            {t('remixModal.howAdapt')}
           </label>
           <textarea
             value={prompt}
@@ -116,7 +116,7 @@ export function RemixModal({ plan, onClose, onComplete }: RemixModalProps) {
             onClick={onClose}
             className="flex-1 px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-medium rounded-xl transition-colors"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleRemix}
@@ -129,10 +129,10 @@ export function RemixModal({ plan, onClose, onComplete }: RemixModalProps) {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                Remixing...
+                {t('remixModal.remixing')}
               </>
             ) : (
-              "Remix Plan"
+              t('remixModal.remixPlan')
             )}
           </button>
         </div>

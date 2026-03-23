@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { SessionItem } from "./SessionItem";
 import { createBrowserClient } from "@supabase/ssr";
+import { useI18n } from "@/lib/i18n";
 
 interface PlanNode {
   id: string;
@@ -67,6 +68,7 @@ function getOrderedSessions(nodes: PlanNode[]): PlanNode[] {
 export function SessionList({ nodes, onSelect, onDelete, onFork, highlightedNodes, highlightOpacity = 1, isOwner = true, supabase }: SessionListProps) {
   const [showCompleted, setShowCompleted] = useState(false);
   const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null);
+  const { t } = useI18n();
 
   const { activeSessions, completedSessions } = useMemo(() => {
     const ordered = getOrderedSessions(nodes);
@@ -93,13 +95,13 @@ export function SessionList({ nodes, onSelect, onDelete, onFork, highlightedNode
   return (
     <div className="flex flex-col h-full p-3">
       <div className="flex items-center justify-between mb-2 px-1">
-        <h2 className="text-base font-semibold text-white">Sessions</h2>
+        <h2 className="text-base font-semibold text-white">{t('sessionList.sessions')}</h2>
         <span className="text-xs text-neutral-500">
-          {activeSessions.length} active, {completedSessions.length} done
+          {t('sessionList.activeDone', { active: activeSessions.length, done: completedSessions.length })}
         </span>
       </div>
       <p className="text-[11px] text-neutral-500 px-1 mb-3 leading-relaxed">
-        You don&apos;t have to follow the recommended order. Start any session at any time and rerun them as many times as you want.
+        {t('sessionList.sessionOrderHint')}
       </p>
 
       <div className="flex-1 overflow-y-auto space-y-1 pr-1">
@@ -124,13 +126,13 @@ export function SessionList({ nodes, onSelect, onDelete, onFork, highlightedNode
 
         {activeSessions.length === 0 && completedSessions.length === 0 && (
           <div className="text-center py-8 text-neutral-500 text-sm">
-            No sessions yet. Use the chat to build your plan!
+            {t('sessionList.noSessions')}
           </div>
         )}
 
         {completedSessions.length > 0 && (
           <div className="mt-3 pt-3 border-t border-neutral-800">
-            <button
+              <button
               onClick={() => setShowCompleted(!showCompleted)}
               className="flex items-center gap-2 text-sm text-neutral-400 hover:text-white transition-colors w-full px-1 py-2"
             >
@@ -142,7 +144,7 @@ export function SessionList({ nodes, onSelect, onDelete, onFork, highlightedNode
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
-              Completed ({completedSessions.length})
+              {t('sessionList.completed')} ({completedSessions.length})
             </button>
 
             {showCompleted && (

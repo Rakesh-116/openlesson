@@ -673,7 +673,9 @@
   },
   "sessionEnd": {
     "endSession": "End session",
-    "keepGoing": "Keep going"
+    "keepGoing": "Keep going",
+    "confirmEndTitle": "End Session?",
+    "confirmEndMessage": "Are you sure you want to end this session? Your session data will be saved and you'll be taken to the results page."
   },
   "planning": {
     "analyzingHistory": "Analyzing your learning history...",
@@ -681,7 +683,24 @@
     "feelingLost": "Feeling lost or lacking confidence?",
     "generatingMaterial": "Generating your preparation material...",
     "relevantPastSessions": "Relevant past sessions",
-    "noMaterialAvailable": "No material available"
+    "noMaterialAvailable": "No material available",
+    "yourStartingQuestion": "Your Starting Question",
+    "prepareForSession": "Prepare for Session",
+    "searchGrokipedia": "Search Grokipedia",
+    "explainOutLoud": "Think about how you'd explain {topic} out loud.",
+    "whenReady": "When you're ready, check your microphone and begin the session.",
+    "starting": "Starting...",
+    "beginSession": "Begin Session",
+    "checkingMicrophone": "Checking microphone...",
+    "microphoneDenied": "Microphone Denied - Try Again",
+    "checkMicrophoneFirst": "Check Microphone First",
+    "consent": "By starting this session, you agree to let us collect and use your voice data for research purposes and improvement of the product.",
+    "preparationMaterial": "Preparation Material",
+    "generatingMaterial2": "Generating your preparation material...",
+    "selectToInclude": "(select to include)",
+    "patterns": "{selected} of {total} patterns",
+    "previousSession": "Previous session",
+    "match": "{percent}% match"
   },
   "sessionPlan": {
     "creating": "Creating your session plan...",
@@ -1055,7 +1074,18 @@
     "schoolPilotSubtitle": "We're partnering with early-adopter educators to build classroom tools."
   },
   "communityPlans": {
+    "title": "Community Plans",
+    "description": "Explore learning plans created by other learners",
     "searchPlaceholder": "Search topics..."
+  },
+  "learningPlanChat": {
+    "welcome": "Welcome to your Learning Plan!",
+    "intro": "Use this chat to customize your plan. You can:",
+    "addSessions": "Add sessions – \"Add a session on advanced topics\"",
+    "removeSessions": "Remove sessions – \"Remove the intro session\"",
+    "reorder": "Reorder – \"Move session 3 before session 2\"",
+    "modifyContent": "Modify content – \"Make session 2 more hands-on\"",
+    "changesAppear": "Your changes will appear in the Sessions panel on the right."
   },
   "activeProbe": {
     "placeholder": "Type your question..."
@@ -1180,7 +1210,50 @@
     "customInstructions": "Custom instructions for this session..."
   },
   "planView": {
-    "addDescription": "Add a description for this learning plan..."
+    "addDescription": "Add a description for this learning plan...",
+    "loading": "Loading plan...",
+    "planNotFound": "Plan not found",
+    "goBackHome": "Go back home",
+    "youtube": "YouTube",
+    "public": "Public",
+    "private": "Private",
+    "forks": "{count} forks",
+    "fork": "fork",
+    "by": "by",
+    "remixed": "Remixed",
+    "addDescriptionBtn": "+ Add description",
+    "cancel": "Cancel",
+    "share": "Share",
+    "copied": "Copied!",
+    "makePrivate": "Make Private",
+    "makePublic": "Make Public",
+    "forkRemix": "Fork / Remix",
+    "failedToLoadNodes": "Failed to load nodes"
+  },
+  "planChat": {
+    "chat": "Chat",
+    "sessions": "Sessions",
+    "deleteSession": "Delete Session?",
+    "deleteSessionConfirm": "This will remove the session and update your learning plan. You can always add new sessions through chat.",
+    "delete": "Delete"
+  },
+  "sessionList": {
+    "sessions": "Sessions",
+    "activeDone": "{active} active, {done} done",
+    "sessionOrderHint": "You don't have to follow the recommended order. Start any session at any time and rerun them as many times as you want.",
+    "noSessions": "No sessions yet. Use the chat to build your plan!",
+    "completed": "Completed"
+  },
+  "remixModal": {
+    "remixTitle": "Remix \"{topic}\"",
+    "originallyBy": "Originally by",
+    "giveTitle": "Give your plan a title",
+    "howAdapt": "How would you like to adapt this plan?",
+    "titleRequired": "Please give your plan a title",
+    "promptRequired": "Please describe how you want to adapt this plan",
+    "remixFailed": "Failed to remix plan",
+    "remixing": "Remixing...",
+    "remixPlan": "Remix Plan"
   },
   "register": {
     "usernamePlaceholder": "learner42"

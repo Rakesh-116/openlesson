@@ -289,7 +289,7 @@ export function ProbeNotifications({
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                   )}
-                  <span>Session</span>
+                  <span>{t('sessionEnd.endSession')}</span>
                   <svg className={`w-2.5 h-2.5 transition-transform ${showSessionMenu ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                   </svg>
@@ -558,7 +558,7 @@ export function ProbeNotifications({
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                             </svg>
-                            <span>Done</span>
+                            <span>{t('probes.done')}</span>
                           </>
                         )}
                       </button>

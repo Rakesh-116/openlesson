@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChatPanel } from "./ChatPanel";
 import { SessionList } from "./SessionList";
 import { RemixModal } from "./RemixModal";
+import { useI18n } from "@/lib/i18n";
 
 const DIVIDER_STORAGE_KEY = "plan-divider-width";
 
@@ -73,6 +74,7 @@ function nodesHaveChanged(oldNodes: PlanNode[], newNodes: PlanNode[]): Set<strin
 
 export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, supabase, planId, isOwner = true, currentUserId }: PlanChatProps) {
   const router = useRouter();
+  const { t } = useI18n();
   const [nodes, setNodes] = useState(initialNodes);
   const [activeTab, setActiveTab] = useState<"chat" | "sessions">("sessions");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
@@ -243,7 +245,7 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
               : "text-neutral-400 hover:text-white"
           }`}
         >
-          Chat
+          {t('planChat.chat')}
         </button>
         <button
           onClick={() => setActiveTab("sessions")}
@@ -253,7 +255,7 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
               : "text-neutral-400 hover:text-white"
           }`}
         >
-          Sessions ({nodes.length})
+          {t('planChat.sessions')} ({nodes.length})
         </button>
       </div>
 
@@ -321,22 +323,22 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
             onClick={() => setShowDeleteConfirm(null)}
           />
           <div className="fixed bottom-0 left-0 right-0 z-50 md:absolute md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-sm bg-neutral-800 border-t md:border border-neutral-700 rounded-t-2xl md:rounded-2xl p-4">
-            <h3 className="text-lg font-semibold text-white mb-2">Delete Session?</h3>
+            <h3 className="text-lg font-semibold text-white mb-2">{t('planChat.deleteSession')}</h3>
             <p className="text-sm text-neutral-400 mb-4">
-              This will remove the session and update your learning plan. You can always add new sessions through chat.
+              {t('planChat.deleteSessionConfirm')}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(null)}
                 className="flex-1 px-4 py-3 bg-neutral-700 hover:bg-neutral-600 text-white text-sm font-medium rounded-xl transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={() => handleDeleteConfirm(showDeleteConfirm)}
                 className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-500 text-white text-sm font-medium rounded-xl transition-colors"
               >
-                Delete
+                {t('planChat.delete')}
               </button>
             </div>
           </div>

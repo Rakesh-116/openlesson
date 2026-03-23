@@ -6,8 +6,10 @@ import { createClient } from "@/lib/supabase/client";
 import { getSession, getSessionPlan } from "@/lib/storage";
 import { MobileSessionView } from "@/components/MobileSessionView";
 import type { Session, SessionPlan } from "@/lib/storage";
+import { useI18n } from "@/lib/i18n";
 
 export default function MobileSessionPage() {
+  const { t } = useI18n();
   const params = useParams();
   const router = useRouter();
   const sessionId = params.sessionId as string;
@@ -59,7 +61,7 @@ export default function MobileSessionPage() {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-6">
         <div className="w-10 h-10 border-2 border-neutral-700 border-t-cyan-500 rounded-full animate-spin mb-4" />
-        <p className="text-sm text-neutral-500">Loading session...</p>
+        <p className="text-sm text-neutral-500">{t('common.loadingSession')}</p>
       </div>
     );
   }

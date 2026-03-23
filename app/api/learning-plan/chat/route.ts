@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { callOpenRouterJSON, systemMessage, userMessage, DEFAULT_MODEL } from "@/lib/openrouter-client";
+import { callOpenRouterJSON, systemMessage, userMessage, buildImageContent, DEFAULT_MODEL, MessageContent } from "@/lib/openrouter-client";
 
 const SYSTEM_PROMPT = `You are an AI Learning Planner assistant. Your role is to help users understand and customize their learning plans.
 
@@ -11,10 +11,20 @@ const SYSTEM_PROMPT = `You are an AI Learning Planner assistant. Your role is to
   - Keep sessions focused and actionable
   - NEVER delete or modify completed sessions - keep them exactly as they are
   - For ordering: use "order" field (1, 2, 3...) to specify sequence
+  
+  FORMATTING: Use proper markdown formatting in your responses:
+  - Use ## for section headings
+  - Use bullet points (-) or numbered lists (1.) for lists
+  - Use **bold** for important terms
+  - Use BLANK LINES between paragraphs - always leave an empty line between separate thoughts
+  - Use > for quotes or callouts
+  - Keep paragraphs short (2-4 sentences max), then add a blank line
+  - Break up long walls of text with subheadings or bullet points
+  - Make your response visually scannable with proper spacing
 
  Response format (JSON):
   {
-    "explanation": "Your conversational response to the user",
+    "explanation": "Your conversational response to the user (use markdown formatting)",
     "planModified": true/false - true if you're proposing any changes to the plan,
     "questions": ["optional clarification question if needed"],
     "sessions": [
@@ -47,10 +57,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { planId, userPrompt, conversationHistory, model: userModel } = await req.json();
+    const { planId, userPrompt, conversationHistory, model: userModel, locale, images } = await req.json();
     
     if (!planId || !userPrompt) {
       return NextResponse.json({ error: "Plan ID and prompt are required" }, { status: 400 });
+    }
+
+    const languageNote = locale && locale !== 'en' 
+      ? `\n\nIMPORTANT: Respond in ${locale} language (e.g., for 'vi' respond in Vietnamese, 'zh' in Chinese, 'es' in Spanish, 'de' in German, 'pl' in Polish).`
+      : '';
+
+    if (images && images.length > 0) {
+      console.log(`[Chat] Processing ${images.length} image(s) from user`);
     }
 
     const { data: plan, error: planError } = await supabase
@@ -106,10 +124,20 @@ IMPORTANT: You MUST include a "sessions" array in your response with the complet
 
 Respond with JSON containing your explanation and the complete updated sessions array.`;
 
+    const fullSystemPrompt = SYSTEM_PROMPT + languageNote;
 
+    let userContent: string | MessageContent[];
+    if (images && images.length > 0) {
+      const imageContents = images.map((img: { data: string; mimeType: string }) => 
+        buildImageContent("", { data: img.data, mimeType: img.mimeType })[1]
+      );
+      userContent = [{ type: "text", text: prompt }, ...imageContents];
+    } else {
+      userContent = prompt;
+    }
 
     const aiResponse = await callOpenRouterJSON<ChatResponse>(
-      [systemMessage(SYSTEM_PROMPT), userMessage(prompt)],
+      [systemMessage(fullSystemPrompt), { role: "user", content: userContent }],
       {
         model,
         maxTokens: 16000,
@@ -125,8 +153,19 @@ Respond with JSON containing your explanation and the complete updated sessions 
 
 
 
+    function formatExplanation(text: string): string {
+  if (!text) return text;
+  
+  text = text
+    .replace(/([.!?])\s*(?=[A-Z])/g, "$1\n\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  
+  return text;
+}
+
     const response = {
-      explanation: aiResponse.data.explanation || "I've updated your plan.",
+      explanation: formatExplanation(aiResponse.data.explanation || "I've updated your plan."),
       planModified: aiResponse.data.planModified ?? true,
       sessions: aiResponse.data.sessions || [],
       questions: aiResponse.data.questions || []

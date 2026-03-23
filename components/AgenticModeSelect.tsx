@@ -303,7 +303,7 @@ export function AgenticModeSelect() {
               </div>
 
               <div className="text-xs mb-3">
-                <span className="text-slate-500">Parameters: </span>
+                <span className="text-slate-500">{t('agenticMode.parameters')}: </span>
                 {endpoint.params.map((p, i) => (
                   <span key={i} className={p.required ? "text-white" : "text-slate-400"}>
                     {p.name}
