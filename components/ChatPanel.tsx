@@ -299,18 +299,22 @@ ${t('learningPlanChat.changesAppear')}`;
                 </div>
               )}
               <div className="prose prose-invert prose-sm max-w-none 
-                prose-p:my-2 prose-p:leading-7 prose-p:text-neutral-300
-                prose-headings:mt-4 prose-headings:mb-2 prose-headings:text-neutral-100 prose-headings:font-semibold
-                prose-ul:my-2 prose-ul:pl-4 prose-ul:space-y-1
-                prose-ol:my-2 prose-ol:pl-4 prose-ol:space-y-1
+                prose-p:mb-6 prose-p:leading-7 prose-p:text-neutral-300
+                prose-headings:mt-6 prose-headings:mb-3 prose-headings:text-neutral-100 prose-headings:font-semibold prose-headings:text-lg
+                prose-h1:text-2xl prose-h1:font-bold prose-h1:mt-8 prose-h1:mb-4
+                prose-h2:text-xl prose-h2:font-semibold prose-h2:mt-6 prose-h2:mb-3
+                prose-h3:text-lg prose-h3:font-medium prose-h3:mt-4 prose-h3:mb-2
+                prose-ul:my-3 prose-ul:pl-5 prose-ul:space-y-2
+                prose-ol:my-3 prose-ol:pl-5 prose-ol:space-y-2
                 prose-li:my-1 prose-li:text-neutral-300
                 prose-strong:text-neutral-100 prose-strong:font-semibold
                 prose-em:text-neutral-200
                 prose-code:text-cyan-300 prose-code:bg-neutral-700 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-xs
-                prose-pre:bg-neutral-900 prose-pre:text-neutral-200 prose-pre:rounded-lg prose-pre:my-3
-                prose-blockquote:border-l-4 prose-blockquote:border-cyan-500/50 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-neutral-400 prose-blockquote:my-3
-                prose-hr:border-neutral-700 prose-hr:my-4
-                [&>p]:whitespace-pre-wrap">
+                prose-pre:bg-neutral-900 prose-pre:text-neutral-200 prose-pre:rounded-lg prose-pre:my-4 prose-pre:p-4
+                prose-blockquote:border-l-4 prose-blockquote:border-cyan-500/50 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-neutral-400 prose-blockquote:my-4 prose-blockquote:py-2
+                prose-hr:border-neutral-700 prose-hr:my-6
+                prose-a:text-cyan-400 prose-a:underline
+                [&>p]:whitespace-pre-wrap [&>p]:leading-relaxed">
                 {msg.content && (
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm, remarkMath]}

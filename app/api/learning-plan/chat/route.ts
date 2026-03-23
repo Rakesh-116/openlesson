@@ -153,21 +153,10 @@ Respond with JSON containing your explanation and the complete updated sessions 
 
 
 
-    function formatExplanation(text: string): string {
-  if (!text) return text;
-  
-  const paragraphs = text.split(/\n\n+/);
-  
-  const formatted = paragraphs.map(p => {
-    const lines = p.split(/\n/);
-    return lines.map(line => line.trim()).filter(Boolean).join("\n\n");
-  }).filter(Boolean);
-  
-  return formatted.join("\n\n\n");
-}
+    
 
     const response = {
-      explanation: formatExplanation(aiResponse.data.explanation || "I've updated your plan."),
+      explanation: aiResponse.data.explanation || "I've updated your plan.",
       planModified: aiResponse.data.planModified ?? true,
       sessions: aiResponse.data.sessions || [],
       questions: aiResponse.data.questions || []
