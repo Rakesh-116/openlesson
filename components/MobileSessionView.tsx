@@ -22,6 +22,7 @@ import {
   resumeSession,
   endSession,
   saveSession,
+  saveWithDedupString,
 } from "@/lib/storage";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -270,17 +271,31 @@ export function MobileSessionView({
             if (audio && audio.size > 100) {
               const idx = chunkIndexRef.current++;
               console.log("[Mobile] Saving audio chunk", idx, "size=", audio.size);
-              saveAudioChunk(session.id, audio, idx, Date.now()).catch(err => {
-                console.error("[Mobile] Failed to save audio chunk:", err);
-              });
+              saveAudioChunk(session.id, audio, idx, Date.now())
+                .then(savedPath => {
+                  if (!savedPath) {
+                    console.log("[Mobile] Audio chunk skipped (too small)");
+                  }
+                })
+                .catch(err => {
+                  console.error("[Mobile] Failed to save audio chunk:", err);
+                });
             }
           }
           if (whiteboardDataRef.current) {
             const dataStr = whiteboardDataRef.current;
             console.log("[Mobile] Saving canvas data, fullSize:", dataStr.length);
-            console.log("[Mobile] Canvas data START:", dataStr.substring(0, 100));
-            console.log("[Mobile] Canvas data END:", dataStr.substring(dataStr.length - 100));
-            logToolUsage(session.id, 'canvas', 'canvas_draw', Date.now(), { data: dataStr });
+            const whiteboardKey = `canvas_${session.id}`;
+            saveWithDedupString(dataStr, whiteboardKey).then(whiteboardResult => {
+              if (whiteboardResult.saved) {
+                console.log("[Mobile] Canvas data changed, saving...");
+                console.log("[Mobile] Canvas data START:", dataStr.substring(0, 100));
+                console.log("[Mobile] Canvas data END:", dataStr.substring(dataStr.length - 100));
+                logToolUsage(session.id, 'canvas', 'canvas_draw', Date.now(), { data: dataStr });
+              } else {
+                console.log("[Mobile] Canvas data unchanged, skipping");
+              }
+            });
           }
         } catch (err) {
           console.warn("[Mobile] Storage heartbeat error:", err);
@@ -554,12 +569,17 @@ export function MobileSessionView({
               if (recentAudio && recentAudio.size > 100) {
                 const idx = chunkIndexRef.current++;
                 await saveAudioChunk(currentSession.id, recentAudio, idx, Date.now());
+                // Note: null return means audio was too small, skip silently
               }
             }
             
-            // Save whiteboard data
+            // Save whiteboard data (with deduplication)
             if (whiteboardDataRef.current) {
-              await logToolUsage(currentSession.id, 'canvas', 'canvas_draw', Date.now(), { data: whiteboardDataRef.current });
+              const whiteboardKey = `canvas_${currentSession.id}`;
+              const whiteboardResult = await saveWithDedupString(whiteboardDataRef.current, whiteboardKey);
+              if (whiteboardResult.saved) {
+                await logToolUsage(currentSession.id, 'canvas', 'canvas_draw', Date.now(), { data: whiteboardDataRef.current });
+              }
             }
           } catch (err) {
             console.warn("[Mobile] Storage heartbeat error:", err);

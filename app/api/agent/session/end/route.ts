@@ -37,6 +37,39 @@ async function authenticateRequest(
   return keyData;
 }
 
+async function fetchTranscriptsFromStorage(
+  supabase: SupabaseClient,
+  transcriptRecords: { storage_path: string; chunk_index: number }[]
+): Promise<string> {
+  const sortedRecords = [...transcriptRecords].sort(
+    (a, b) => a.chunk_index - b.chunk_index
+  );
+
+  const transcripts: string[] = [];
+
+  for (const record of sortedRecords) {
+    try {
+      const { data, error } = await supabase.storage
+        .from("session-transcript")
+        .download(record.storage_path);
+
+      if (error || !data) {
+        console.warn("[agent-session-end] Failed to download transcript:", record.storage_path);
+        continue;
+      }
+
+      const text = await data.text();
+      if (text.trim()) {
+        transcripts.push(text);
+      }
+    } catch (e) {
+      console.warn("[agent-session-end] Error fetching transcript:", e);
+    }
+  }
+
+  return transcripts.join("\n\n");
+}
+
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get("Authorization");
@@ -70,7 +103,7 @@ export async function POST(req: NextRequest) {
 
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
-      .select("id, user_id, problem, status, is_agent_session")
+      .select("*")
       .eq("id", session_id)
       .single();
 
@@ -102,31 +135,91 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { data: chunks, error: chunksError } = await supabase
-      .from("transcript_rag_chunks")
-      .select("content")
+    const { data: transcriptRecords, error: transcriptError } = await supabase
+      .from("session_transcript")
+      .select("storage_path, chunk_index, word_count, timestamp_ms")
       .eq("session_id", session_id)
       .order("chunk_index", { ascending: true });
 
-    if (chunksError) {
-      console.error("[agent-session-end] Error fetching chunks:", chunksError);
+    if (transcriptError) {
+      console.error("[agent-session-end] Error fetching transcripts:", transcriptError);
     }
 
-    const fullTranscript = chunks 
-      ? chunks.map(c => c.content).join("\n\n") 
+    const { data: probes, error: probesError } = await supabase
+      .from("probes")
+      .select("id, question, answer, gap_score, timestamp_ms, gap_type")
+      .eq("session_id", session_id)
+      .order("timestamp_ms", { ascending: true });
+
+    if (probesError) {
+      console.error("[agent-session-end] Error fetching probes:", probesError);
+    }
+
+    const fullTranscript = transcriptRecords?.length
+      ? await fetchTranscriptsFromStorage(supabase, transcriptRecords)
       : "";
 
-    const chunkCount = chunks?.length || 0;
-    const wordCount = fullTranscript.split(/\s+/).length;
-    const avgGapScore = 0.5;
+    const transcriptCount = transcriptRecords?.length || 0;
+    const wordCount = fullTranscript.split(/\s+/).filter(w => w.length > 0).length;
+    const probeCount = probes?.length || 0;
+
+    const avgGapScore = probes && probes.length > 0
+      ? probes.reduce((sum, p) => sum + (p.gap_score || 0), 0) / probes.length
+      : 0;
+
+    const sessionDurationMs = session.ended_at && session.created_at
+      ? new Date(session.ended_at).getTime() - new Date(session.created_at).getTime()
+      : session.duration_ms || 0;
+
+    const durationStr = sessionDurationMs > 0
+      ? `${Math.round(sessionDurationMs / 1000)} seconds (${Math.round(sessionDurationMs / 60000)} minutes)`
+      : "unknown";
+
+    const probesSummary = buildProbesSummary(probes || [], fullTranscript);
+
+    const NO_AUDIO_THRESHOLD = 50;
+    if (wordCount < NO_AUDIO_THRESHOLD) {
+      console.log("[agent-session-end] No significant audio recorded, skipping report generation", {
+        wordCount,
+        threshold: NO_AUDIO_THRESHOLD
+      });
+
+      const { error: updateError } = await supabase
+        .from("sessions")
+        .update({
+          status: "completed",
+          report: `## Session Summary\n\n**No audio was recorded during this session.**\n\nThis may indicate that the microphone was not active or the session was very short without verbal interaction.\n\n**Session Details:**\n- Duration: ${durationStr}\n- Problem: ${session.problem}\n- Probes triggered: ${probeCount}`,
+          report_generated_at: new Date().toISOString(),
+          ended_at: new Date().toISOString(),
+        })
+        .eq("id", session_id);
+
+      if (updateError) {
+        console.error("[agent-session-end] Update error:", updateError);
+        return NextResponse.json(
+          { error: "Failed to update session" },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        sessionId: session_id,
+        message: "Session ended. No significant audio was recorded.",
+        hasAudio: false,
+        transcriptCount,
+        wordCount,
+        probeCount,
+      });
+    }
 
     const promptOverrides = await getUserPrompts();
     const reportResult = await generateReport({
       problem: session.problem,
-      duration: chunkCount > 0 ? `${chunkCount * 30} seconds` : "unknown",
-      probeCount: chunkCount,
+      duration: durationStr,
+      probeCount,
       avgGapScore,
-      probesSummary: fullTranscript,
+      probesSummary,
       promptOverrides,
     });
 
@@ -159,8 +252,11 @@ export async function POST(req: NextRequest) {
       success: true,
       sessionId: session_id,
       message: "Session ended and report generated",
-      chunkCount,
+      hasAudio: true,
+      transcriptCount,
       wordCount,
+      probeCount,
+      avgGapScore: avgGapScore.toFixed(2),
     });
   } catch (error) {
     console.error("Agent session end error:", error);
@@ -169,6 +265,27 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function buildProbesSummary(probes: {
+  question?: string;
+  answer?: string;
+  gap_score?: number;
+  gap_type?: string;
+  timestamp_ms?: number;
+}[], fullTranscript: string): string {
+  if (probes.length === 0) {
+    return fullTranscript || "No probes were triggered during this session.";
+  }
+
+  const probeDetails = probes.map((p, i) => {
+    const gapType = p.gap_type || "unknown";
+    const gapScore = p.gap_score?.toFixed(2) || "N/A";
+    const question = p.question || "No question recorded";
+    return `[Probe ${i + 1}] Gap type: ${gapType}, Gap score: ${gapScore}\nQuestion: ${question}`;
+  }).join("\n\n");
+
+  return `Probes triggered: ${probes.length}\n\n${probeDetails}\n\n---\n\nTranscript:\n${fullTranscript || "No transcript available"}`;
 }
 
 export async function GET(req: NextRequest) {

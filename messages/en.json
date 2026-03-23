@@ -733,7 +733,7 @@
     "teachingAssistant": "Teaching Assistant",
     "teachingAssistantDesc": "Chat with an AI tutor that responds to your questions and helps you think through problems.",
     "chatWelcome": "Hi! I'm here to help you with your learning. Feel free to ask me questions about the topic, get clarifications, or discuss concepts in a different way.\n\nRemember - I'm a separate assistant from the tutor. Let me know how I can help!",
-    "canvas": "Canvas",
+    "canvas": "Canvas / Images",
     "canvasDesc": "Whiteboard for diagrams, sketches, and visual thinking. Supports paste from clipboard.",
     "notebook": "Notebook",
     "notebookDesc": "Scratchpad for writing down your thoughts, notes, and insights.",

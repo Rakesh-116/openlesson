@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const cutoffTime = Date.now() - 15000;
+    const cutoffTime = Date.now() - 15 * 60 * 1000; // 15 minutes
     
     const { data: audioChunks } = await supabase
       .from("session_audio")
@@ -162,6 +162,7 @@ export async function POST(request: NextRequest) {
       .order("timestamp_ms", { ascending: true });
 
     if (!audioChunks || audioChunks.length === 0) {
+      console.log("[transcribe-chunks] No audio chunks found in the last 15 minutes");
       return NextResponse.json({ transcribed: 0 });
     }
 

@@ -508,12 +508,19 @@ export async function saveSessionAudio(
   return path;
 }
 
+const MIN_AUDIO_SIZE_BYTES = 10240; // 10KB - minimum size for meaningful audio
+
 export async function saveAudioChunk(
   sessionId: string,
   chunkBlob: Blob,
   chunkIndex: number,
   timestamp: number
-): Promise<string> {
+): Promise<string | null> {
+  if (chunkBlob.size < MIN_AUDIO_SIZE_BYTES) {
+    console.log("[saveAudioChunk] Skipping - audio too small:", chunkBlob.size, "bytes (min:", MIN_AUDIO_SIZE_BYTES, ")");
+    return null;
+  }
+
   const supabase = createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError) {
@@ -538,6 +545,22 @@ export async function saveAudioChunk(
   if (error) {
     console.error("[saveAudioChunk] Upload error:", error);
     throw error;
+  }
+
+  // Insert record to session_audio table so transcribe-chunks can find it
+  const { error: insertError } = await supabase
+    .from("session_audio")
+    .insert({
+      session_id: sessionId,
+      user_id: user.id,
+      storage_path: path,
+      chunk_index: chunkIndex,
+      timestamp_ms: timestamp,
+    });
+
+  if (insertError) {
+    console.error("[saveAudioChunk] Failed to insert session_audio record:", insertError);
+    // Don't throw - the file is uploaded, just log the warning
   }
 
   console.log("[saveAudioChunk] Success:", path);
@@ -1818,4 +1841,69 @@ export async function updateSessionPlan(
 
   if (error || !data) throw new Error(error?.message || "Failed to update session plan");
   return mapDbSessionPlan(data);
+}
+
+// ============================================
+// CONTENT-BASED DEDUPLICATION
+// Avoids saving unchanged data during heartbeats
+// ============================================
+
+interface DeduplicatorCache {
+  [key: string]: string;
+}
+
+const deduplicatorCache: DeduplicatorCache = {};
+
+async function hashContent(content: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(content);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export interface DeduplicatedSaveResult {
+  saved: boolean;
+  skipped: boolean;
+  hash?: string;
+}
+
+export async function saveWithDedupString(
+  content: string,
+  key: string
+): Promise<DeduplicatedSaveResult> {
+  const hash = await hashContent(content);
+
+  if (deduplicatorCache[key] === hash) {
+    return { saved: false, skipped: true, hash };
+  }
+
+  deduplicatorCache[key] = hash;
+  return { saved: true, skipped: false, hash };
+}
+
+export async function saveWithDedupBlob(
+  blob: Blob,
+  key: string
+): Promise<DeduplicatedSaveResult> {
+  const arrayBuffer = await blob.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+
+  if (deduplicatorCache[key] === hash) {
+    return { saved: false, skipped: true, hash };
+  }
+
+  deduplicatorCache[key] = hash;
+  return { saved: true, skipped: false, hash };
+}
+
+export function clearDedupCache(): void {
+  Object.keys(deduplicatorCache).forEach((key) => delete deduplicatorCache[key]);
+  console.log("[Deduplicator] Cache cleared");
+}
+
+export function getDedupCacheSize(): number {
+  return Object.keys(deduplicatorCache).length;
 }

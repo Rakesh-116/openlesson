@@ -29,6 +29,8 @@ import {
   archiveProbe,
   toggleProbeFocused,
   resetSessionProbes,
+  saveWithDedupString,
+  saveWithDedupBlob,
   type Session,
   type SessionPlan,
   type Probe,
@@ -1028,8 +1030,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         if (recentAudio && recentAudio.size > 100) {
           const idx = chunkIndexRef.current++;
           try {
-            await saveAudioChunk(currentSession.id, recentAudio, idx, Date.now());
-            transferHealthRef.current.audio.saved++;
+            const savedPath = await saveAudioChunk(currentSession.id, recentAudio, idx, Date.now());
+            if (savedPath) {
+              transferHealthRef.current.audio.saved++;
+            }
           } catch (err) {
             transferHealthRef.current.audio.failed++;
           }
@@ -1037,12 +1041,20 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         }
       }
 
-      // Tool data: save whiteboard and notebook content
+      // Tool data: save whiteboard and notebook content (with deduplication)
       if (whiteboardDataRef.current) {
-        await logToolUsage(currentSession.id, 'canvas', 'canvas_draw', Date.now(), { data: whiteboardDataRef.current });
+        const whiteboardKey = `canvas_${currentSession.id}`;
+        const whiteboardResult = await saveWithDedupString(whiteboardDataRef.current, whiteboardKey);
+        if (whiteboardResult.saved) {
+          await logToolUsage(currentSession.id, 'canvas', 'canvas_draw', Date.now(), { data: whiteboardDataRef.current });
+        }
       }
       if (notebookContentRef.current && notebookContentRef.current.trim().length > 0) {
-        await logToolUsage(currentSession.id, 'notebook', 'notebook_edit', Date.now(), { data: notebookContentRef.current });
+        const notebookKey = `notebook_${currentSession.id}`;
+        const notebookResult = await saveWithDedupString(notebookContentRef.current, notebookKey);
+        if (notebookResult.saved) {
+          await logToolUsage(currentSession.id, 'notebook', 'notebook_edit', Date.now(), { data: notebookContentRef.current });
+        }
       }
 
       // EEG: flush buffer if streaming
@@ -1122,19 +1134,16 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         chunkDurationMs: 60000,
         maxBufferDurationMs: 300000,
         onChunk: async (chunk) => {
-          // Skip empty audio chunks - don't store sound or transcript
-          if (!chunk.blob.size || chunk.blob.size < 100) {
-            return;
-          }
-          
           if (session) {
             const idx = chunkIndexRef.current++;
             transferHealthRef.current.audio.sent++;
             setTransferHealth({ ...transferHealthRef.current });
             try {
-              await saveAudioChunk(session.id, chunk.blob, idx, chunk.timestamp);
-              transferHealthRef.current.audio.saved++;
-              setTransferHealth({ ...transferHealthRef.current });
+              const savedPath = await saveAudioChunk(session.id, chunk.blob, idx, chunk.timestamp);
+              if (savedPath) {
+                transferHealthRef.current.audio.saved++;
+                setTransferHealth({ ...transferHealthRef.current });
+              }
               setPipelineErrors(prev => ({ ...prev, storage: undefined, transcription: undefined }));
             } catch (err) {
               console.error("Chunk storage error:", err);
@@ -1181,6 +1190,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     if (timerRef.current) clearInterval(timerRef.current);
     if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
 
+    // Trigger final heartbeat to save all remaining data
+    await runStorageHeartbeat();
+    await runAnalysisHeartbeat();
+
     const recorder = recorderRef.current;
     
     const fullAudio = recorder?.getFullAudio() ?? null;
@@ -1225,8 +1238,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       screenCaptureRef.current = createScreenCapture({
         onScreenshotCaptured: async (blob: Blob, timestamp: number) => {
           try {
-            await saveScreenshot(sessionId, blob, timestamp);
-            setScreenshotCount(c => c + 1);
+            const screenshotKey = `screenshot_${sessionId}`;
+            const result = await saveWithDedupBlob(blob, screenshotKey);
+            if (result.saved) {
+              await saveScreenshot(sessionId, blob, timestamp);
+              setScreenshotCount(c => c + 1);
+            }
           } catch (error) {
             console.error("[Screenshot] Failed to save:", error);
           }
@@ -1303,19 +1320,16 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         chunkDurationMs: 60000,
         maxBufferDurationMs: 300000,
         onChunk: async (chunk) => {
-          // Skip empty audio chunks - don't store sound or transcript
-          if (!chunk.blob.size || chunk.blob.size < 100) {
-            return;
-          }
-          
           if (session) {
             const idx = chunkIndexRef.current++;
             transferHealthRef.current.audio.sent++;
             setTransferHealth({ ...transferHealthRef.current });
             try {
-              await saveAudioChunk(session.id, chunk.blob, idx, chunk.timestamp);
-              transferHealthRef.current.audio.saved++;
-              setTransferHealth({ ...transferHealthRef.current });
+              const savedPath = await saveAudioChunk(session.id, chunk.blob, idx, chunk.timestamp);
+              if (savedPath) {
+                transferHealthRef.current.audio.saved++;
+                setTransferHealth({ ...transferHealthRef.current });
+              }
               setPipelineErrors(prev => ({ ...prev, storage: undefined, transcription: undefined }));
             } catch (err) {
               console.error("Chunk storage error:", err);
