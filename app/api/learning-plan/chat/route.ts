@@ -156,14 +156,14 @@ Respond with JSON containing your explanation and the complete updated sessions 
     function formatExplanation(text: string): string {
   if (!text) return text;
   
-  text = text
-    .replace(/([.!?])\s+(?=[A-Z])/g, "$1\n\n")
-    .replace(/\n{2,}/g, "\n\n\n")
-    .replace(/([.!?])\s*$/gm, "$1\n\n")
-    .replace(/\n\n\n+/g, "\n\n\n")
-    .trim();
+  const paragraphs = text.split(/\n\n+/);
   
-  return text;
+  const formatted = paragraphs.map(p => {
+    const lines = p.split(/\n/);
+    return lines.map(line => line.trim()).filter(Boolean).join("\n\n");
+  }).filter(Boolean);
+  
+  return formatted.join("\n\n\n");
 }
 
     const response = {
