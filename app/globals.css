@@ -290,3 +290,13 @@ body {
 .prose .math-inline {
   margin: 0 0.15em;
 }
+
+/* Extra spacing for chat messages */
+.chat-messages .prose p {
+  margin-bottom: 1.25rem !important;
+  line-height: 1.75 !important;
+}
+
+.chat-messages .prose p:last-child {
+  margin-bottom: 0 !important;
+}

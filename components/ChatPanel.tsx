@@ -298,8 +298,8 @@ ${t('learningPlanChat.changesAppear')}`;
                   ))}
                 </div>
               )}
-              <div className="prose prose-invert prose-sm max-w-none 
-                prose-p:mb-6 prose-p:leading-7 prose-p:text-neutral-300
+              <div className="prose prose-invert prose-sm max-w-none chat-messages 
+                text-neutral-300 leading-7
                 prose-headings:mt-6 prose-headings:mb-3 prose-headings:text-neutral-100 prose-headings:font-semibold prose-headings:text-lg
                 prose-h1:text-2xl prose-h1:font-bold prose-h1:mt-8 prose-h1:mb-4
                 prose-h2:text-xl prose-h2:font-semibold prose-h2:mt-6 prose-h2:mb-3
@@ -313,8 +313,10 @@ ${t('learningPlanChat.changesAppear')}`;
                 prose-pre:bg-neutral-900 prose-pre:text-neutral-200 prose-pre:rounded-lg prose-pre:my-4 prose-pre:p-4
                 prose-blockquote:border-l-4 prose-blockquote:border-cyan-500/50 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-neutral-400 prose-blockquote:my-4 prose-blockquote:py-2
                 prose-hr:border-neutral-700 prose-hr:my-6
-                prose-a:text-cyan-400 prose-a:underline
-                [&>p]:whitespace-pre-wrap [&>p]:leading-relaxed">
+                prose-a:text-cyan-400 prose-a:underline"
+                style={{ 
+                  '--tw-prose-p': '1.5rem 0',
+                } as React.CSSProperties}>
                 {msg.content && (
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm, remarkMath]}
