@@ -157,8 +157,10 @@ Respond with JSON containing your explanation and the complete updated sessions 
   if (!text) return text;
   
   text = text
-    .replace(/([.!?])\s*(?=[A-Z])/g, "$1\n\n")
-    .replace(/\n{3,}/g, "\n\n")
+    .replace(/([.!?])\s+(?=[A-Z])/g, "$1\n\n")
+    .replace(/\n{2,}/g, "\n\n\n")
+    .replace(/([.!?])\s*$/gm, "$1\n\n")
+    .replace(/\n\n\n+/g, "\n\n\n")
     .trim();
   
   return text;
