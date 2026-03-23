@@ -292,9 +292,24 @@ body {
 }
 
 /* Extra spacing for chat messages */
-.chat-messages .prose p {
-  margin-bottom: 1.25rem !important;
-  line-height: 1.75 !important;
+.chat-messages .prose p,
+.chat-messages p {
+  margin-bottom: 1.5rem !important;
+  line-height: 1.8 !important;
+}
+
+.chat-messages .prose h2,
+.chat-messages h2 {
+  margin-top: 1.5rem !important;
+  margin-bottom: 0.75rem !important;
+  font-size: 1.25rem !important;
+  font-weight: 600 !important;
+}
+
+.chat-messages .prose h3,
+.chat-messages h3 {
+  margin-top: 1.25rem !important;
+  margin-bottom: 0.5rem !important;
 }
 
 .chat-messages .prose p:last-child {
