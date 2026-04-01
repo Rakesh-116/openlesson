@@ -29,6 +29,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
+import { playStepCompleteSound, playSessionCompleteSound } from "@/lib/sounds";
 
 interface MobileSessionViewProps {
   sessionId: string;
@@ -118,6 +119,8 @@ export function MobileSessionView({
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [storageBeat, setStorageBeat] = useState(0);
   const [analysisBeat, setAnalysisBeat] = useState(0);
+  const [isCelebrating, setIsCelebrating] = useState(false);
+  const [showPlanCompleteModal, setShowPlanCompleteModal] = useState(false);
 
   // Camera state
   const [cameraMode, setCameraMode] = useState<'closed' | 'open' | 'preview'>('closed');
@@ -374,7 +377,7 @@ export function MobileSessionView({
         sessionPlanRef.current = planData.plan;
       }
 
-      // On step transition: archive ALL active probes
+      // On step transition: archive ALL active probes and trigger celebration
       if (isStepTransition) {
         const activeProbesForArchive = currentSession.probes.filter((p: Probe) => !p.archived);
         if (activeProbesForArchive.length > 0) {
@@ -391,6 +394,28 @@ export function MobileSessionView({
           setSession(updatedSession);
           sessionRef.current = updatedSession;
           setProbes(updatedSession.probes);
+        }
+
+        // Detect if plan is fully complete
+        const updatedPlan = sessionPlanRef.current;
+        const isPlanComplete = updatedPlan?.steps?.every(
+          (s: { status: string }) => s.status === "completed" || s.status === "skipped"
+        );
+
+        if (isPlanComplete) {
+          setIsCelebrating(true);
+          playSessionCompleteSound();
+          setTimeout(() => {
+            setIsCelebrating(false);
+            setShowPlanCompleteModal(true);
+            if (isRecording && !isPaused) {
+              setIsPaused(true);
+            }
+          }, 1500);
+        } else {
+          setIsCelebrating(true);
+          playStepCompleteSound();
+          setTimeout(() => setIsCelebrating(false), 1500);
         }
       } else if (planData.probesToArchive && planData.probesToArchive.length > 0) {
         // Auto-archive specific probes
@@ -663,8 +688,9 @@ export function MobileSessionView({
     if (timerRef.current) clearInterval(timerRef.current);
     if (analysisRef.current) clearInterval(analysisRef.current);
 
-    // Final heartbeat to save remaining data
+    // Final heartbeat to save remaining data and analyze last audio
     await runStorageHeartbeat();
+    await runAnalysisHeartbeat();
 
     await recorderRef.current?.stop();
     recorderRef.current = null;
@@ -833,10 +859,23 @@ export function MobileSessionView({
       }
 
       if (allComplete) {
-        // Plan fully complete
-        setIsSaving(true);
+        // Plan fully complete - celebrate and show modal
+        setIsCelebrating(true);
+        playSessionCompleteSound();
+        setTimeout(() => {
+          setIsCelebrating(false);
+          setShowPlanCompleteModal(true);
+          if (isRecording && !isPaused) {
+            setIsPaused(true);
+          }
+        }, 1500);
         return;
       }
+
+      // Regular step advance - celebrate
+      setIsCelebrating(true);
+      playStepCompleteSound();
+      setTimeout(() => setIsCelebrating(false), 1500);
 
       // Generate a probe for the new step
       const newStep = updatedPlan.steps?.[updatedPlan.currentStepIndex];
@@ -1247,8 +1286,66 @@ export function MobileSessionView({
         paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
+      {/* Celebration Overlay */}
+      {isCelebrating && (
+        <>
+          {/* Flash overlay */}
+          <div className="fixed inset-0 bg-gradient-to-b from-cyan-500/20 via-transparent to-transparent pointer-events-none z-40 animate-celebration-flash" />
+          
+          {/* Confetti explosion */}
+          <div className="fixed inset-0 pointer-events-none z-40 overflow-hidden">
+            {[
+              { x: 10, delay: 0, color: '#22d3ee', anim: 'animate-confetti-up-left' },
+              { x: 20, delay: 0.05, color: '#34d399', anim: 'animate-confetti-up' },
+              { x: 30, delay: 0.1, color: '#fbbf24', anim: 'animate-confetti-up-right' },
+              { x: 40, delay: 0.03, color: '#f472b6', anim: 'animate-confetti-up-left' },
+              { x: 50, delay: 0.08, color: '#a78bfa', anim: 'animate-confetti-up' },
+              { x: 60, delay: 0.02, color: '#fb7185', anim: 'animate-confetti-up-right' },
+              { x: 70, delay: 0.06, color: '#22d3ee', anim: 'animate-confetti-up-left' },
+              { x: 80, delay: 0.04, color: '#34d399', anim: 'animate-confetti-up' },
+              { x: 90, delay: 0.09, color: '#fbbf24', anim: 'animate-confetti-up-right' },
+              { x: 15, delay: 0.07, color: '#f472b6', anim: 'animate-confetti-up' },
+              { x: 35, delay: 0.01, color: '#a78bfa', anim: 'animate-confetti-up-left' },
+              { x: 55, delay: 0.11, color: '#fb7185', anim: 'animate-confetti-up-right' },
+              { x: 75, delay: 0.03, color: '#22d3ee', anim: 'animate-confetti-up' },
+              { x: 85, delay: 0.08, color: '#34d399', anim: 'animate-confetti-up-left' },
+              { x: 25, delay: 0.05, color: '#fbbf24', anim: 'animate-confetti-up-right' },
+              { x: 45, delay: 0.02, color: '#f472b6', anim: 'animate-confetti-up' },
+            ].map((particle, i) => (
+              <div
+                key={i}
+                className={`absolute w-2.5 h-2.5 rounded-sm ${particle.anim}`}
+                style={{
+                  left: `${particle.x}%`,
+                  top: '40%',
+                  backgroundColor: particle.color,
+                  animationDelay: `${particle.delay}s`,
+                  transform: `rotate(${i * 25}deg)`,
+                }}
+              />
+            ))}
+            {/* Star bursts */}
+            <div className="absolute left-1/4 top-1/4 w-4 h-4 animate-star-burst" style={{ animationDelay: '0.1s' }}>
+              <svg viewBox="0 0 24 24" fill="#fbbf24" className="w-full h-full">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+              </svg>
+            </div>
+            <div className="absolute right-1/4 top-1/3 w-3 h-3 animate-star-burst" style={{ animationDelay: '0.2s' }}>
+              <svg viewBox="0 0 24 24" fill="#34d399" className="w-full h-full">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+              </svg>
+            </div>
+            <div className="absolute left-1/2 top-[20%] w-3.5 h-3.5 animate-star-burst" style={{ animationDelay: '0.15s' }}>
+              <svg viewBox="0 0 24 24" fill="#f472b6" className="w-full h-full">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+              </svg>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Compact Header */}
-      <header className="shrink-0 px-3 py-2 border-b border-neutral-800/80 bg-[#0a0a0a]">
+      <header className={`shrink-0 px-3 py-2 border-b border-neutral-800/80 bg-[#0a0a0a] transition-all duration-300 ${isCelebrating ? 'animate-step-celebrate' : ''}`}>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             {isRecording && !isPaused ? (
@@ -1433,6 +1530,40 @@ export function MobileSessionView({
                 {t('sessionEnd.endSession')}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Plan Complete Modal */}
+      {showPlanCompleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 max-w-sm w-full">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-full bg-green-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-base font-semibold text-white">{t('session.sessionComplete')}</h3>
+            </div>
+            <p className="text-neutral-400 text-xs mb-5 leading-relaxed">
+              {t('session.congratulationsComplete')}
+            </p>
+            <button
+              onClick={() => {
+                setShowPlanCompleteModal(false);
+                stopRecording();
+              }}
+              className="w-full py-2.5 px-4 bg-white hover:bg-neutral-100 text-neutral-900 font-medium text-sm rounded-lg transition-colors"
+            >
+              {t('sessionEnd.endSession')}
+            </button>
+            <button
+              onClick={() => setShowPlanCompleteModal(false)}
+              className="w-full mt-2 py-2 px-4 text-xs text-neutral-400 hover:text-white transition-colors"
+            >
+              {t('common.keepGoing')}
+            </button>
           </div>
         </div>
       )}
