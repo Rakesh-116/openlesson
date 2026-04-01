@@ -2,19 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionPlan, updateSessionPlan, getSession } from "@/lib/storage";
 import { callOpenRouterJSON, userMessage } from "@/lib/openrouter-client";
 import { createClient } from "@/lib/supabase/server";
-
-const LOCALE_TO_LANGUAGE: Record<string, string> = {
-  en: "English",
-  vi: "Vietnamese",
-  zh: "Chinese",
-  es: "Spanish",
-  de: "German",
-  pl: "Polish",
-};
-
-function getLanguageName(locale: string): string {
-  return LOCALE_TO_LANGUAGE[locale] || "English";
-}
+import { getLanguageName } from "@/lib/tutoring-languages";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;

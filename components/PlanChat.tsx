@@ -311,6 +311,7 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
             highlightOpacity={highlightOpacity}
             isOwner={isOwner}
             supabase={supabase}
+            planTopic={plan.root_topic}
           />
         </div>
       </div>

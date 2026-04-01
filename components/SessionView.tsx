@@ -62,7 +62,8 @@ import {
   openPopOutWindow, 
   type SessionAction 
 } from "@/lib/broadcast-sync";
-import { useI18n, languageNames } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n";
+import { tutoringLocales, tutoringLanguageNames } from "@/lib/tutoring-languages";
 
 
 // Configuration
@@ -326,6 +327,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const activeToolRef = useRef(activeTool);
   const objectivesRef = useRef(objectives);
   const isRecordingRef = useRef(isRecording);
+  const autoAdvanceRef = useRef(autoAdvance);
   const museStatusRef = useRef(museStatus);
   const isWebcamEnabledRef = useRef(isWebcamEnabled);
 
@@ -377,6 +379,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   useEffect(() => { activeToolRef.current = activeTool; }, [activeTool]);
   useEffect(() => { objectivesRef.current = objectives; }, [objectives]);
   useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
+  useEffect(() => { autoAdvanceRef.current = autoAdvance; }, [autoAdvance]);
   useEffect(() => { museStatusRef.current = museStatus; }, [museStatus]);
   useEffect(() => { isWebcamEnabledRef.current = isWebcamEnabled; }, [isWebcamEnabled]);
   useEffect(() => { sessionPlanRef.current = sessionPlan; }, [sessionPlan]);
@@ -827,7 +830,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   // ---- Analysis Heartbeat (10s) ----
   const runAnalysisHeartbeat = useCallback(async () => {
-    const recorder = recorderRef.current;
     const currentSession = sessionRef.current;
 
     if (!currentSession) return;
@@ -839,6 +841,19 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     setIsAnalyzing(true);
 
     try {
+      // Transcribe any pending audio chunks BEFORE analysis so the tutoring model sees latest speech
+      if (currentSession && isRecordingRef.current) {
+        try {
+          await fetch("/api/transcribe-chunks", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId: currentSession.id }),
+          });
+        } catch (err) {
+          console.warn("Pre-analysis transcription error:", err);
+        }
+      }
+
       const openProbes = currentSession.probes.filter(p => !p.archived);
       const focusedProbes = openProbes.filter(p => p.focused).map(p => ({ id: p.id, text: p.text }));
       const currentPlan = sessionPlanRef.current;
@@ -883,8 +898,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       const planData = await res.json();
 
       // Update objective statuses based on gap score from the unified response
-      if (objectiveStatuses.length > 0 && planData.gapScore !== undefined) {
+      if (planData.gapScore !== undefined) {
         setObjectiveStatuses(prev => {
+          if (prev.length === 0) return prev;
           const newStatuses = [...prev];
           const statusToSet: "red" | "yellow" | "green" = 
             planData.gapScore >= 0.7 ? "red" : 
@@ -902,12 +918,35 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         const previousStepIndex = sessionPlanRef.current?.currentStepIndex ?? 0;
         const newStepIndex = planData.plan?.currentStepIndex ?? 0;
         const totalSteps = planData.plan?.steps?.length ?? 0;
-        const isStepTransition = newStepIndex > previousStepIndex && isValidPlan(planData.plan);
+        const llmWantsAdvance = newStepIndex > previousStepIndex && isValidPlan(planData.plan);
+        // Only allow automatic step transitions when autoAdvance is ON
+        const isStepTransition = llmWantsAdvance && autoAdvanceRef.current;
         
         const allStepsCompleted = planData.plan?.steps?.every((s: { status: string }) => s.status === 'completed') ?? false;
         const isPlanComplete = isStepTransition && allStepsCompleted && totalSteps > 0;
         
-        if (isValidPlan(planData.plan)) {
+        if (isStepTransition && isValidPlan(planData.plan)) {
+          // Auto-advance: accept the new plan with advanced step
+          setSessionPlan(planData.plan);
+          sessionPlanRef.current = planData.plan;
+        } else if (llmWantsAdvance && !autoAdvanceRef.current) {
+          // Manual mode: LLM says ready to advance, but user controls when
+          // Keep current plan (don't advance), but update other fields
+          const planWithoutAdvance = {
+            ...planData.plan,
+            currentStepIndex: previousStepIndex,
+            steps: planData.plan.steps.map((s: { status: string }, idx: number) => ({
+              ...s,
+              status: idx < previousStepIndex ? "completed" 
+                : idx === previousStepIndex ? "in_progress" 
+                : s.status === "skipped" ? "skipped" : "pending",
+            })),
+          };
+          if (isValidPlan(planWithoutAdvance)) {
+            setSessionPlan(planWithoutAdvance);
+            sessionPlanRef.current = planWithoutAdvance;
+          }
+        } else if (isValidPlan(planData.plan)) {
           setSessionPlan(planData.plan);
           sessionPlanRef.current = planData.plan;
         } else if (planData.plan) {
@@ -997,18 +1036,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     } catch (err) {
       console.error("Analysis error:", err);
     } finally {
-      // Transcribe missing audio chunks (analysis heartbeat)
-      if (currentSession && isRecordingRef.current) {
-        try {
-          await fetch("/api/transcribe-chunks", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessionId: currentSession.id }),
-          });
-        } catch (err) {
-          console.warn("Transcription heartbeat error:", err);
-        }
-      }
       isAnalyzingRef.current = false;
       setIsAnalyzing(false);
     }
@@ -1133,26 +1160,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       const recorder = new AudioRecorder({
         chunkDurationMs: 60000,
         maxBufferDurationMs: 300000,
-        onChunk: async (chunk) => {
-          if (session) {
-            const idx = chunkIndexRef.current++;
-            transferHealthRef.current.audio.sent++;
-            setTransferHealth({ ...transferHealthRef.current });
-            try {
-              const savedPath = await saveAudioChunk(session.id, chunk.blob, idx, chunk.timestamp);
-              if (savedPath) {
-                transferHealthRef.current.audio.saved++;
-                setTransferHealth({ ...transferHealthRef.current });
-              }
-              setPipelineErrors(prev => ({ ...prev, storage: undefined, transcription: undefined }));
-            } catch (err) {
-              console.error("Chunk storage error:", err);
-              transferHealthRef.current.audio.failed++;
-              setTransferHealth({ ...transferHealthRef.current });
-              setPipelineErrors(prev => ({ ...prev, storage: "Failed to save audio chunk" }));
-            }
-          }
-        }
+        // Audio saving is handled by runStorageHeartbeat every 5s via getRecentAudio()
+        // No onChunk save needed — avoids duplicate audio entries in session_audio table
       });
       recorderRef.current = recorder;
       await recorder.start(mediaStream);
@@ -1319,26 +1328,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       const recorder = new AudioRecorderClass({
         chunkDurationMs: 60000,
         maxBufferDurationMs: 300000,
-        onChunk: async (chunk) => {
-          if (session) {
-            const idx = chunkIndexRef.current++;
-            transferHealthRef.current.audio.sent++;
-            setTransferHealth({ ...transferHealthRef.current });
-            try {
-              const savedPath = await saveAudioChunk(session.id, chunk.blob, idx, chunk.timestamp);
-              if (savedPath) {
-                transferHealthRef.current.audio.saved++;
-                setTransferHealth({ ...transferHealthRef.current });
-              }
-              setPipelineErrors(prev => ({ ...prev, storage: undefined, transcription: undefined }));
-            } catch (err) {
-              console.error("Chunk storage error:", err);
-              transferHealthRef.current.audio.failed++;
-              setTransferHealth({ ...transferHealthRef.current });
-              setPipelineErrors(prev => ({ ...prev, storage: "Failed to save audio chunk" }));
-            }
-          }
-        }
+        // Audio saving is handled by runStorageHeartbeat every 5s via getRecentAudio()
+        // No onChunk save needed — avoids duplicate audio entries in session_audio table
       });
       await recorder.start(mediaStream);
       recorderRef.current = recorder;
@@ -1542,15 +1533,22 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     await stopRecording();
   };
 
-  const handleAdvanceStep = async () => {
+  const handleAdvanceStep = async (forceAdvance = false) => {
     if (!session) return;
     const currentSession = sessionRef.current || session;
+    const openProbes = currentSession.probes.filter(p => !p.archived);
     
     try {
       const res = await fetch("/api/session-plan/advance-step", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: session.id }),
+        body: JSON.stringify({
+          sessionId: session.id,
+          forceAdvance,
+          previousProbes: currentSession.probes.map(p => p.text),
+          focusedProbes: openProbes.filter(p => p.focused).map(p => ({ id: p.id, text: p.text })),
+          openProbeCount: openProbes.length,
+        }),
       });
       
       if (!res.ok) {
@@ -1559,7 +1557,44 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         return;
       }
       
-      const { plan: updatedPlan, allComplete } = await res.json();
+      const data = await res.json();
+      
+      // Handle blocked response — show reasoning and offer force-advance
+      if (data.blocked) {
+        const reasoning = data.advanceReasoning || "You may not be ready to move on yet.";
+        // Create a feedback probe so the user sees WHY they can't advance
+        const feedbackProbe = await addProbe(session.id, {
+          timestamp: Date.now() - new Date(session.startedAt).getTime(),
+          gapScore: data.gapScore ?? 0.6,
+          signals: ["advance_blocked"],
+          text: reasoning,
+          requestType: "feedback",
+          planStepId: sessionPlanRef.current?.steps?.[sessionPlanRef.current.currentStepIndex]?.id,
+        });
+        const updatedSession = addProbeToSession(currentSession, feedbackProbe);
+        setSession(updatedSession);
+        sessionRef.current = updatedSession;
+        setActiveProbe(feedbackProbe);
+        setViewingProbeIndex(updatedSession.probes.length - 1);
+        
+        // Also create the next request probe if the LLM suggested one
+        if (data.nextRequest && openProbes.length < 4) {
+          const nextProbe = await addProbe(session.id, {
+            timestamp: Date.now() - new Date(session.startedAt).getTime(),
+            gapScore: data.gapScore ?? 0.6,
+            signals: ["advance_blocked_followup"],
+            text: data.nextRequest.text,
+            requestType: data.nextRequest.type || "question",
+            planStepId: sessionPlanRef.current?.steps?.[sessionPlanRef.current.currentStepIndex]?.id,
+          });
+          const updatedSession2 = addProbeToSession(sessionRef.current || updatedSession, nextProbe);
+          setSession(updatedSession2);
+          sessionRef.current = updatedSession2;
+        }
+        return;
+      }
+      
+      const { plan: updatedPlan, allComplete } = data;
       
       // Validate plan before updating
       if (!updatedPlan?.steps?.length || !updatedPlan?.goal) {
@@ -1877,9 +1912,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         disabled={isButtonDisabled}
                         className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:border-neutral-500 disabled:opacity-50"
                       >
-                        {supportedLocales.map((loc) => (
+                        {tutoringLocales.map((loc) => (
                           <option key={loc} value={loc}>
-                            {languageNames[loc]}
+                            {tutoringLanguageNames[loc]}
                           </option>
                         ))}
                       </select>
@@ -2573,66 +2608,4 @@ function computeBandPowers(af7: number[], af8: number[]) {
   return { delta: avg.delta || 0, theta: avg.theta || 0, alpha: avg.alpha || 0, beta: avg.beta || 0, gamma: avg.gamma || 0 };
 }
 
-// ---- Icons ----
 
-function MicIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-    </svg>
-  );
-}
-
-function StopIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-    </svg>
-  );
-}
-
-function ObserverIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-    </svg>
-  );
-}
-
-function FreqIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-    </svg>
-  );
-}
-
-function SpeakerIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-    </svg>
-  );
-}
-
-function StarIcon({ filled }: { filled?: boolean }) {
-  return filled ? (
-    <svg className="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-    </svg>
-  ) : (
-    <svg className="w-4 h-4 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-    </svg>
-  );
-}
-
-function BluetoothIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7l10 10-5 5V2l5 5L7 17" />
-    </svg>
-  );
-}

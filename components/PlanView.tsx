@@ -9,6 +9,9 @@ import { Navbar } from "@/components/Navbar";
 import { RemixModal } from "@/components/RemixModal";
 import { getYouTubeThumbnail } from "@/lib/youtube";
 import { useI18n } from "../lib/i18n";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { PlanAnalytics } from "@/components/PlanAnalytics";
 
 export interface PlanNode {
   id: string;
@@ -36,6 +39,7 @@ export interface LearningPlan {
   source_type?: "topic" | "youtube";
   source_url?: string;
   source_summary?: string;
+  notes?: string;
 }
 
 interface PlanViewProps {
@@ -62,6 +66,10 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editDescription, setEditDescription] = useState("");
   const [savingDescription, setSavingDescription] = useState(false);
+  const [activeTab, setActiveTab] = useState<"graph" | "notes" | "analytics">("graph");
+  const [notesContent, setNotesContent] = useState(initialPlan?.notes || "");
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [savingNotes, setSavingNotes] = useState(false);
   
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -91,7 +99,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
 
       const { data: planData, error: planError } = await supabase
         .from("learning_plans")
-        .select("*, profiles:author_id(username), source_type, source_url, source_summary, description")
+        .select("*, profiles:author_id(username)")
         .eq("id", planId)
         .single();
 
@@ -176,6 +184,36 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
       setEditDescription(plan.description || "");
     }
   }, [plan?.description]);
+
+  useEffect(() => {
+    if (plan?.notes !== undefined) {
+      setNotesContent(plan.notes || "");
+    }
+  }, [plan?.notes]);
+
+  const saveNotes = async () => {
+    if (!plan) return;
+    setSavingNotes(true);
+    try {
+      const res = await fetch("/api/learning-plan/notes", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: plan.id, notes: notesContent }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPlan({ ...plan, notes: notesContent });
+        setIsEditingNotes(false);
+      } else {
+        alert(data.error || "Failed to save notes");
+      }
+    } catch (err) {
+      console.error("Error saving notes:", err);
+      alert("Failed to save notes");
+    } finally {
+      setSavingNotes(false);
+    }
+  };
 
   const saveDescription = async () => {
     if (!plan) return;
@@ -476,17 +514,114 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
         </div>
       </div>
 
+      {/* Tab bar */}
+      <div className="px-3 sm:px-4 pt-2 flex-shrink-0">
+        <div className="flex gap-1 border-b border-neutral-800">
+          {(["graph", "notes", "analytics"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                activeTab === tab
+                  ? "text-white border-blue-500"
+                  : "text-neutral-500 border-transparent hover:text-neutral-300"
+              }`}
+            >
+              {tab === "graph" ? "Plan Builder" : tab === "notes" ? "Notes" : "Analytics"}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <main className="flex-1 p-3 sm:p-4 pb-3 sm:pb-4 min-h-0 overflow-hidden">
-        <PlanChat 
-          plan={plan} 
-          nodes={nodes} 
-          supabase={supabase}
-          planId={planId}
-          onRefresh={refreshNodes}
-          onNodesUpdate={handleNodesUpdate}
-          isOwner={currentUserId ? plan.user_id === currentUserId : false}
-          currentUserId={currentUserId}
-        />
+        {activeTab === "graph" && (
+          <PlanChat 
+            plan={plan} 
+            nodes={nodes} 
+            supabase={supabase}
+            planId={planId}
+            onRefresh={refreshNodes}
+            onNodesUpdate={handleNodesUpdate}
+            isOwner={currentUserId ? plan.user_id === currentUserId : false}
+            currentUserId={currentUserId}
+          />
+        )}
+
+        {activeTab === "notes" && (
+          <div className="h-full overflow-y-auto">
+            <div className="w-full">
+              {currentUserId && plan.user_id === currentUserId ? (
+                // Owner: editable notes
+                isEditingNotes ? (
+                  <div className="space-y-3">
+                    <textarea
+                      value={notesContent}
+                      onChange={(e) => setNotesContent(e.target.value)}
+                      placeholder="Write notes about this plan... (Markdown supported)"
+                      className="w-full h-[60vh] px-4 py-3 bg-neutral-900 border border-neutral-700 rounded-lg text-white text-sm font-mono focus:outline-none focus:border-blue-500 resize-none"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={saveNotes}
+                        disabled={savingNotes}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 text-white text-sm rounded-lg transition-colors"
+                      >
+                        {savingNotes ? "Saving..." : "Save"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setNotesContent(plan.notes || "");
+                          setIsEditingNotes(false);
+                        }}
+                        className="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white text-sm rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    {notesContent ? (
+                      <div 
+                        className="prose prose-invert prose-sm max-w-none cursor-pointer hover:bg-neutral-900/50 rounded-lg p-4 transition-colors"
+                        onClick={() => setIsEditingNotes(true)}
+                      >
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{notesContent}</ReactMarkdown>
+                        <p className="text-neutral-600 text-xs mt-4 italic">Click to edit</p>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setIsEditingNotes(true)}
+                        className="w-full py-12 border-2 border-dashed border-neutral-700 rounded-lg text-neutral-500 hover:text-neutral-400 hover:border-neutral-600 transition-colors"
+                      >
+                        Add notes to this plan...
+                      </button>
+                    )}
+                  </div>
+                )
+              ) : (
+                // Viewer: read-only notes
+                notesContent ? (
+                  <div className="prose prose-invert prose-sm max-w-none p-4">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{notesContent}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-neutral-500">
+                    No notes for this plan yet.
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "analytics" && (
+          <PlanAnalytics 
+            planId={planId}
+            isOwner={currentUserId ? plan.user_id === currentUserId : false}
+          />
+        )}
       </main>
 
       {showRemixModal && (

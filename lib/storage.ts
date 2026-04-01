@@ -1505,6 +1505,8 @@ export interface LearningPlan {
   source_type?: "topic" | "youtube";
   source_url?: string;
   source_summary?: string;
+  // Plan notes (README-like)
+  notes?: string;
 }
 
 export interface PlanNode {
@@ -1612,6 +1614,7 @@ export async function getPlanById(planId: string): Promise<LearningPlan | null> 
       source_type,
       source_url,
       source_summary,
+      notes,
       profiles:author_id (username)
     `)
     .eq("id", planId)
@@ -1633,7 +1636,22 @@ export async function getPlanById(planId: string): Promise<LearningPlan | null> 
     source_type: data.source_type || "topic",
     source_url: data.source_url,
     source_summary: data.source_summary,
+    notes: data.notes || undefined,
   };
+}
+
+export async function updatePlanNotes(planId: string, notes: string): Promise<void> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { error } = await supabase
+    .from("learning_plans")
+    .update({ notes })
+    .eq("id", planId)
+    .eq("user_id", user.id);
+
+  if (error) throw new Error("Failed to update plan notes: " + error.message);
 }
 
 export async function getUserById(userId: string): Promise<{ username: string } | null> {

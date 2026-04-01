@@ -41,6 +41,7 @@ const CHAT_WELCOME_MESSAGES: Record<string, string> = {
   zh: "你好！我在这里帮助你学习。你可以随意问我关于这个主题的问题，获取解释，或者用不同的方式讨论概念。\n\n请记住 - 我是一个独立于导师的助手。让我知道你需要什么帮助！",
   de: "Hallo! Ich bin hier, um dir beim Lernen zu helfen. Frag mich ruhig zum Thema, bitte um Erklärungen oder diskutiere Konzepte auf andere Weise.\n\nDenk daran - ich bin ein separater Assistent vom Tutor. Sag mir, wie ich helfen kann!",
   pl: "Cześć! Jestem tu, żeby pomóc Ci w nauce. Śmiało pytaj o temat, proś o wyjaśnienia lub omawiaj koncepcje w inny sposób.\n\nPamiętaj - jestem osobnym asystentem od korepetytora. Daj znać, jak mogę pomóc!",
+  ca: "Hola! Soc aquí per ajudar-te amb el teu aprenentatge. No dubtis a preguntar-me sobre el tema, demanar aclariments o discutir conceptes d'una altra manera.\n\nRecorda - soc un assistent separat del tutor. Digues-me com puc ajudar!",
 };
 
 export function LLMChat({ problem, messages: externalMessages, onMessagesChange, sessionId, tutoringLanguage }: LLMChatProps) {

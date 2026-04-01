@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { callOpenRouterJSON, userMessage, DEFAULT_MODEL } from "@/lib/openrouter-client";
+import { callOpenRouterJSON, userMessage, buildImageContent, DEFAULT_MODEL } from "@/lib/openrouter-client";
+import type { Message } from "@/lib/openrouter-client";
 
 interface NodeData {
   id: string;
@@ -33,16 +34,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { topic, days } = await req.json();
+    const { topic, days, image } = await req.json();
     
     if (!topic || typeof topic !== "string") {
       return NextResponse.json({ error: "Topic is required" }, { status: 400 });
     }
 
+    const hasImage = image && typeof image.data === "string" && typeof image.mimeType === "string";
+
     const daysNum = typeof days === "number" ? days : 30;
     const nodeConstraints = DAYS_TO_NODES[daysNum] || DAYS_TO_NODES[30];
 
-    const prompt = `Generate a learning plan for "${topic}" as a directed graph where each node is a session.
+    const imageContext = hasImage
+      ? `\nThe user has also provided an image (e.g., a textbook page, diagram, or problem). Analyze the image and incorporate its content into the learning plan alongside the topic "${topic}".`
+      : "";
+
+    const prompt = `Generate a learning plan for "${topic}" as a directed graph where each node is a session.${imageContext}
 
 Return ONLY valid JSON (no markdown) with this structure:
 {
@@ -65,8 +72,13 @@ Rules:
 - Keep titles concise (3-8 words)
 - Descriptions: 1 sentence explaining the concept`;
 
+    // Build message with optional image
+    const messages: Message[] = hasImage
+      ? [{ role: "user", content: buildImageContent(prompt, { data: image.data, mimeType: image.mimeType }) }]
+      : [userMessage(prompt)];
+
     const response = await callOpenRouterJSON<PlanData>(
-      [userMessage(prompt)],
+      messages,
       {
         model: DEFAULT_MODEL,
         maxTokens: 2000,

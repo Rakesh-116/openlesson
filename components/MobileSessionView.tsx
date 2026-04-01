@@ -17,6 +17,7 @@ import {
   toggleProbeFocused,
   logToolUsage,
   addProbe,
+  addProbeToSession,
   startSession,
   pauseSession,
   resumeSession,
@@ -35,17 +36,10 @@ interface MobileSessionViewProps {
   initialPlan?: SessionPlan | null;
 }
 
-const supportedLocales = ['en', 'vi', 'zh', 'es', 'de', 'pl'] as const;
-type SupportedLocale = typeof supportedLocales[number];
-
-const languageNames: Record<SupportedLocale, string> = {
-  en: 'English',
-  vi: 'Tiếng Việt',
-  zh: '中文',
-  es: 'Español',
-  de: 'Deutsch',
-  pl: 'Polski',
-};
+import { tutoringLocales, tutoringLanguageNames, type TutoringLocale } from "@/lib/tutoring-languages";
+const supportedLocales = tutoringLocales;
+type SupportedLocale = TutoringLocale;
+const languageNames = tutoringLanguageNames;
 
 const tabIcons = [
   (
@@ -143,6 +137,16 @@ export function MobileSessionView({
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const heartbeatSecondRef = useRef(0);
   const whiteboardDataRef = useRef<string | null>(null);
+  const sessionRef = useRef<Session | null>(session);
+  const sessionPlanRef = useRef<SessionPlan | null>(sessionPlan);
+  const lastProbeTimeRef = useRef(0);
+  const isAnalyzingRef = useRef(false);
+  const autoAdvanceRef = useRef(autoAdvance);
+
+  // Sync refs
+  useEffect(() => { sessionRef.current = session; }, [session]);
+  useEffect(() => { sessionPlanRef.current = sessionPlan; }, [sessionPlan]);
+  useEffect(() => { autoAdvanceRef.current = autoAdvance; }, [autoAdvance]);
 
   // Load session data if not provided
   useEffect(() => {
@@ -215,6 +219,17 @@ export function MobileSessionView({
     return () => releaseWakeLock();
   }, [isRecording]);
 
+  // Auto-pause session on tab close/navigate away
+  useEffect(() => {
+    const handler = () => {
+      if (sessionRef.current && isRecording && !isPaused) {
+        pauseSession(sessionRef.current.id);
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isRecording, isPaused]);
+
   // Attach camera stream to video element when camera opens
   useEffect(() => {
     if (cameraMode === 'open' && cameraStreamRef.current && videoRef.current) {
@@ -249,6 +264,180 @@ export function MobileSessionView({
     }
   }, [session?.durationMs]);
 
+  // Helper to validate plan data
+  const isValidPlan = (plan: SessionPlan | null | undefined): boolean => {
+    return !!(plan && plan.steps && Array.isArray(plan.steps) && plan.steps.length > 0 && plan.goal);
+  };
+
+  // Storage heartbeat - saves audio & whiteboard (every 5s)
+  const runStorageHeartbeat = useCallback(async () => {
+    const currentSession = sessionRef.current;
+    if (!currentSession) return;
+
+    try {
+      if (recorderRef.current) {
+        const audio = recorderRef.current.getRecentAudio(5000);
+        if (audio && audio.size > 100) {
+          const idx = chunkIndexRef.current++;
+          await saveAudioChunk(currentSession.id, audio, idx, Date.now()).catch(err => {
+            console.error("[Mobile] Failed to save audio chunk:", err);
+          });
+        }
+      }
+      if (whiteboardDataRef.current) {
+        const dataStr = whiteboardDataRef.current;
+        const whiteboardKey = `canvas_${currentSession.id}`;
+        const whiteboardResult = await saveWithDedupString(dataStr, whiteboardKey);
+        if (whiteboardResult.saved) {
+          await logToolUsage(currentSession.id, 'canvas', 'canvas_draw', Date.now(), { data: dataStr });
+        }
+      }
+    } catch (err) {
+      console.warn("[Mobile] Storage heartbeat error:", err);
+    }
+  }, []);
+
+  // Analysis heartbeat - transcribe, analyze, create probes, handle step transitions (every 10s)
+  const runAnalysisHeartbeat = useCallback(async () => {
+    const currentSession = sessionRef.current;
+    const currentPlan = sessionPlanRef.current;
+    if (!currentSession || !currentPlan) return;
+    if (isAnalyzingRef.current) return;
+
+    isAnalyzingRef.current = true;
+
+    try {
+      // Transcribe pending audio BEFORE analysis
+      try {
+        await fetch("/api/transcribe-chunks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: currentSession.id }),
+        });
+      } catch (err) {
+        console.warn("[Mobile] Pre-analysis transcription error:", err);
+      }
+
+      const openProbes = currentSession.probes.filter((p: Probe) => !p.archived);
+      const focusedProbes = openProbes.filter((p: Probe) => p.focused).map((p: Probe) => ({ id: p.id, text: p.text }));
+
+      const res = await fetch("/api/session-plan/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: currentSession.id,
+          previousProbes: currentSession.probes.map((p: Probe) => p.text),
+          focusedProbes,
+          openProbeCount: openProbes.length,
+          lastProbeTimestamp: lastProbeTimeRef.current || 0,
+        }),
+      });
+
+      if (!res.ok) {
+        console.error("[Mobile] Analysis service unavailable:", res.status);
+        return;
+      }
+
+      const planData = await res.json();
+      if (!planData) return;
+
+      // --- Process plan update response (parity with desktop) ---
+
+      // Step transition detection
+      const previousStepIndex = sessionPlanRef.current?.currentStepIndex ?? 0;
+      const newStepIndex = planData.plan?.currentStepIndex ?? 0;
+      const llmWantsAdvance = newStepIndex > previousStepIndex && isValidPlan(planData.plan);
+      const isStepTransition = llmWantsAdvance && autoAdvanceRef.current;
+
+      // Update plan state
+      if (isStepTransition && isValidPlan(planData.plan)) {
+        setSessionPlan(planData.plan);
+        sessionPlanRef.current = planData.plan;
+      } else if (llmWantsAdvance && !autoAdvanceRef.current) {
+        // Manual mode: suppress step advance, keep current index
+        const planWithoutAdvance = {
+          ...planData.plan,
+          currentStepIndex: previousStepIndex,
+          steps: planData.plan.steps.map((s: { status: string }, idx: number) => ({
+            ...s,
+            status: idx < previousStepIndex ? "completed"
+              : idx === previousStepIndex ? "in_progress"
+              : s.status === "skipped" ? "skipped" : "pending",
+          })),
+        };
+        if (isValidPlan(planWithoutAdvance)) {
+          setSessionPlan(planWithoutAdvance);
+          sessionPlanRef.current = planWithoutAdvance;
+        }
+      } else if (isValidPlan(planData.plan)) {
+        setSessionPlan(planData.plan);
+        sessionPlanRef.current = planData.plan;
+      }
+
+      // On step transition: archive ALL active probes
+      if (isStepTransition) {
+        const activeProbesForArchive = currentSession.probes.filter((p: Probe) => !p.archived);
+        if (activeProbesForArchive.length > 0) {
+          let updatedSession = currentSession;
+          for (const probe of activeProbesForArchive) {
+            await archiveProbe(probe.id);
+            updatedSession = {
+              ...updatedSession,
+              probes: updatedSession.probes.map(p =>
+                p.id === probe.id ? { ...p, archived: true } : p
+              ),
+            };
+          }
+          setSession(updatedSession);
+          sessionRef.current = updatedSession;
+          setProbes(updatedSession.probes);
+        }
+      } else if (planData.probesToArchive && planData.probesToArchive.length > 0) {
+        // Auto-archive specific probes
+        let updatedSession = currentSession;
+        for (const probeId of planData.probesToArchive) {
+          await archiveProbe(probeId);
+          updatedSession = {
+            ...updatedSession,
+            probes: updatedSession.probes.map(p =>
+              p.id === probeId ? { ...p, archived: true } : p
+            ),
+          };
+        }
+        setSession(updatedSession);
+        sessionRef.current = updatedSession;
+        setProbes(updatedSession.probes);
+      }
+
+      // Create probe from nextRequest
+      if (planData.nextRequest) {
+        const latestSession = sessionRef.current || currentSession;
+        const currentOpenProbeCount = latestSession.probes.filter((p: Probe) => !p.archived).length;
+
+        if (planData.canGenerateProbe !== false && currentOpenProbeCount < 5) {
+          const savedProbe = await addProbe(currentSession.id, {
+            timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
+            gapScore: planData.gapScore ?? 0.5,
+            signals: planData.signals || [],
+            text: planData.nextRequest.text,
+            requestType: planData.nextRequest.type || "question",
+            planStepId: currentPlan.steps?.[currentPlan.currentStepIndex]?.id,
+          });
+
+          const updatedSession = addProbeToSession(latestSession, savedProbe);
+          setSession(updatedSession);
+          sessionRef.current = updatedSession;
+          setProbes(updatedSession.probes);
+          lastProbeTimeRef.current = Date.now();
+        }
+      }
+    } catch (err) {
+      console.error("[Mobile] Analysis error:", err);
+    } finally {
+      isAnalyzingRef.current = false;
+    }
+  }, []);
+
   // Heartbeat effect - runs when recording and handles storage/analysis beats
   useEffect(() => {
     if (!isRecording || isPaused) {
@@ -262,72 +451,15 @@ export function MobileSessionView({
     // Start heartbeat interval
     analysisRef.current = setInterval(() => {
       const second = heartbeatSecondRef.current;
-      
-      // Storage heartbeat every 5s
-      if (second % 5 === 0 && session) {
-        try {
-          if (recorderRef.current) {
-            const audio = recorderRef.current.getRecentAudio(5000);
-            if (audio && audio.size > 100) {
-              const idx = chunkIndexRef.current++;
-              console.log("[Mobile] Saving audio chunk", idx, "size=", audio.size);
-              saveAudioChunk(session.id, audio, idx, Date.now())
-                .then(savedPath => {
-                  if (!savedPath) {
-                    console.log("[Mobile] Audio chunk skipped (too small)");
-                  }
-                })
-                .catch(err => {
-                  console.error("[Mobile] Failed to save audio chunk:", err);
-                });
-            }
-          }
-          if (whiteboardDataRef.current) {
-            const dataStr = whiteboardDataRef.current;
-            console.log("[Mobile] Saving canvas data, fullSize:", dataStr.length);
-            const whiteboardKey = `canvas_${session.id}`;
-            saveWithDedupString(dataStr, whiteboardKey).then(whiteboardResult => {
-              if (whiteboardResult.saved) {
-                console.log("[Mobile] Canvas data changed, saving...");
-                console.log("[Mobile] Canvas data START:", dataStr.substring(0, 100));
-                console.log("[Mobile] Canvas data END:", dataStr.substring(dataStr.length - 100));
-                logToolUsage(session.id, 'canvas', 'canvas_draw', Date.now(), { data: dataStr });
-              } else {
-                console.log("[Mobile] Canvas data unchanged, skipping");
-              }
-            });
-          }
-        } catch (err) {
-          console.warn("[Mobile] Storage heartbeat error:", err);
-        }
+
+      if (second % 5 === 0) {
+        runStorageHeartbeat();
       }
-      
-      // Analysis heartbeat every 10s
-      if (second % 10 === 0 && session) {
-        const openProbes = session.probes.filter((p: Probe) => !p.archived);
-        const focusedProbes = openProbes.filter((p: Probe) => p.focused).map((p: Probe) => ({ id: p.id, text: p.text }));
-        fetch("/api/session-plan/update", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: session.id,
-            previousProbes: session.probes.map((p: Probe) => p.text),
-            focusedProbes,
-            openProbeCount: openProbes.length,
-            lastProbeTimestamp: 0,
-          }),
-        }).then(() => {
-          return fetch("/api/transcribe-chunks", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessionId: session.id }),
-          });
-        }).catch(err => {
-          console.error("[Mobile] Analysis error:", err);
-        });
+
+      if (second % 10 === 0) {
+        runAnalysisHeartbeat();
       }
-      
-      // Update heartbeat indicators every second
+
       setStorageBeat(second % 5);
       setAnalysisBeat(second % 10);
       heartbeatSecondRef.current = (second + 1) % 10;
@@ -339,7 +471,7 @@ export function MobileSessionView({
         analysisRef.current = null;
       }
     };
-  }, [isRecording, isPaused, session]);
+  }, [isRecording, isPaused, runStorageHeartbeat, runAnalysisHeartbeat]);
 
   // Check microphone permission
   const checkMicrophone = useCallback(async () => {
@@ -526,106 +658,14 @@ export function MobileSessionView({
     }
   }, [session, tutoringLanguage, isPreparing]);
 
-  // Start recording
-  const startRecording = useCallback(async () => {
-    if (!session) return;
-    
-    try {
-      setError(null);
-      chunkIndexRef.current = 0;
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-        },
-      });
-
-      const recorder = new AudioRecorder({
-        chunkDurationMs: 60000, // 1 minute chunks
-        maxBufferDurationMs: 300000, // 5 minute buffer
-      });
-
-      recorderRef.current = recorder;
-      await recorder.start(stream);
-      await startSession(session.id);
-      timerBaseRef.current = Date.now();
-      setIsRecording(true);
-      setIsPaused(false);
-      // Timer is handled by the effect based on isRecording/isPaused state
-
-      // Dual heartbeat: storage every 5s, analysis every 10s
-      analysisRef.current = setInterval(async () => {
-        const second = heartbeatSecondRef.current;
-        const currentSession = session;
-        const recorder = recorderRef.current;
-        
-        if (second % 5 === 0 && currentSession) {
-          // Storage heartbeat - save audio and whiteboard
-          try {
-            // Save audio chunks from recorder buffer
-            if (recorder) {
-              const recentAudio = recorder.getRecentAudio(5000);
-              if (recentAudio && recentAudio.size > 100) {
-                const idx = chunkIndexRef.current++;
-                await saveAudioChunk(currentSession.id, recentAudio, idx, Date.now());
-                // Note: null return means audio was too small, skip silently
-              }
-            }
-            
-            // Save whiteboard data (with deduplication)
-            if (whiteboardDataRef.current) {
-              const whiteboardKey = `canvas_${currentSession.id}`;
-              const whiteboardResult = await saveWithDedupString(whiteboardDataRef.current, whiteboardKey);
-              if (whiteboardResult.saved) {
-                await logToolUsage(currentSession.id, 'canvas', 'canvas_draw', Date.now(), { data: whiteboardDataRef.current });
-              }
-            }
-          } catch (err) {
-            console.warn("[Mobile] Storage heartbeat error:", err);
-          }
-        }
-        
-        if (second % 10 === 0 && currentSession) {
-          // Analysis heartbeat - call session-plan/update (now includes gap analysis)
-          try {
-            const openProbes = currentSession.probes.filter((p: Probe) => !p.archived);
-            const focusedProbes = openProbes.filter((p: Probe) => p.focused).map((p: Probe) => ({ id: p.id, text: p.text }));
-            await fetch("/api/session-plan/update", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                sessionId: currentSession.id,
-                previousProbes: currentSession.probes.map((p: Probe) => p.text),
-                focusedProbes,
-                openProbeCount: openProbes.length,
-                lastProbeTimestamp: 0,
-              }),
-            });
-            // Transcribe missing audio chunks
-            await fetch("/api/transcribe-chunks", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ sessionId: currentSession.id }),
-            });
-          } catch (err) {
-            console.error("[Mobile] Analysis error:", err);
-          }
-        }
-        
-        heartbeatSecondRef.current = (second + 1) % 10;
-      }, 1000);
-
-    } catch (err) {
-      setError("Could not access microphone. Please grant permission and try again.");
-    }
-  }, [session]);
-
   // Stop recording and end session
   const stopRecording = useCallback(async () => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (analysisRef.current) clearInterval(analysisRef.current);
-    
+
+    // Final heartbeat to save remaining data
+    await runStorageHeartbeat();
+
     await recorderRef.current?.stop();
     recorderRef.current = null;
     
@@ -729,44 +769,200 @@ export function MobileSessionView({
   }, []);
 
   // Advance to next step
-  const handleAdvanceStep = useCallback(async () => {
+  const handleAdvanceStep = useCallback(async (forceAdvance = false) => {
     if (!session) return;
+    const currentSession = sessionRef.current || session;
+    const openProbes = currentSession.probes.filter((p: Probe) => !p.archived);
+
     try {
       const res = await fetch("/api/session-plan/advance-step", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: session.id }),
+        body: JSON.stringify({
+          sessionId: session.id,
+          forceAdvance,
+          previousProbes: currentSession.probes.map((p: Probe) => p.text),
+          focusedProbes: openProbes.filter((p: Probe) => p.focused).map((p: Probe) => ({ id: p.id, text: p.text })),
+          openProbeCount: openProbes.length,
+        }),
       });
-      
+
       if (!res.ok) throw new Error("Failed to advance step");
-      
-      const { plan } = await res.json();
-      if (plan && plan.steps && Array.isArray(plan.steps) && plan.steps.length > 0 && plan.goal) {
-        setSessionPlan(plan);
+
+      const data = await res.json();
+
+      // Handle blocked response — show reasoning as feedback probe
+      if (data.blocked) {
+        const reasoning = data.advanceReasoning || "You may not be ready to move on yet.";
+        const feedbackProbe = await addProbe(session.id, {
+          timestamp: Date.now() - new Date(session.startedAt).getTime(),
+          gapScore: data.gapScore ?? 0.6,
+          signals: ["advance_blocked"],
+          text: reasoning,
+          requestType: "feedback",
+          planStepId: sessionPlanRef.current?.steps?.[sessionPlanRef.current.currentStepIndex]?.id,
+        });
+        const updatedSession = addProbeToSession(currentSession, feedbackProbe);
+        setSession(updatedSession);
+        sessionRef.current = updatedSession;
+        setProbes(updatedSession.probes);
+        return;
+      }
+
+      const { plan: updatedPlan, allComplete } = data;
+      if (!isValidPlan(updatedPlan)) return;
+
+      setSessionPlan(updatedPlan);
+      sessionPlanRef.current = updatedPlan;
+
+      // Archive all active probes
+      if (openProbes.length > 0) {
+        let updatedSession = currentSession;
+        for (const probe of openProbes) {
+          await archiveProbe(probe.id);
+          updatedSession = {
+            ...updatedSession,
+            probes: updatedSession.probes.map(p =>
+              p.id === probe.id ? { ...p, archived: true } : p
+            ),
+          };
+        }
+        setSession(updatedSession);
+        sessionRef.current = updatedSession;
+        setProbes(updatedSession.probes);
+      }
+
+      if (allComplete) {
+        // Plan fully complete
+        setIsSaving(true);
+        return;
+      }
+
+      // Generate a probe for the new step
+      const newStep = updatedPlan.steps?.[updatedPlan.currentStepIndex];
+      if (newStep) {
+        try {
+          const probeRes = await fetch("/api/generate-probe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              problem: session.problem,
+              gapScore: 0.5,
+              signals: ["manual_step_advance"],
+              previousProbes: currentSession.probes.map((p: Probe) => p.text),
+              archivedProbes: currentSession.probes.filter((p: Probe) => p.archived).map((p: Probe) => p.text),
+              sessionPlan: updatedPlan,
+            }),
+          });
+
+          if (probeRes.ok) {
+            const probeData = await probeRes.json();
+            if (probeData.probe?.trim()) {
+              const latestSession = sessionRef.current || currentSession;
+              const savedProbe = await addProbe(session.id, {
+                timestamp: Date.now() - new Date(session.startedAt).getTime(),
+                gapScore: 0.5,
+                signals: ["manual_step_advance", "plan_step"],
+                text: probeData.probe.trim(),
+                requestType: probeData.requestType || newStep.type || "question",
+                planStepId: newStep.id,
+              });
+              const updatedSession = addProbeToSession(latestSession, savedProbe);
+              setSession(updatedSession);
+              sessionRef.current = updatedSession;
+              setProbes(updatedSession.probes);
+              lastProbeTimeRef.current = Date.now();
+            }
+          }
+        } catch (probeErr) {
+          console.warn("[Mobile] Failed to generate probe for new step:", probeErr);
+        }
       }
     } catch (err) {
-      console.error("Advance step error:", err);
+      console.error("[Mobile] Advance step error:", err);
     }
   }, [session]);
 
   // Rollback to a specific step
   const handleRollbackToStep = useCallback(async (stepIndex: number) => {
     if (!session) return;
+    const currentSession = sessionRef.current || session;
+
     try {
       const res = await fetch("/api/session-plan/rollback-step", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId: session.id, targetStepIndex: stepIndex }),
       });
-      
+
       if (!res.ok) throw new Error("Failed to rollback step");
-      
-      const { plan } = await res.json();
-      if (plan && plan.steps && Array.isArray(plan.steps) && plan.steps.length > 0 && plan.goal) {
-        setSessionPlan(plan);
+
+      const { plan: updatedPlan } = await res.json();
+      if (!isValidPlan(updatedPlan)) return;
+
+      setSessionPlan(updatedPlan);
+      sessionPlanRef.current = updatedPlan;
+
+      // Archive all active probes
+      const activeProbes = currentSession.probes.filter((p: Probe) => !p.archived);
+      if (activeProbes.length > 0) {
+        let updatedSession = currentSession;
+        for (const probe of activeProbes) {
+          await archiveProbe(probe.id);
+          updatedSession = {
+            ...updatedSession,
+            probes: updatedSession.probes.map(p =>
+              p.id === probe.id ? { ...p, archived: true } : p
+            ),
+          };
+        }
+        setSession(updatedSession);
+        sessionRef.current = updatedSession;
+        setProbes(updatedSession.probes);
+      }
+
+      // Generate a probe for the rolled-back step
+      const targetStep = updatedPlan.steps?.[stepIndex];
+      if (targetStep) {
+        try {
+          const probeRes = await fetch("/api/generate-probe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              problem: session.problem,
+              gapScore: 0.5,
+              signals: ["rollback"],
+              previousProbes: currentSession.probes.map((p: Probe) => p.text),
+              archivedProbes: currentSession.probes.filter((p: Probe) => p.archived).map((p: Probe) => p.text),
+              sessionPlan: updatedPlan,
+            }),
+          });
+
+          if (probeRes.ok) {
+            const probeData = await probeRes.json();
+            if (probeData.probe?.trim()) {
+              const latestSession = sessionRef.current || currentSession;
+              const savedProbe = await addProbe(session.id, {
+                timestamp: Date.now() - new Date(session.startedAt).getTime(),
+                gapScore: 0.5,
+                signals: ["rollback", "plan_step"],
+                text: probeData.probe.trim(),
+                requestType: probeData.requestType || targetStep.type || "question",
+                planStepId: targetStep.id,
+              });
+              const updatedSession = addProbeToSession(latestSession, savedProbe);
+              setSession(updatedSession);
+              sessionRef.current = updatedSession;
+              setProbes(updatedSession.probes);
+              lastProbeTimeRef.current = Date.now();
+            }
+          }
+        } catch (probeErr) {
+          console.warn("[Mobile] Failed to generate probe for rollback step:", probeErr);
+        }
       }
     } catch (err) {
-      console.error("Rollback step error:", err);
+      console.error("[Mobile] Rollback step error:", err);
     }
   }, [session]);
 

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { useI18n } from "../lib/i18n";
+import { PreviewSessionModal } from "@/components/PreviewSessionModal";
 
 interface PlanNode {
   id: string;
@@ -30,6 +31,7 @@ interface SessionItemProps {
   isOwner?: boolean;
   supabase?: ReturnType<typeof createBrowserClient>;
   onNavigateToNode?: (nodeId: string) => void;
+  planTopic?: string;
 }
 
 const statusConfig = {
@@ -52,7 +54,8 @@ export function SessionItem({
   allNodes = [],
   isOwner = true,
   supabase: propSupabase,
-  onNavigateToNode
+  onNavigateToNode,
+  planTopic
 }: SessionItemProps) {
   const { t } = useI18n();
   const router = useRouter();
@@ -66,8 +69,26 @@ export function SessionItem({
   const [savingPrompt, setSavingPrompt] = useState(false);
   const [promptSaved, setPromptSaved] = useState(false);
   
+  const [showPreview, setShowPreview] = useState(false);
   const isCompleted = node.status === "completed";
   const isLocked = node.status === "locked";
+  const isInProgress = node.status === "in_progress";
+  const [activeSession, setActiveSession] = useState<{ id: string; status: string } | null>(null);
+
+  // Check if this node has an active/paused session
+  useEffect(() => {
+    if (!node.session_id) return;
+    supabase
+      .from("sessions")
+      .select("id, status")
+      .eq("id", node.session_id)
+      .single()
+      .then(({ data }: { data: { id: string; status: string } | null }) => {
+        if (data && (data.status === "active" || data.status === "paused")) {
+          setActiveSession(data);
+        }
+      });
+  }, [node.session_id, supabase]);
   const config = statusConfig[node.status as keyof typeof statusConfig] || statusConfig.available;
 
   // Get previous and next nodes for sequence info
@@ -76,6 +97,12 @@ export function SessionItem({
 
   const handleStart = async () => {
     if (isStarting || isLocked) return;
+
+    // Resume existing active/paused session
+    if (activeSession) {
+      router.push(`/session?id=${activeSession.id}`);
+      return;
+    }
 
     setIsStarting(true);
     try {
@@ -285,6 +312,12 @@ export function SessionItem({
           {/* Actions */}
           {!isLocked && isOwner && (
             <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setShowPreview(true)}
+                className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-sm font-medium rounded-lg transition-colors border border-neutral-700"
+              >
+                Preview
+              </button>
               {isCompleted ? (
                 <button
                   onClick={handleStart}
@@ -304,14 +337,32 @@ export function SessionItem({
                 <button
                   onClick={handleStart}
                   disabled={isStarting}
-                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  className={`flex-1 px-4 py-2 disabled:bg-neutral-700 text-white text-sm font-medium rounded-lg transition-colors ${
+                    activeSession
+                      ? "bg-green-600 hover:bg-green-500"
+                      : "bg-blue-600 hover:bg-blue-500"
+                  }`}
                 >
-                  {isStarting ? "Starting..." : "Start Lesson"}
+                  {isStarting ? "Starting..." : activeSession ? "Resume Lesson" : "Start Lesson"}
                 </button>
               )}
             </div>
           )}
         </div>
+      )}
+
+      {showPreview && (
+        <PreviewSessionModal
+          nodeTitle={node.title}
+          nodeDescription={node.description}
+          planTopic={planTopic || ""}
+          planningPrompt={editedPlanningPrompt || node.planning_prompt}
+          onClose={() => setShowPreview(false)}
+          onStartSession={() => {
+            setShowPreview(false);
+            handleStart();
+          }}
+        />
       )}
     </div>
   );

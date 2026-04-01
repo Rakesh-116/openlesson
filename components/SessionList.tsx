@@ -27,6 +27,7 @@ interface SessionListProps {
   highlightOpacity?: number;
   isOwner?: boolean;
   supabase?: ReturnType<typeof createBrowserClient>;
+  planTopic?: string;
 }
 
 function getOrderedSessions(nodes: PlanNode[]): PlanNode[] {
@@ -65,7 +66,7 @@ function getOrderedSessions(nodes: PlanNode[]): PlanNode[] {
   return ordered;
 }
 
-export function SessionList({ nodes, onSelect, onDelete, onFork, highlightedNodes, highlightOpacity = 1, isOwner = true, supabase }: SessionListProps) {
+export function SessionList({ nodes, onSelect, onDelete, onFork, highlightedNodes, highlightOpacity = 1, isOwner = true, supabase, planTopic }: SessionListProps) {
   const [showCompleted, setShowCompleted] = useState(false);
   const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null);
   const { t } = useI18n();
@@ -121,6 +122,7 @@ export function SessionList({ nodes, onSelect, onDelete, onFork, highlightedNode
             isOwner={isOwner}
             supabase={supabase}
             onNavigateToNode={navigateToNode}
+            planTopic={planTopic}
           />
         ))}
 
@@ -165,6 +167,7 @@ export function SessionList({ nodes, onSelect, onDelete, onFork, highlightedNode
                     isOwner={isOwner}
                     supabase={supabase}
                     onNavigateToNode={navigateToNode}
+                    planTopic={planTopic}
                   />
                 ))}
               </div>

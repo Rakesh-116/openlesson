@@ -1,19 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callOpenRouterText, systemMessage, userMessage, DEFAULT_MODEL, RECOMMENDED_TEMPS } from "@/lib/openrouter-client";
 import { createClient } from "@/lib/supabase/server";
-
-const LOCALE_TO_LANGUAGE: Record<string, string> = {
-  en: "English",
-  vi: "Vietnamese",
-  zh: "Chinese",
-  es: "Spanish",
-  de: "German",
-  pl: "Polish",
-};
-
-function getLanguageName(locale: string): string {
-  return LOCALE_TO_LANGUAGE[locale] || "English";
-}
+import { getLanguageName } from "@/lib/tutoring-languages";
 
 const BASE_SYSTEM_PROMPT = `You are a learning assistant in openLesson.
 
