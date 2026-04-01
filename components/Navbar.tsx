@@ -71,6 +71,7 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
   ];
 
   const navLinks = [
+    { href: "/labs", label: "Labs" },
     { href: "/pricing", label: t('nav.pricing') },
     { href: "/coaching", label: t('nav.coaching') },
     { href: "/about", label: t('nav.about') },
@@ -79,7 +80,7 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
 
   return (
     <header className="border-b border-slate-800/60 px-4 sm:px-6 py-4 backdrop-blur-sm bg-[#0a0a0a]/80 sticky top-0 z-20">
-      <div className="max-w-5xl mx-auto flex items-center justify-between">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Link href="/" className="text-base sm:text-lg font-semibold text-white tracking-tight hover:text-slate-300 transition-colors">
             {t('nav.openLesson')}
