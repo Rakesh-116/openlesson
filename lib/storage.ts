@@ -1184,6 +1184,103 @@ export async function deleteSessionScreenshots(sessionId: string): Promise<void>
   console.log("[deleteSessionScreenshots] Deleted screenshots for session:", sessionId);
 }
 
+// ---- Full Session Data Fetching (for Analytics) ----
+
+export async function getAllTranscripts(sessionId: string): Promise<RecentTranscript[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("session_transcript")
+    .select("id, session_id, content, timestamp_ms")
+    .eq("session_id", sessionId)
+    .not("content", "is", null)
+    .order("timestamp_ms", { ascending: true });
+
+  if (error || !data) return [];
+  return data.map((row: { id: string; session_id: string; content: string; timestamp_ms: number }) => ({
+    id: row.id,
+    sessionId: row.session_id,
+    content: row.content,
+    timestamp: row.timestamp_ms,
+  }));
+}
+
+export async function getAllEEGData(sessionId: string): Promise<RecentEEGData[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("session_eeg")
+    .select("*")
+    .eq("session_id", sessionId)
+    .order("timestamp_ms", { ascending: true });
+
+  if (error || !data) return [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return data.map((row: any) => ({
+    id: row.id,
+    sessionId: row.session_id,
+    timestamp: row.timestamp_ms,
+    storagePath: row.storage_path,
+    chunkIndex: row.chunk_index,
+    bandPowers: row.band_powers,
+  }));
+}
+
+export async function getAllFacialData(sessionId: string): Promise<RecentFacialData[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("session_facial")
+    .select("*")
+    .eq("session_id", sessionId)
+    .order("timestamp_ms", { ascending: true });
+
+  if (error || !data) return [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return data.map((row: any) => ({
+    id: row.id,
+    sessionId: row.session_id,
+    timestamp: row.timestamp_ms,
+    storagePath: row.storage_path,
+  }));
+}
+
+export async function getAllToolEvents(sessionId: string): Promise<RecentToolEvent[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("session_tool")
+    .select("*")
+    .eq("session_id", sessionId)
+    .order("timestamp_ms", { ascending: true });
+
+  if (error || !data) return [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return data.map((row: any) => ({
+    id: row.id,
+    sessionId: row.session_id,
+    timestamp: row.timestamp_ms,
+    toolName: row.tool_name,
+    toolAction: row.tool_action,
+    storagePath: row.storage_path,
+  }));
+}
+
+export async function getAllAudioChunks(sessionId: string): Promise<RecentAudioChunk[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("session_audio")
+    .select("*")
+    .eq("session_id", sessionId)
+    .order("timestamp_ms", { ascending: true });
+
+  if (error || !data) return [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return data.map((row: any) => ({
+    id: row.id,
+    sessionId: row.session_id,
+    timestamp: row.timestamp_ms,
+    storagePath: row.storage_path,
+    chunkIndex: row.chunk_index,
+  }));
+}
+
 // ---- Analytics Helpers ----
 
 export function getSessionStats(session: Session) {
