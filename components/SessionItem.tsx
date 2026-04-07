@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { useI18n } from "../lib/i18n";
@@ -34,28 +34,12 @@ interface SessionItemProps {
   planTopic?: string;
 }
 
-const statusConfig = {
-  completed: { label: "Done", bg: "bg-green-900/50", text: "text-green-400", icon: "✓" },
-  in_progress: { label: "In Progress", bg: "bg-blue-900/50", text: "text-blue-400", icon: null },
-  available: { label: "Available", bg: "bg-neutral-700/50", text: "text-neutral-300", icon: null },
-  locked: { label: "Locked", bg: "bg-neutral-800/50", text: "text-neutral-500", icon: null },
-};
-
 export function SessionItem({ 
-  node, 
-  index, 
-  onSelect, 
-  onDelete, 
-  onFork, 
-  highlighted, 
-  highlightOpacity = 1,
-  isExpanded = false,
-  onToggleExpand,
-  allNodes = [],
-  isOwner = true,
-  supabase: propSupabase,
-  onNavigateToNode,
-  planTopic
+  node, index, onSelect, onDelete, onFork, 
+  highlighted, highlightOpacity = 1,
+  isExpanded = false, onToggleExpand,
+  allNodes = [], isOwner = true,
+  supabase: propSupabase, onNavigateToNode, planTopic
 }: SessionItemProps) {
   const { t } = useI18n();
   const router = useRouter();
@@ -68,14 +52,15 @@ export function SessionItem({
   const [editedPlanningPrompt, setEditedPlanningPrompt] = useState(node.planning_prompt || "");
   const [savingPrompt, setSavingPrompt] = useState(false);
   const [promptSaved, setPromptSaved] = useState(false);
-  
+  const [showPromptEditor, setShowPromptEditor] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  
   const isCompleted = node.status === "completed";
   const isLocked = node.status === "locked";
   const isInProgress = node.status === "in_progress";
   const [activeSession, setActiveSession] = useState<{ id: string; status: string } | null>(null);
 
-  // Check if this node has an active/paused session
   useEffect(() => {
     if (!node.session_id) return;
     supabase
@@ -89,44 +74,22 @@ export function SessionItem({
         }
       });
   }, [node.session_id, supabase]);
-  const config = statusConfig[node.status as keyof typeof statusConfig] || statusConfig.available;
 
-  // Get previous and next nodes for sequence info
-  const prevNodes = allNodes.filter(n => (n.next_node_ids || []).includes(node.id));
   const nextNodes = (node.next_node_ids || []).map(id => allNodes.find(n => n.id === id)).filter(Boolean) as PlanNode[];
 
   const handleStart = async () => {
     if (isStarting || isLocked) return;
-
-    // Resume existing active/paused session
-    if (activeSession) {
-      router.push(`/session?id=${activeSession.id}`);
-      return;
-    }
+    if (activeSession) { router.push(`/session?id=${activeSession.id}`); return; }
 
     setIsStarting(true);
     try {
-      // Save planning prompt if changed before starting
       if (editedPlanningPrompt !== (node.planning_prompt || "")) {
-        await supabase
-          .from("plan_nodes")
-          .update({ planning_prompt: editedPlanningPrompt || null })
-          .eq("id", node.id);
+        await supabase.from("plan_nodes").update({ planning_prompt: editedPlanningPrompt || null }).eq("id", node.id);
       }
-
-      await supabase
-        .from("plan_nodes")
-        .update({ status: "in_progress" })
-        .eq("id", node.id);
-
+      await supabase.from("plan_nodes").update({ status: "in_progress" }).eq("id", node.id);
       const { createSession } = await import("@/lib/storage");
       const session = await createSession(node.title, undefined, editedPlanningPrompt || undefined);
-      
-      await supabase
-        .from("plan_nodes")
-        .update({ session_id: session.id })
-        .eq("id", node.id);
-
+      await supabase.from("plan_nodes").update({ session_id: session.id }).eq("id", node.id);
       router.push(`/session?id=${session.id}`);
     } catch (err) {
       console.error("Failed to start session:", err);
@@ -136,15 +99,10 @@ export function SessionItem({
 
   const savePlanningPrompt = useCallback(async () => {
     if (editedPlanningPrompt === (node.planning_prompt || "")) return;
-    
     setSavingPrompt(true);
     setPromptSaved(false);
     try {
-      await supabase
-        .from("plan_nodes")
-        .update({ planning_prompt: editedPlanningPrompt || null })
-        .eq("id", node.id);
-      
+      await supabase.from("plan_nodes").update({ planning_prompt: editedPlanningPrompt || null }).eq("id", node.id);
       setPromptSaved(true);
       setTimeout(() => setPromptSaved(false), 2000);
     } catch (err) {
@@ -155,158 +113,153 @@ export function SessionItem({
   }, [editedPlanningPrompt, node.planning_prompt, node.id, supabase]);
 
   const handleClick = () => {
-    if (onToggleExpand) {
-      onToggleExpand();
-    } else {
-      onSelect();
-    }
+    if (onToggleExpand) onToggleExpand();
+    else onSelect();
   };
+
+  // Status dot color
+  const dotColor = isCompleted 
+    ? "bg-green-400" 
+    : isInProgress 
+      ? "bg-blue-400 animate-pulse" 
+      : isLocked 
+        ? "bg-neutral-600" 
+        : "bg-neutral-400";
 
   return (
     <div 
       id={`session-item-${node.id}`}
       className={`
-        rounded-lg transition-all duration-200 border-l-2
-        ${highlighted ? "ring-1" : ""}
-        ${isExpanded ? "bg-neutral-800/50" : "hover:bg-neutral-800/30"}
-        ${isCompleted ? "border-l-green-500/60" : isInProgress ? "border-l-blue-500/70" : "border-l-neutral-700/50"}
+        rounded-xl transition-all duration-200 
+        ${highlighted ? "ring-1 ring-cyan-400/50" : ""}
+        ${isExpanded 
+          ? "bg-neutral-800/60 shadow-lg shadow-black/20 border border-neutral-700/50" 
+          : "hover:bg-neutral-800/30 hover:-translate-y-[1px] hover:shadow-md hover:shadow-black/10 border border-transparent"
+        }
       `}
       style={highlighted ? { 
-        borderColor: `rgba(6, 182, 212, ${highlightOpacity})`,
-        boxShadow: `0 0 8px rgba(6, 182, 212, ${highlightOpacity * 0.4})`
+        boxShadow: `0 0 12px rgba(6, 182, 212, ${highlightOpacity * 0.3})`
       } : undefined}
     >
-      {/* Collapsed View */}
-      <div 
-        onClick={handleClick}
-        className="px-3 py-2 cursor-pointer"
-      >
-        <div className="flex items-center gap-2">
-          {/* Status Badge */}
-          <span className={`text-xs px-2 py-0.5 rounded font-medium whitespace-nowrap ${config.bg} ${config.text}`}>
-            {config.icon && <span className="mr-0.5">{config.icon}</span>}
-            {config.label}
-          </span>
+      {/* Collapsed/Header */}
+      <div onClick={handleClick} className="px-3 py-2.5 cursor-pointer">
+        <div className="flex items-center gap-3">
+          {/* Step number circle + status dot */}
+          <div className="relative flex-shrink-0">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${
+              isCompleted 
+                ? "bg-green-500/15 text-green-400" 
+                : isInProgress 
+                  ? "bg-blue-500/15 text-blue-400" 
+                  : "bg-neutral-800 text-neutral-400"
+            }`}>
+              {isCompleted ? (
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              ) : (
+                index + 1
+              )}
+            </div>
+          </div>
           
-          {/* Title */}
-          <span className={`text-sm flex-1 truncate font-medium ${isCompleted ? "text-neutral-400" : "text-white"}`}>
-            {node.title}
-          </span>
-          
-          {/* Index & Expand Icon */}
-          <span className="text-xs text-neutral-500">#{index + 1}</span>
-          <svg 
-            className={`w-4 h-4 text-neutral-500 transition-transform flex-shrink-0 ${isExpanded ? "rotate-180" : ""}`} 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+          {/* Title + description */}
+          <div className="flex-1 min-w-0">
+            <span className={`text-sm font-medium block truncate ${
+              isCompleted ? "text-neutral-400" : isLocked ? "text-neutral-500" : "text-white"
+            }`}>
+              {node.title}
+            </span>
+            {!isExpanded && node.description && (
+              <p className="text-[11px] text-neutral-500 truncate mt-0.5">{node.description}</p>
+            )}
+          </div>
+
+          {/* Right side: status label on hover + chevron */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {!isExpanded && !isCompleted && !isLocked && isOwner && (
+              <span className="text-[10px] text-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:inline">
+                {activeSession ? "Resume" : "Expand"}
+              </span>
+            )}
+            <svg 
+              className={`w-4 h-4 text-neutral-500 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} 
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
         </div>
-        
-        {/* Description preview & sequence info - only when collapsed */}
-        {!isExpanded && (
-          <div className="mt-1.5 pl-[calc(0.5rem+4ch)]">
-            {node.description && (
-              <p className="text-xs text-neutral-500 line-clamp-1">
-                {node.description}
-              </p>
-            )}
-            {(nextNodes.length > 0) && (
-              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                <span className="text-[10px] text-neutral-600 uppercase tracking-wide">Next:</span>
-                {nextNodes.map((n) => (
-                  <button
-                    key={n.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onNavigateToNode?.(n.id);
-                    }}
-                    className="text-xs px-2 py-0.5 rounded bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-blue-400 transition-colors"
-                  >
-                    {n.title}
-                  </button>
-                ))}
-              </div>
-            )}
+
+        {/* Collapsed: next nodes pills */}
+        {!isExpanded && nextNodes.length > 0 && (
+          <div className="flex items-center gap-1.5 mt-1.5 ml-10 flex-wrap">
+            <span className="text-[10px] text-neutral-600">Next:</span>
+            {nextNodes.map((n) => (
+              <button
+                key={n.id}
+                onClick={(e) => { e.stopPropagation(); onNavigateToNode?.(n.id); }}
+                className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-800/60 text-neutral-500 hover:text-blue-400 transition-colors"
+              >
+                {n.title}
+              </button>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Expanded View */}
-      {isExpanded && (
-        <div className="px-3 pb-3 space-y-3 border-t border-neutral-700/50 mt-1 pt-3">
+      {/* Expanded content with smooth animation */}
+      <div 
+        ref={contentRef}
+        className={`overflow-hidden transition-all duration-200 ease-out ${isExpanded ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"}`}
+      >
+        <div className="px-3 pb-3 space-y-3 border-t border-neutral-700/30 pt-3 ml-10">
           {/* Description */}
           {node.description && (
-            <p className="text-sm text-neutral-400 leading-relaxed">
-              {node.description}
-            </p>
+            <p className="text-sm text-neutral-400 leading-relaxed">{node.description}</p>
           )}
           
-          {/* Sequence Info */}
-          {(prevNodes.length > 0 || nextNodes.length > 0) && (
-            <div className="flex flex-col gap-2 p-2.5 bg-neutral-900/50 rounded-lg border border-neutral-800">
-              {prevNodes.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] text-neutral-500 uppercase tracking-wide w-12 flex-shrink-0">From</span>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {prevNodes.map((n) => (
-                      <button
-                        key={n.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onNavigateToNode?.(n.id);
-                        }}
-                        className="text-xs px-2.5 py-1 rounded-md bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-blue-400 transition-colors border border-neutral-700"
-                      >
-                        ← {n.title}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {nextNodes.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] text-neutral-500 uppercase tracking-wide w-12 flex-shrink-0">Next</span>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {nextNodes.map((n) => (
-                      <button
-                        key={n.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onNavigateToNode?.(n.id);
-                        }}
-                        className="text-xs px-2.5 py-1 rounded-md bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-blue-400 transition-colors border border-neutral-700"
-                      >
-                        {n.title} →
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+          {/* Sequence navigation — inline pills */}
+          {nextNodes.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] text-neutral-500 uppercase tracking-wide">Leads to:</span>
+              {nextNodes.map((n) => (
+                <button
+                  key={n.id}
+                  onClick={(e) => { e.stopPropagation(); onNavigateToNode?.(n.id); }}
+                  className="text-xs px-2 py-0.5 rounded-md bg-neutral-800/60 text-neutral-400 hover:text-blue-400 hover:bg-neutral-700/60 transition-colors"
+                >
+                  {n.title} &rarr;
+                </button>
+              ))}
             </div>
           )}
 
-          {/* Planning Prompt */}
+          {/* Planning prompt — disclosure toggle */}
           {isOwner && (
-            <div className="pt-1">
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-neutral-400">
-                  Planning Prompt
-                </label>
-                <span className="text-xs text-neutral-600">
-                  {savingPrompt ? "Saving..." : promptSaved ? "Saved" : ""}
-                </span>
-              </div>
-              <textarea
-                value={editedPlanningPrompt}
-                onChange={(e) => setEditedPlanningPrompt(e.target.value)}
-                onBlur={savePlanningPrompt}
-                placeholder={t('sessionItem.customInstructions')}
-                className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-neutral-600 resize-none"
-                rows={2}
-              />
+            <div>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowPromptEditor(!showPromptEditor); }}
+                className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+              >
+                <svg className={`w-3 h-3 transition-transform ${showPromptEditor ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+                Custom instructions
+                {savingPrompt && <span className="text-neutral-600">saving...</span>}
+                {promptSaved && <span className="text-green-500">saved</span>}
+              </button>
+              {showPromptEditor && (
+                <textarea
+                  value={editedPlanningPrompt}
+                  onChange={(e) => setEditedPlanningPrompt(e.target.value)}
+                  onBlur={savePlanningPrompt}
+                  placeholder={t('sessionItem.customInstructions')}
+                  className="w-full mt-2 px-3 py-2 bg-neutral-900/60 border border-neutral-700/50 rounded-lg text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-neutral-600 resize-none"
+                  rows={2}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              )}
             </div>
           )}
 
@@ -314,21 +267,21 @@ export function SessionItem({
           {!isLocked && isOwner && (
             <div className="flex gap-2 pt-1">
               <button
-                onClick={() => setShowPreview(true)}
-                className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-sm font-medium rounded-lg transition-colors border border-neutral-700"
+                onClick={(e) => { e.stopPropagation(); setShowPreview(true); }}
+                className="px-3 py-2 bg-neutral-800/60 hover:bg-neutral-700/60 text-neutral-300 text-sm font-medium rounded-lg transition-colors border border-neutral-700/50"
               >
                 Preview
               </button>
               {isCompleted ? (
                 <button
-                  onClick={handleStart}
+                  onClick={(e) => { e.stopPropagation(); handleStart(); }}
                   disabled={isStarting}
                   className="flex-1 px-4 py-2 bg-neutral-700 hover:bg-neutral-600 disabled:bg-neutral-800 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
                   {isStarting ? "Starting..." : (
                     <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
                       Run Again
                     </>
@@ -336,12 +289,10 @@ export function SessionItem({
                 </button>
               ) : (
                 <button
-                  onClick={handleStart}
+                  onClick={(e) => { e.stopPropagation(); handleStart(); }}
                   disabled={isStarting}
                   className={`flex-1 px-4 py-2 disabled:bg-neutral-700 text-white text-sm font-medium rounded-lg transition-colors ${
-                    activeSession
-                      ? "bg-green-600 hover:bg-green-500"
-                      : "bg-blue-600 hover:bg-blue-500"
+                    activeSession ? "bg-green-600 hover:bg-green-500" : "bg-blue-600 hover:bg-blue-500"
                   }`}
                 >
                   {isStarting ? "Starting..." : activeSession ? "Resume Lesson" : "Start Lesson"}
@@ -350,7 +301,7 @@ export function SessionItem({
             </div>
           )}
         </div>
-      )}
+      </div>
 
       {showPreview && (
         <PreviewSessionModal
@@ -359,10 +310,7 @@ export function SessionItem({
           planTopic={planTopic || ""}
           planningPrompt={editedPlanningPrompt || node.planning_prompt}
           onClose={() => setShowPreview(false)}
-          onStartSession={() => {
-            setShowPreview(false);
-            handleStart();
-          }}
+          onStartSession={() => { setShowPreview(false); handleStart(); }}
         />
       )}
     </div>

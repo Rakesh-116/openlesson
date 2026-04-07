@@ -51,12 +51,7 @@ function nodesHaveChanged(oldNodes: PlanNode[], newNodes: PlanNode[]): Set<strin
   
   for (const newNode of newNodes) {
     const oldNode = oldMap.get(newNode.id);
-    
-    if (!oldNode) {
-      changedIds.add(newNode.id);
-      continue;
-    }
-    
+    if (!oldNode) { changedIds.add(newNode.id); continue; }
     if (
       oldNode.title !== newNode.title ||
       oldNode.description !== newNode.description ||
@@ -68,7 +63,6 @@ function nodesHaveChanged(oldNodes: PlanNode[], newNodes: PlanNode[]): Set<strin
       changedIds.add(newNode.id);
     }
   }
-  
   return changedIds;
 }
 
@@ -76,7 +70,6 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
   const router = useRouter();
   const { t } = useI18n();
   const [nodes, setNodes] = useState(initialNodes);
-  const [activeTab, setActiveTab] = useState<"chat" | "sessions">("sessions");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [model, setModel] = useState<string>(() => {
     if (typeof window !== "undefined") {
@@ -88,22 +81,24 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
   const [highlightOpacity, setHighlightOpacity] = useState(1);
   const [showRemixModal, setShowRemixModal] = useState(false);
   
-  // Draggable divider state
-  const [leftWidth, setLeftWidth] = useState<number>(55);
+  // Desktop draggable divider state
+  const [leftWidth, setLeftWidth] = useState<number>(38);
   const [isDragging, setIsDragging] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Mobile bottom sheet state
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetHeight, setSheetHeight] = useState(65); // percentage of viewport
+  const [sheetDragging, setSheetDragging] = useState(false);
+  const sheetStartY = useRef(0);
+  const sheetStartHeight = useRef(65);
   
-  // Load saved width from localStorage on mount and track desktop state
   useEffect(() => {
     setIsMounted(true);
     const saved = localStorage.getItem(DIVIDER_STORAGE_KEY);
-    if (saved) {
-      setLeftWidth(parseFloat(saved));
-    }
-    
-    // Check if desktop and listen for resize
+    if (saved) setLeftWidth(parseFloat(saved));
     const checkDesktop = () => setIsDesktop(window.innerWidth >= 768);
     checkDesktop();
     window.addEventListener("resize", checkDesktop);
@@ -112,19 +107,13 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
 
   useEffect(() => {
     const changedIds = nodesHaveChanged(nodes, initialNodes);
-    
     if (changedIds.size > 0) {
       setHighlightedNodes(changedIds);
       setHighlightOpacity(1);
-      
       setTimeout(() => setHighlightOpacity(0.7), 7000);
       setTimeout(() => setHighlightOpacity(0.4), 8500);
-      setTimeout(() => {
-        setHighlightedNodes(new Set());
-        setHighlightOpacity(1);
-      }, 10000);
+      setTimeout(() => { setHighlightedNodes(new Set()); setHighlightOpacity(1); }, 10000);
     }
-    
     setNodes(initialNodes);
   }, [initialNodes]);
 
@@ -134,77 +123,82 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
     return () => window.removeEventListener("openRemixModal", handleOpenRemix);
   }, []);
 
-  // Draggable divider handlers
+  // Desktop draggable divider handlers
   useEffect(() => {
     if (!isDragging) return;
-
     const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const newWidth = ((e.clientX - rect.left) / rect.width) * 100;
-      // Clamp between 25% and 75%
-      const clampedWidth = Math.max(25, Math.min(75, newWidth));
-      setLeftWidth(clampedWidth);
+      setLeftWidth(Math.max(25, Math.min(65, newWidth)));
     };
-
     const handleMouseUp = () => {
       setIsDragging(false);
-      // Save to localStorage
       localStorage.setItem(DIVIDER_STORAGE_KEY, leftWidth.toString());
     };
-
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
-
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
+    return () => { document.removeEventListener("mousemove", handleMouseMove); document.removeEventListener("mouseup", handleMouseUp); };
   }, [isDragging, leftWidth]);
 
-  const handleDragStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
+  // Mobile sheet touch handlers
+  const handleSheetTouchStart = useCallback((e: React.TouchEvent) => {
+    setSheetDragging(true);
+    sheetStartY.current = e.touches[0].clientY;
+    sheetStartHeight.current = sheetHeight;
+  }, [sheetHeight]);
+
+  const handleSheetTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!sheetDragging) return;
+    const deltaY = sheetStartY.current - e.touches[0].clientY;
+    const deltaPercent = (deltaY / window.innerHeight) * 100;
+    const newHeight = Math.max(20, Math.min(92, sheetStartHeight.current + deltaPercent));
+    setSheetHeight(newHeight);
+  }, [sheetDragging]);
+
+  const handleSheetTouchEnd = useCallback(() => {
+    setSheetDragging(false);
+    // Snap points: dismiss (<25%), half (~60%), full (~90%)
+    if (sheetHeight < 25) {
+      setSheetOpen(false);
+      setSheetHeight(65);
+    } else if (sheetHeight < 75) {
+      setSheetHeight(65);
+    } else {
+      setSheetHeight(92);
+    }
+  }, [sheetHeight]);
+
+  // Lock body scroll when sheet is open on mobile
+  useEffect(() => {
+    if (!isDesktop && sheetOpen) {
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = ""; };
+    }
+  }, [sheetOpen, isDesktop]);
 
   const handleModelChange = useCallback((newModel: string) => {
     setModel(newModel);
     localStorage.setItem(MODEL_STORAGE_KEY, newModel);
   }, []);
 
-  const handleDeleteClick = useCallback((nodeId: string) => {
-    setShowDeleteConfirm(nodeId);
-  }, []);
+  const handleDeleteClick = useCallback((nodeId: string) => { setShowDeleteConfirm(nodeId); }, []);
 
   const handleForkClick = useCallback(async (nodeId: string) => {
     try {
-      // If no specific nodeId (adding at end), use chat API to add a session
       if (!nodeId) {
-        const response = await fetch("/api/learning-plan/chat", {
+        await fetch("/api/learning-plan/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            planId: plan.id,
-            userPrompt: "Add a new learning session at the end of the plan.",
-            model,
-          }),
+          body: JSON.stringify({ planId: plan.id, userPrompt: "Add a new learning session at the end of the plan.", model }),
         });
-
-        if (!response.ok) {
-          throw new Error("Failed to add session");
-        }
       } else {
-        const response = await fetch("/api/learning-plan/expand", {
+        await fetch("/api/learning-plan/expand", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ nodeId }),
         });
-
-        if (!response.ok) {
-          throw new Error("Failed to add session");
-        }
       }
-
       router.refresh();
     } catch (err) {
       console.error("Failed to fork:", err);
@@ -214,16 +208,11 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
   const handleDeleteConfirm = useCallback(async (nodeId: string) => {
     setShowDeleteConfirm(null);
     try {
-      const response = await fetch("/api/learning-plan/regenerate", {
+      await fetch("/api/learning-plan/regenerate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nodeId, planId: plan.id }),
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete");
-      }
-
       router.refresh();
     } catch (err) {
       console.error("Failed to delete:", err);
@@ -235,39 +224,12 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
       ref={containerRef}
       className={`h-full flex flex-col md:flex-row gap-2 ${isDragging ? "select-none" : ""}`}
     >
-      {/* Mobile Tab Switcher */}
-      <div className="md:hidden flex border-b border-neutral-700 mb-1 shrink-0 -mt-1">
-        <button
-          onClick={() => setActiveTab("chat")}
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors min-h-[40px] ${
-            activeTab === "chat"
-              ? "text-white border-b-2 border-blue-500"
-              : "text-neutral-400 hover:text-white"
-          }`}
-        >
-          {t('planChat.chat')}
-        </button>
-        <button
-          onClick={() => setActiveTab("sessions")}
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors min-h-[40px] ${
-            activeTab === "sessions"
-              ? "text-white border-b-2 border-blue-500"
-              : "text-neutral-400 hover:text-white"
-          }`}
-        >
-          {t('planChat.sessions')} ({nodes.length})
-        </button>
-      </div>
-
-      {/* Chat Panel - Desktop: resizable, Mobile: full width when selected */}
+      {/* ─── DESKTOP LAYOUT ─── */}
+      
+      {/* Chat Panel - Desktop only (left, narrower) */}
       <div 
-        className={`
-          flex flex-col
-          ${activeTab === "chat" ? "flex-1" : "hidden md:flex"}
-          h-full min-h-0
-          ${isDesktop ? "flex-none" : ""}
-        `}
-        style={isDesktop ? { width: `${leftWidth}%` } : undefined}
+        className="hidden md:flex flex-col h-full min-h-0 flex-none"
+        style={{ width: `${leftWidth}%` }}
       >
         <div className="flex-1 bg-neutral-900/50 rounded-xl border border-neutral-800/60 overflow-hidden flex flex-col p-4 shadow-lg shadow-black/10">
           <ChatPanel
@@ -286,20 +248,15 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
       {/* Draggable Divider - Desktop only */}
       <div 
         className="hidden md:flex items-center justify-center w-1.5 cursor-col-resize group"
-        onMouseDown={handleDragStart}
+        onMouseDown={(e) => { e.preventDefault(); setIsDragging(true); }}
       >
         <div className={`w-0.5 h-full rounded-full transition-colors ${isDragging ? "bg-blue-500" : "bg-neutral-700 group-hover:bg-neutral-500"}`} />
       </div>
 
-      {/* Sessions Panel - Desktop: resizable, Mobile: full width when selected */}
+      {/* Sessions Panel - Desktop (right, wider) */}
       <div 
-        className={`
-          flex flex-col
-          ${activeTab === "sessions" ? "flex-1" : "hidden md:flex"}
-          h-full min-h-0
-          ${isDesktop ? "flex-none" : ""}
-        `}
-        style={isDesktop ? { width: `${100 - leftWidth - 0.5}%` } : undefined}
+        className="hidden md:flex flex-col h-full min-h-0 flex-none"
+        style={{ width: `${100 - leftWidth - 0.5}%` }}
       >
         <div className="flex-1 bg-neutral-900/50 rounded-xl border border-neutral-800/60 overflow-hidden shadow-lg shadow-black/10">
           <SessionList
@@ -316,14 +273,107 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
         </div>
       </div>
 
+      {/* ─── MOBILE LAYOUT ─── */}
+
+      {/* Sessions Panel - Mobile: always visible, full width */}
+      <div className="md:hidden flex-1 min-h-0 overflow-hidden">
+        <div className="h-full bg-neutral-900/50 rounded-xl border border-neutral-800/60 overflow-hidden shadow-lg shadow-black/10">
+          <SessionList
+            nodes={nodes}
+            onSelect={() => {}}
+            onDelete={handleDeleteClick}
+            onFork={handleForkClick}
+            highlightedNodes={highlightedNodes}
+            highlightOpacity={highlightOpacity}
+            isOwner={isOwner}
+            supabase={supabase}
+            planTopic={plan.root_topic}
+          />
+        </div>
+      </div>
+
+      {/* FAB - Mobile only: opens bottom sheet */}
+      {isOwner && !sheetOpen && (
+        <button
+          onClick={() => setSheetOpen(true)}
+          className="md:hidden fixed bottom-5 right-5 z-40 flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-full shadow-xl shadow-blue-600/30 transition-all active:scale-95"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+          </svg>
+          AI Planner
+        </button>
+      )}
+
+      {/* Bottom Sheet - Mobile only */}
+      {sheetOpen && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+            onClick={() => { setSheetOpen(false); setSheetHeight(65); }}
+          />
+
+          {/* Sheet */}
+          <div
+            className={`md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0f0f0f] border-t border-neutral-800 rounded-t-2xl flex flex-col ${sheetDragging ? "" : "transition-all duration-300 ease-out"}`}
+            style={{ height: `${sheetHeight}vh` }}
+          >
+            {/* Drag handle */}
+            <div
+              className="flex-shrink-0 flex justify-center py-3 cursor-grab active:cursor-grabbing"
+              onTouchStart={handleSheetTouchStart}
+              onTouchMove={handleSheetTouchMove}
+              onTouchEnd={handleSheetTouchEnd}
+            >
+              <div className="w-10 h-1 rounded-full bg-neutral-600" />
+            </div>
+
+            {/* Sheet header */}
+            <div className="flex items-center justify-between px-4 pb-2 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                </svg>
+                <span className="text-sm font-semibold text-white">AI Planner</span>
+              </div>
+              <button
+                onClick={() => { setSheetOpen(false); setSheetHeight(65); }}
+                className="p-1.5 text-neutral-500 hover:text-white rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Chat content */}
+            <div className="flex-1 min-h-0 overflow-hidden px-3 pb-3">
+              <div className="h-full bg-neutral-900/50 rounded-xl border border-neutral-800/60 overflow-hidden flex flex-col p-3">
+                <ChatPanel
+                  planId={plan.id}
+                  model={model}
+                  onModelChange={handleModelChange}
+                  onRefresh={() => { onRefresh?.(); setSheetOpen(false); setSheetHeight(65); }}
+                  onNodesUpdate={(newNodes) => { onNodesUpdate?.(newNodes); }}
+                  supabase={supabase}
+                  isOwner={isOwner}
+                  currentUserId={currentUserId}
+                />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <>
           <div 
-            className="fixed inset-0 z-50 bg-black/60 md:hidden"
+            className="fixed inset-0 z-50 bg-black/60"
             onClick={() => setShowDeleteConfirm(null)}
           />
-          <div className="fixed bottom-0 left-0 right-0 z-50 md:absolute md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-sm bg-neutral-800 border-t md:border border-neutral-700 rounded-t-2xl md:rounded-2xl p-4">
+          <div className="fixed bottom-0 left-0 right-0 z-50 md:bottom-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-sm bg-neutral-800 border-t md:border border-neutral-700 rounded-t-2xl md:rounded-2xl p-4">
             <h3 className="text-lg font-semibold text-white mb-2">{t('planChat.deleteSession')}</h3>
             <p className="text-sm text-neutral-400 mb-4">
               {t('planChat.deleteSessionConfirm')}
@@ -346,16 +396,11 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
         </>
       )}
 
-
-
       {showRemixModal && (
         <RemixModal
           plan={{ id: plan.id, root_topic: plan.root_topic, author_username: "", remix_count: 0 }}
           onClose={() => setShowRemixModal(false)}
-          onComplete={(newPlanId) => {
-            setShowRemixModal(false);
-            router.push(`/plan/${newPlanId}`);
-          }}
+          onComplete={(newPlanId) => { setShowRemixModal(false); router.push(`/plan/${newPlanId}`); }}
         />
       )}
     </div>
