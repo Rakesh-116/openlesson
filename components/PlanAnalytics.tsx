@@ -114,21 +114,24 @@ export function PlanAnalytics({ planId, isOwner }: PlanAnalyticsProps) {
           <>
             {/* Stats grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard label="Sessions" value={personal.total_sessions} />
-              <StatCard label="Completed" value={personal.completed_sessions} />
+              <StatCard label="Sessions" value={personal.total_sessions} accent="blue" />
+              <StatCard label="Completed" value={personal.completed_sessions} accent="green" />
               <StatCard
                 label="Nodes Done"
                 value={`${personal.completed_nodes}/${personal.total_nodes}`}
+                accent="green"
               />
               <StatCard
                 label="Avg Duration"
                 value={`${personal.avg_duration_minutes}m`}
+                accent="violet"
               />
               <StatCard
                 label="Total Time"
                 value={`${personal.total_duration_minutes}m`}
+                accent="violet"
               />
-              <StatCard label="Avg Gap Score" value={personal.avg_gap_score} />
+              <StatCard label="Avg Gap Score" value={personal.avg_gap_score} accent="amber" />
               <StatCard
                 label="Completion"
                 value={
@@ -136,6 +139,7 @@ export function PlanAnalytics({ planId, isOwner }: PlanAnalyticsProps) {
                     ? `${Math.round((personal.completed_nodes / personal.total_nodes) * 100)}%`
                     : "0%"
                 }
+                accent="emerald"
               />
             </div>
 
@@ -147,7 +151,7 @@ export function PlanAnalytics({ planId, isOwner }: PlanAnalyticsProps) {
                   {personal.sessions.map((s) => (
                     <div
                       key={s.id}
-                      className="flex items-center justify-between px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-lg"
+                      className="flex items-center justify-between px-4 py-3 bg-neutral-900/50 border border-neutral-800/60 rounded-xl"
                     >
                       <div className="min-w-0">
                         <p className="text-sm text-white truncate">{s.node_title || s.problem}</p>
@@ -185,12 +189,12 @@ export function PlanAnalytics({ planId, isOwner }: PlanAnalyticsProps) {
           <>
             {/* Org stats grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard label="Total Sessions" value={org.total_sessions} />
-              <StatCard label="Completed" value={org.completed_sessions} />
-              <StatCard label="Active Members" value={org.unique_users} />
-              <StatCard label="Completion Rate" value={`${org.completion_rate}%`} />
-              <StatCard label="Avg Duration" value={`${org.avg_duration_minutes}m`} />
-              <StatCard label="Avg Gap Score" value={org.avg_gap_score} />
+              <StatCard label="Total Sessions" value={org.total_sessions} accent="blue" />
+              <StatCard label="Completed" value={org.completed_sessions} accent="green" />
+              <StatCard label="Active Members" value={org.unique_users} accent="violet" />
+              <StatCard label="Completion Rate" value={`${org.completion_rate}%`} accent="emerald" />
+              <StatCard label="Avg Duration" value={`${org.avg_duration_minutes}m`} accent="violet" />
+              <StatCard label="Avg Gap Score" value={org.avg_gap_score} accent="amber" />
             </div>
 
             {/* Member breakdown */}
@@ -234,9 +238,18 @@ export function PlanAnalytics({ planId, isOwner }: PlanAnalyticsProps) {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
+const accentColors: Record<string, string> = {
+  blue: "border-l-blue-500/60",
+  green: "border-l-green-500/60",
+  violet: "border-l-violet-500/60",
+  amber: "border-l-amber-500/60",
+  emerald: "border-l-emerald-500/60",
+  neutral: "border-l-neutral-700/50",
+};
+
+function StatCard({ label, value, accent = "neutral" }: { label: string; value: string | number; accent?: string }) {
   return (
-    <div className="px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-lg">
+    <div className={`px-4 py-3 bg-neutral-900/50 border border-neutral-800/60 border-l-2 rounded-xl ${accentColors[accent] || accentColors.neutral}`}>
       <p className="text-xs text-neutral-500 mb-1">{label}</p>
       <p className="text-lg font-semibold text-white">{String(value)}</p>
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -10,7 +10,7 @@ import { DEFAULT_PROMPTS, PROMPT_META, type PromptKey, type UserPrompts } from "
 import { Crown, Users, DollarSign, Copy, Check, ExternalLink, AlertTriangle, Link2 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
-type Tab = "home" | "usage" | "config" | "partner";
+type Tab = "sessions" | "plans" | "usage" | "config" | "partner";
 
 function PartnerTabContent() {
   const { t } = useI18n();
@@ -221,7 +221,11 @@ export default function DashboardPage() {
   const router = useRouter();
   const { t } = useI18n();
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<Tab>("home");
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams.get("tab") as Tab) || "sessions";
+  const [activeTab, setActiveTab] = useState<Tab>(
+    ["sessions", "plans", "usage", "config", "partner"].includes(initialTab) ? initialTab : "sessions"
+  );
 
   // User state
   const [user, setUser] = useState<{
@@ -674,7 +678,8 @@ export default function DashboardPage() {
       <div className="border-b border-neutral-800/60">
         <div className="max-w-5xl mx-auto flex gap-1 px-4 sm:px-6">
           {[
-            { id: "home", label: t('common.home') || 'Home' },
+            { id: "sessions", label: "Sessions" },
+            { id: "plans", label: "Plans" },
             { id: "usage", label: t('dashboard.usage') || 'Usage' },
             ...(user?.isAdmin ? [{ id: "config", label: t('dashboard.config') || 'Configuration' }] : []),
             ...(isPartner ? [{ id: "partner", label: t('dashboard.partner') || 'Partner' }] : []),
@@ -699,383 +704,237 @@ export default function DashboardPage() {
 
       {/* Content */}
       <main className="max-w-5xl mx-auto p-4 sm:px-6 py-8">
-        {/* Home Tab - Recent activity + full search tables */}
-        {activeTab === "home" && (
-          <div className="space-y-8">
-            {/* Recent Activity Header */}
+        {/* Sessions Tab */}
+        {activeTab === "sessions" && (
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">{t('dashboard.recentActivity')}</h2>
-              <Link
-                href="/"
-                className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
-              >
+              <h2 className="text-lg font-semibold">{t('dashboard.allSessions')}</h2>
+              <Link href="/" className="text-sm text-blue-400 hover:text-blue-300 transition-colors">
                 {t('dashboard.startNewSession')}
               </Link>
             </div>
-
-            {/* Recent Sessions (last 3) */}
-            <div>
-              <h3 className="text-sm font-medium text-neutral-400 mb-3">{t('dashboard.recentSessions')}</h3>
-              {sessions.length === 0 ? (
-                <div className="text-center py-8 text-neutral-500 border border-neutral-800 rounded-lg">
-                  <p className="text-sm">{t('dashboard.noSessionsYet')}</p>
-                  <Link href="/" className="text-blue-400 hover:underline mt-2 inline-block text-sm">
-                    {t('dashboard.startYourFirstSession')}
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {sessions.slice(0, 3).map((session) => {
-                    const isCompleted = session.status === "completed";
-                    return (
-                    <Link
-                      key={session.id}
-                      href={isCompleted ? `/results?id=${session.id}` : `/session?id=${session.id}`}
-                      className="block rounded-lg border border-neutral-800 bg-neutral-900/50 overflow-hidden hover:bg-neutral-800/30 transition-colors"
-                    >
-                      <div className="flex items-center justify-between p-4">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-neutral-200 truncate">
-                            {session.problem}
-                          </p>
-                          <p className="text-xs text-neutral-500 mt-1">
-                            {formatDate(session.startedAt)} · {formatDuration(session.durationMs)} ·{" "}
-                            <span
-                              className={`inline-flex px-1.5 py-0.5 rounded text-[10px] ${
-                                session.status === "completed"
-                                  ? "bg-green-900/30 text-green-400"
-                                  : session.status === "paused"
-                                  ? "bg-yellow-900/30 text-yellow-400"
-                                  : "bg-neutral-700 text-neutral-400"
-                              }`}
-                            >
-                              {session.status === "active" ? "Active" : session.status === "paused" ? "Paused" : "Completed"}
-                            </span>
-                            {session.planTitle && (
-                              <span className="ml-2 inline-flex px-1.5 py-0.5 rounded text-[10px] bg-purple-900/30 text-purple-400">
-                                {session.planTitle}
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                        <div className="flex items-center ml-4 gap-1">
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              router.push(`/session/analytics?id=${session.id}`);
-                            }}
-                            className="p-1.5 text-neutral-600 hover:text-blue-400 transition-colors"
-                            title="Session Analytics"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleDeleteSession(session.id);
-                            }}
-                            className="p-1.5 text-neutral-600 hover:text-red-400 transition-colors"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Latest Plan */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-neutral-400">{t('dashboard.latestPlanTitle')}</h3>
-                <Link
-                  href="/"
-                  className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-                >
-                  {t('dashboard.createNewPlan')}
-                </Link>
-              </div>
-              {learningPlans.length === 0 ? (
-                <div className="text-center py-8 text-neutral-500 border border-neutral-800 rounded-lg">
-                  <p className="text-sm">{t('dashboard.noLearningPlansYet')}</p>
-                  <Link href="/" className="text-blue-400 hover:underline mt-2 inline-block text-sm">
-                    {t('dashboard.createYourFirstPlan')}
-                  </Link>
-                </div>
-              ) : (
-                <div
-                  className="flex items-center justify-between p-4 rounded-lg border border-neutral-800 bg-neutral-900/50 hover:bg-neutral-800/30 transition-colors"
-                >
-                  <Link href={`/plan/${learningPlans[0].id}`} className="flex-1">
-                    <p className="text-sm font-medium text-neutral-200">{learningPlans[0].root_topic}</p>
-                    <p className="text-xs text-neutral-500 mt-0.5">
-                      Created {formatDate(learningPlans[0].created_at)}
-                    </p>
-                  </Link>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={async () => {
-                        try {
-                          const plan = learningPlans[0];
-                          const isPublic = (plan as any).is_public ?? false;
-                          const res = await fetch(`/api/learning-plans/${plan.id}/visibility`, {
-                            method: "PUT",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ is_public: !isPublic }),
-                          });
-                          const data = await res.json();
-                          if (data.success) {
-                            setLearningPlans((plans) =>
-                              plans.map((p) =>
-                                p.id === plan.id ? { ...p, is_public: !isPublic } : p
-                              )
-                            );
-                          }
-                        } catch (err) {
-                          console.error("Error toggling visibility:", err);
-                        }
-                      }}
-                      className={`text-xs px-2 py-1 rounded border transition-colors ${
-                        (learningPlans[0] as any).is_public
-                          ? "bg-green-900/30 border-green-800 text-green-400 hover:bg-green-900/50"
-                          : "bg-neutral-800 border-neutral-700 text-neutral-500 hover:text-neutral-400"
-                      }`}
-                    >
-                      {(learningPlans[0] as any).is_public ? "Public" : "Private"}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-neutral-800/60" />
-
-            {/* All Sessions - Full Search Table */}
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold">{t('dashboard.allSessions')}</h2>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    placeholder={t('dashboard.searchSessions')}
-                    value={sessionSearch}
-                    onChange={(e) => setSessionSearch(e.target.value)}
-                    className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:border-neutral-600"
-                  />
-                </div>
-                <select
-                  value={sessionStatusFilter}
-                  onChange={(e) => setSessionStatusFilter(e.target.value)}
-                  className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-neutral-600"
-                >
-                  <option value="all">{t('dashboard.allStatus')}</option>
-                  <option value="active">{t('dashboard.active')}</option>
-                  <option value="paused">{t('dashboard.paused')}</option>
-                  <option value="completed">{t('dashboard.completed')}</option>
-                </select>
-              </div>
-
-              {filteredSessions.length === 0 ? (
-                <div className="text-center py-8 text-neutral-500">
-                  <p className="text-sm">{t('dashboard.noMatchingSessions')}</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {paginatedSessions.map((session) => {
-                    const isCompleted = session.status === "completed";
-                    return (
-                    <Link
-                      key={session.id}
-                      href={isCompleted ? `/results?id=${session.id}` : `/session?id=${session.id}`}
-                      className="block rounded-lg border border-neutral-800 bg-neutral-900/50 overflow-hidden hover:bg-neutral-800/30 transition-colors"
-                    >
-                      <div className="flex items-center justify-between p-4">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-neutral-200 truncate">
-                            {session.problem}
-                          </p>
-                          <p className="text-xs text-neutral-500 mt-1">
-                            {formatDate(session.startedAt)} · {formatDuration(session.durationMs)} ·{" "}
-                            <span
-                              className={`inline-flex px-1.5 py-0.5 rounded text-[10px] ${
-                                session.status === "completed"
-                                  ? "bg-green-900/30 text-green-400"
-                                  : session.status === "paused"
-                                  ? "bg-yellow-900/30 text-yellow-400"
-                                  : "bg-neutral-700 text-neutral-400"
-                              }`}
-                            >
-                              {session.status === "active" ? "Active" : session.status === "paused" ? "Paused" : "Completed"}
-                            </span>
-                            {session.planTitle && (
-                              <span className="ml-2 inline-flex px-1.5 py-0.5 rounded text-[10px] bg-purple-900/30 text-purple-400">
-                                {session.planTitle}
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                        <div className="flex items-center ml-4 gap-1">
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              router.push(`/session/analytics?id=${session.id}`);
-                            }}
-                            className="p-1.5 text-neutral-600 hover:text-blue-400 transition-colors"
-                            title="Session Analytics"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleDeleteSession(session.id);
-                            }}
-                            className="p-1.5 text-neutral-600 hover:text-red-400 transition-colors"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    </Link>
-                    );
-                  })}
-                </div>
-              )}
-
-              {totalSessionPages > 1 && (
-                <div className="flex items-center justify-between pt-4 border-t border-neutral-800/60">
-                  <p className="text-xs text-neutral-500">
-                    {t('dashboard.showingResults', { start: String((sessionPage - 1) * sessionPageSize + 1), end: String(Math.min(sessionPage * sessionPageSize, filteredSessions.length)), total: String(filteredSessions.length) })}
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setSessionPage((p) => Math.max(1, p - 1))}
-                      disabled={sessionPage === 1}
-                      className="px-3 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-700 rounded transition-colors"
-                    >
-                      {t('dashboard.previous')}
-                    </button>
-                    <button
-                      onClick={() => setSessionPage((p) => Math.min(totalSessionPages, p + 1))}
-                      disabled={sessionPage === totalSessionPages}
-                      className="px-3 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-700 rounded transition-colors"
-                    >
-                      {t('dashboard.next')}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* All Plans - Full Search Table */}
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold">{t('dashboard.allPlans')}</h2>
+            <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1">
                 <input
                   type="text"
-                  placeholder={t('dashboard.searchPlans')}
-                  value={planSearch}
-                  onChange={(e) => setPlanSearch(e.target.value)}
+                  placeholder={t('dashboard.searchSessions')}
+                  value={sessionSearch}
+                  onChange={(e) => setSessionSearch(e.target.value)}
                   className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:border-neutral-600"
                 />
               </div>
+              <select
+                value={sessionStatusFilter}
+                onChange={(e) => setSessionStatusFilter(e.target.value)}
+                className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-neutral-600"
+              >
+                <option value="all">{t('dashboard.allStatus')}</option>
+                <option value="active">{t('dashboard.active')}</option>
+                <option value="paused">{t('dashboard.paused')}</option>
+                <option value="completed">{t('dashboard.completed')}</option>
+              </select>
+            </div>
 
-              {filteredPlans.length === 0 ? (
-                <div className="text-center py-8 text-neutral-500">
-                  <p className="text-sm">{t('dashboard.noMatchingPlans')}</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {paginatedPlans.map((plan) => (
-                    <div
-                      key={plan.id}
-                      className="flex items-center justify-between p-4 rounded-lg border border-neutral-800 bg-neutral-900/50 hover:bg-neutral-800/30 transition-colors"
-                    >
-                      <Link href={`/plan/${plan.id}`} className="flex-1">
-                        <p className="text-sm font-medium text-neutral-200">{plan.root_topic}</p>
-                        <p className="text-xs text-neutral-500 mt-0.5">
-                          Created {formatDate(plan.created_at)}
+            {filteredSessions.length === 0 ? (
+              <div className="text-center py-8 text-neutral-500 border border-neutral-800 rounded-lg">
+                <p className="text-sm">{t('dashboard.noMatchingSessions')}</p>
+                <Link href="/" className="text-blue-400 hover:underline mt-2 inline-block text-sm">
+                  {t('dashboard.startYourFirstSession')}
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {paginatedSessions.map((session) => {
+                  const isCompleted = session.status === "completed";
+                  return (
+                  <Link
+                    key={session.id}
+                    href={isCompleted ? `/results?id=${session.id}` : `/session?id=${session.id}`}
+                    className="block rounded-lg border border-neutral-800 bg-neutral-900/50 overflow-hidden hover:bg-neutral-800/30 transition-colors"
+                  >
+                    <div className="flex items-center justify-between p-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-neutral-200 truncate">
+                          {session.problem}
                         </p>
-                      </Link>
-                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-neutral-500 mt-1">
+                          {formatDate(session.startedAt)} · {formatDuration(session.durationMs)} ·{" "}
+                          <span
+                            className={`inline-flex px-1.5 py-0.5 rounded text-[10px] ${
+                              session.status === "completed"
+                                ? "bg-green-900/30 text-green-400"
+                                : session.status === "paused"
+                                ? "bg-yellow-900/30 text-yellow-400"
+                                : "bg-neutral-700 text-neutral-400"
+                            }`}
+                          >
+                            {session.status === "active" ? "Active" : session.status === "paused" ? "Paused" : "Completed"}
+                          </span>
+                          {session.planTitle && (
+                            <span className="ml-2 inline-flex px-1.5 py-0.5 rounded text-[10px] bg-purple-900/30 text-purple-400">
+                              {session.planTitle}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex items-center ml-4 gap-1">
                         <button
-                          onClick={async () => {
-                            try {
-                              const isPublic = (plan as any).is_public ?? false;
-                              const res = await fetch(`/api/learning-plans/${plan.id}/visibility`, {
-                                method: "PUT",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ is_public: !isPublic }),
-                              });
-                              const data = await res.json();
-                              if (data.success) {
-                                setLearningPlans((plans) =>
-                                  plans.map((p) =>
-                                    p.id === plan.id ? { ...p, is_public: !isPublic } : p
-                                  )
-                                );
-                              } else {
-                                alert(data.error || "Failed to update visibility");
-                              }
-                            } catch (err) {
-                              console.error("Error toggling visibility:", err);
-                              alert("Failed to update visibility");
-                            }
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            router.push(`/session/analytics?id=${session.id}`);
                           }}
-                          className={`text-xs px-2 py-1 rounded border transition-colors ${
-                            (plan as any).is_public
-                              ? "bg-green-900/30 border-green-800 text-green-400 hover:bg-green-900/50"
-                              : "bg-neutral-800 border-neutral-700 text-neutral-500 hover:text-neutral-400"
-                          }`}
+                          className="p-1.5 text-neutral-600 hover:text-blue-400 transition-colors"
+                          title="Session Analytics"
                         >
-                          {(plan as any).is_public ? "Public" : "Private"}
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleDeleteSession(session.id);
+                          }}
+                          className="p-1.5 text-neutral-600 hover:text-red-400 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
                         </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                  </Link>
+                  );
+                })}
+              </div>
+            )}
 
-              {totalPlanPages > 1 && (
-                <div className="flex items-center justify-between pt-4 border-t border-neutral-800/60">
-                  <p className="text-xs text-neutral-500">
-                    {t('dashboard.showingResults', { start: String((planPage - 1) * planPageSize + 1), end: String(Math.min(planPage * planPageSize, filteredPlans.length)), total: String(filteredPlans.length) })}
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setPlanPage((p) => Math.max(1, p - 1))}
-                      disabled={planPage === 1}
-                      className="px-3 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-700 rounded transition-colors"
-                    >
-                      {t('dashboard.previous')}
-                    </button>
-                    <button
-                      onClick={() => setPlanPage((p) => Math.min(totalPlanPages, p + 1))}
-                      disabled={planPage === totalPlanPages}
-                      className="px-3 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-700 rounded transition-colors"
-                    >
-                      {t('dashboard.next')}
-                    </button>
-                  </div>
+            {totalSessionPages > 1 && (
+              <div className="flex items-center justify-between pt-4 border-t border-neutral-800/60">
+                <p className="text-xs text-neutral-500">
+                  {t('dashboard.showingResults', { start: String((sessionPage - 1) * sessionPageSize + 1), end: String(Math.min(sessionPage * sessionPageSize, filteredSessions.length)), total: String(filteredSessions.length) })}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSessionPage((p) => Math.max(1, p - 1))}
+                    disabled={sessionPage === 1}
+                    className="px-3 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-700 rounded transition-colors"
+                  >
+                    {t('dashboard.previous')}
+                  </button>
+                  <button
+                    onClick={() => setSessionPage((p) => Math.min(totalSessionPages, p + 1))}
+                    disabled={sessionPage === totalSessionPages}
+                    className="px-3 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-700 rounded transition-colors"
+                  >
+                    {t('dashboard.next')}
+                  </button>
                 </div>
-              )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Plans Tab */}
+        {activeTab === "plans" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">{t('dashboard.allPlans')}</h2>
+              <Link href="/" className="text-sm text-blue-400 hover:text-blue-300 transition-colors">
+                {t('dashboard.createNewPlan')}
+              </Link>
             </div>
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder={t('dashboard.searchPlans')}
+                value={planSearch}
+                onChange={(e) => setPlanSearch(e.target.value)}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:border-neutral-600"
+              />
+            </div>
+
+            {filteredPlans.length === 0 ? (
+              <div className="text-center py-8 text-neutral-500 border border-neutral-800 rounded-lg">
+                <p className="text-sm">{t('dashboard.noMatchingPlans')}</p>
+                <Link href="/" className="text-blue-400 hover:underline mt-2 inline-block text-sm">
+                  {t('dashboard.createYourFirstPlan')}
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {paginatedPlans.map((plan) => (
+                  <div
+                    key={plan.id}
+                    className="flex items-center justify-between p-4 rounded-lg border border-neutral-800 bg-neutral-900/50 hover:bg-neutral-800/30 transition-colors"
+                  >
+                    <Link href={`/plan/${plan.id}`} className="flex-1">
+                      <p className="text-sm font-medium text-neutral-200">{plan.title || plan.root_topic}</p>
+                      <p className="text-xs text-neutral-500 mt-0.5">
+                        {plan.root_topic !== plan.title && plan.title ? `${plan.root_topic} · ` : ""}Created {formatDate(plan.created_at)}
+                      </p>
+                    </Link>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={async () => {
+                          try {
+                            const isPublic = (plan as any).is_public ?? false;
+                            const res = await fetch(`/api/learning-plans/${plan.id}/visibility`, {
+                              method: "PUT",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ is_public: !isPublic }),
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                              setLearningPlans((plans) =>
+                                plans.map((p) =>
+                                  p.id === plan.id ? { ...p, is_public: !isPublic } : p
+                                )
+                              );
+                            }
+                          } catch (err) {
+                            console.error("Error toggling visibility:", err);
+                          }
+                        }}
+                        className={`text-xs px-2 py-1 rounded border transition-colors ${
+                          (plan as any).is_public
+                            ? "bg-green-900/30 border-green-800 text-green-400 hover:bg-green-900/50"
+                            : "bg-neutral-800 border-neutral-700 text-neutral-500 hover:text-neutral-400"
+                        }`}
+                      >
+                        {(plan as any).is_public ? "Public" : "Private"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {totalPlanPages > 1 && (
+              <div className="flex items-center justify-between pt-4 border-t border-neutral-800/60">
+                <p className="text-xs text-neutral-500">
+                  {t('dashboard.showingResults', { start: String((planPage - 1) * planPageSize + 1), end: String(Math.min(planPage * planPageSize, filteredPlans.length)), total: String(filteredPlans.length) })}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPlanPage((p) => Math.max(1, p - 1))}
+                    disabled={planPage === 1}
+                    className="px-3 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-700 rounded transition-colors"
+                  >
+                    {t('dashboard.previous')}
+                  </button>
+                  <button
+                    onClick={() => setPlanPage((p) => Math.min(totalPlanPages, p + 1))}
+                    disabled={planPage === totalPlanPages}
+                    className="px-3 py-1 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-700 rounded transition-colors"
+                  >
+                    {t('dashboard.next')}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

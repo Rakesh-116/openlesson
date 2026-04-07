@@ -68,8 +68,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const { plan } = result;
-  const title = plan.root_topic;
-  const description = `A learning plan by @${plan.author_username || "anonymous"} on openLesson`;
+  const title = plan.title || plan.root_topic;
+  const description = plan.description || `A learning plan by @${plan.author_username || "anonymous"} on openLesson`;
+
+  // Use AI-generated cover image for OG if available, otherwise fall back to dynamic OG route
+  const ogImage = plan.cover_image_url || `/p/${id}/${slug}/opengraph-image`;
 
   return {
     title: `${title} - openLesson`,
@@ -80,7 +83,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       type: "website",
       images: [
         {
-          url: `/p/${id}/${slug}/opengraph-image`,
+          url: ogImage,
           width: 1200,
           height: 630,
           alt: title,
@@ -91,7 +94,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       card: "summary_large_image",
       title: `${title} - openLesson`,
       description,
-      images: [`/p/${id}/${slug}/opengraph-image`],
+      images: [ogImage],
     },
   };
 }

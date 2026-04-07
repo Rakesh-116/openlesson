@@ -1604,6 +1604,8 @@ export interface LearningPlan {
   source_summary?: string;
   // Plan notes (README-like)
   notes?: string;
+  // AI-generated cover image
+  cover_image_url?: string;
 }
 
 export interface PlanNode {

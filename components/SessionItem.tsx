@@ -166,9 +166,10 @@ export function SessionItem({
     <div 
       id={`session-item-${node.id}`}
       className={`
-        rounded-lg transition-all duration-200
+        rounded-lg transition-all duration-200 border-l-2
         ${highlighted ? "ring-1" : ""}
-        ${isExpanded ? "bg-neutral-800/70" : "hover:bg-neutral-800/50"}
+        ${isExpanded ? "bg-neutral-800/50" : "hover:bg-neutral-800/30"}
+        ${isCompleted ? "border-l-green-500/60" : isInProgress ? "border-l-blue-500/70" : "border-l-neutral-700/50"}
       `}
       style={highlighted ? { 
         borderColor: `rgba(6, 182, 212, ${highlightOpacity})`,

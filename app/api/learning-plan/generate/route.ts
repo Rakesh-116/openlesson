@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { callOpenRouterJSON, userMessage, buildImageContent, DEFAULT_MODEL } from "@/lib/openrouter-client";
 import type { Message } from "@/lib/openrouter-client";
+import { generateAndStorePlanCover } from "@/lib/plan-image";
 
 interface NodeData {
   id: string;
@@ -12,6 +13,7 @@ interface NodeData {
 }
 
 interface PlanData {
+  title: string;
   nodes: NodeData[];
 }
 
@@ -53,6 +55,7 @@ export async function POST(req: NextRequest) {
 
 Return ONLY valid JSON (no markdown) with this structure:
 {
+  "title": "A short, catchy, social-media-friendly title for this plan (max 6 words, creative and engaging — NOT just the topic name)",
   "nodes": [
     { "id": "a", "title": "Node Title", "description": "Why this matters", "is_start": true/false, "next": ["b", "c"] }
   ]
@@ -64,6 +67,7 @@ IMPORTANT: The plan should span approximately "${daysNum} days".
 - Create a realistic learning path that fits within this timeframe
 
 Rules:
+- The top-level "title" must be a catchy, memorable name for the plan (like a course name or book title). NOT just "Learning X". Be creative.
 - Each node is a distinct learning session
 - Use single-letter or short IDs for referencing
 - is_start: true for nodes that can begin a learning path
@@ -97,12 +101,14 @@ Rules:
       return NextResponse.json({ error: "Invalid plan data format" }, { status: 500 });
     }
 
+    const catchyTitle = planData.title || `Learning ${topic}`;
+
     // Create the learning plan
     const { data: plan, error: planError } = await supabase
       .from("learning_plans")
       .insert({
         user_id: user.id,
-        title: `Learning ${topic}`,
+        title: catchyTitle,
         root_topic: topic,
         status: "active",
       })
@@ -162,7 +168,15 @@ Rules:
         .eq("id", currentNodeId);
     }
 
-    return NextResponse.json({ planId: plan.id });
+    // Fire-and-forget: generate cover image asynchronously
+    generateAndStorePlanCover(
+      supabase as any,
+      user.id,
+      plan.id,
+      topic
+    ).catch((err) => console.error("Async cover generation failed:", err));
+
+    return NextResponse.json({ planId: plan.id, title: catchyTitle });
 
   } catch (error) {
     console.error("Generate plan error:", error);

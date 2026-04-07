@@ -269,7 +269,7 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
         `}
         style={isDesktop ? { width: `${leftWidth}%` } : undefined}
       >
-        <div className="flex-1 bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden flex flex-col p-4">
+        <div className="flex-1 bg-neutral-900/50 rounded-xl border border-neutral-800/60 overflow-hidden flex flex-col p-4 shadow-lg shadow-black/10">
           <ChatPanel
             planId={plan.id}
             model={model}
@@ -301,7 +301,7 @@ export function PlanChat({ plan, nodes: initialNodes, onRefresh, onNodesUpdate, 
         `}
         style={isDesktop ? { width: `${100 - leftWidth - 0.5}%` } : undefined}
       >
-        <div className="flex-1 bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden">
+        <div className="flex-1 bg-neutral-900/50 rounded-xl border border-neutral-800/60 overflow-hidden shadow-lg shadow-black/10">
           <SessionList
             nodes={nodes}
             onSelect={() => {}}

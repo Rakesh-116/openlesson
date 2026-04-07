@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import Link from "next/link";
+import Image from "next/image";
 import { PlanChat } from "@/components/PlanChat";
 import { Navbar } from "@/components/Navbar";
 import { RemixModal } from "@/components/RemixModal";
@@ -35,16 +36,29 @@ export interface LearningPlan {
   author_username?: string;
   original_plan_id?: string;
   remix_count?: number;
-  // YouTube/source fields
   source_type?: "topic" | "youtube";
   source_url?: string;
   source_summary?: string;
   notes?: string;
+  cover_image_url?: string;
 }
 
 interface PlanViewProps {
   initialPlan?: LearningPlan;
   initialNodes?: PlanNode[];
+}
+
+// Default placeholder gradient for plans without cover images
+function CoverPlaceholder({ title }: { title: string }) {
+  return (
+    <div className="absolute inset-0 bg-gradient-to-br from-violet-950/80 via-slate-900 to-emerald-950/60">
+      <div className="absolute inset-0 opacity-30">
+        <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-gradient-radial from-emerald-500/20 to-transparent blur-3xl" />
+        <div className="absolute bottom-[-10%] left-[-5%] w-[40%] h-[40%] rounded-full bg-gradient-radial from-violet-500/20 to-transparent blur-3xl" />
+        <div className="absolute top-[30%] left-[40%] w-[30%] h-[30%] rounded-full bg-gradient-radial from-blue-500/15 to-transparent blur-2xl" />
+      </div>
+    </div>
+  );
 }
 
 export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
@@ -70,11 +84,14 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
   const [notesContent, setNotesContent] = useState(initialPlan?.notes || "");
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
+  const [generatingCover, setGeneratingCover] = useState(false);
   
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
+
+  const isOwner = currentUserId ? plan?.user_id === currentUserId : false;
 
   const refreshNodes = () => {
     setRefreshKey(k => k + 1);
@@ -91,6 +108,54 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const handleRegenerateCover = useCallback(async () => {
+    if (!plan || generatingCover) return;
+    setGeneratingCover(true);
+    try {
+      const res = await fetch("/api/learning-plan/generate-cover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: plan.id, description: plan.description || plan.root_topic }),
+      });
+      const data = await res.json();
+      if (data.coverImageUrl) {
+        setPlan({ ...plan, cover_image_url: data.coverImageUrl });
+      }
+    } catch (err) {
+      console.error("Failed to regenerate cover:", err);
+    } finally {
+      setGeneratingCover(false);
+    }
+  }, [plan, generatingCover]);
+
+  // Poll for cover image if plan has none (just created)
+  useEffect(() => {
+    if (!plan || plan.cover_image_url || !isOwner) return;
+    
+    let attempts = 0;
+    const maxAttempts = 12; // ~60 seconds
+    const interval = setInterval(async () => {
+      attempts++;
+      if (attempts >= maxAttempts) {
+        clearInterval(interval);
+        return;
+      }
+      try {
+        const { data } = await supabase
+          .from("learning_plans")
+          .select("cover_image_url")
+          .eq("id", plan.id)
+          .single();
+        if (data?.cover_image_url) {
+          setPlan(prev => prev ? { ...prev, cover_image_url: data.cover_image_url } : prev);
+          clearInterval(interval);
+        }
+      } catch {}
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [plan?.id, plan?.cover_image_url, isOwner]);
 
   useEffect(() => {
     async function loadPlan() {
@@ -137,7 +202,6 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
       } else {
         let finalNodes = nodesData || [];
 
-        // Derive completion status from linked sessions
         const sessionIds = finalNodes
           .map((n: PlanNode) => n.session_id)
           .filter(Boolean) as string[];
@@ -258,48 +322,93 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
     );
   }
 
+  const tabConfig = [
+    { key: "graph" as const, label: "Plan Builder", icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6z" />
+      </svg>
+    )},
+    { key: "notes" as const, label: "Notes", icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+      </svg>
+    )},
+    { key: "analytics" as const, label: "Analytics", icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+      </svg>
+    )},
+  ];
+
   return (
     <div className="h-screen bg-[#0a0a0a] text-white flex flex-col overflow-hidden">
       <Navbar />
 
-      <div className="px-3 pt-2 sm:px-4 sm:pt-3 flex-shrink-0">
-        <div className={`rounded-lg border p-3 ${
-          plan.is_public 
-            ? "bg-green-950/20 border-green-800/50" 
-            : "bg-neutral-900/30 border-neutral-800"
-        }`}>
-          <div className="flex items-start justify-between gap-4">
-            {/* YouTube Thumbnail */}
-            {plan.source_type === "youtube" && plan.source_url && (
-              <a
-                href={plan.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="relative flex-shrink-0 w-20 sm:w-28 aspect-video rounded-md overflow-hidden group"
-              >
-                <img
-                  src={getYouTubeThumbnail(plan.source_url, "medium") || ""}
-                  alt="Source video thumbnail"
-                  className="w-full h-full object-cover"
-                />
-                {/* Play button overlay */}
-                <div className="absolute inset-0 bg-black/30 group-hover:bg-black/50 transition-colors flex items-center justify-center">
-                  <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <svg className="w-5 h-5 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </div>
-                </div>
-              </a>
+      {/* Hero Cover Image Section */}
+      <div className="relative flex-shrink-0 h-36 sm:h-44 group">
+        {/* Cover image or placeholder */}
+        {plan.cover_image_url ? (
+          <img
+            src={plan.cover_image_url}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        ) : (
+          <CoverPlaceholder title={plan.root_topic} />
+        )}
+
+        {/* Gradient overlay for text readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/60 to-transparent" />
+
+        {/* Regenerate cover button (owner only) */}
+        {isOwner && (
+          <button
+            onClick={handleRegenerateCover}
+            disabled={generatingCover}
+            className="absolute top-3 right-3 p-2 rounded-lg bg-black/40 backdrop-blur-sm border border-white/10 text-white/60 hover:text-white hover:bg-black/60 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
+            title={plan.cover_image_url ? "Regenerate cover image" : "Generate cover image"}
+          >
+            {generatingCover ? (
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+              </svg>
             )}
+          </button>
+        )}
+
+        {/* YouTube badge */}
+        {plan.source_type === "youtube" && plan.source_url && (
+          <a
+            href={plan.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/50 backdrop-blur-sm border border-white/10 text-red-400 hover:text-red-300 transition-colors text-xs font-medium"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814z"/>
+              <path d="M9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="white"/>
+            </svg>
+            YouTube
+          </a>
+        )}
+
+        {/* Title + metadata overlay at bottom of hero */}
+        <div className="absolute bottom-0 left-0 right-0 px-4 pb-3">
+          <div className="flex items-end justify-between gap-4">
             <div className="flex-1 min-w-0">
               {isEditingTitle ? (
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-1">
                   <input
                     type="text"
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
-                    className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                    className="flex-1 px-3 py-1.5 bg-black/60 backdrop-blur-sm border border-white/20 rounded-lg text-white text-lg font-bold focus:outline-none focus:border-blue-500"
                     autoFocus
                   />
                   <button
@@ -315,35 +424,31 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                         if (data.success) {
                           setPlan({ ...plan, root_topic: editTitle.trim(), title: editTitle.trim() });
                           setIsEditingTitle(false);
-                        } else {
-                          alert(data.error || "Failed to update title");
                         }
                       } catch (err) {
                         console.error("Error updating title:", err);
-                        alert("Failed to update title");
                       }
                     }}
-                    className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors"
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors"
                   >
                     Save
                   </button>
                   <button
-                    onClick={() => {
-                      setEditTitle(plan.root_topic);
-                      setIsEditingTitle(false);
-                    }}
-                    className="px-3 py-2 bg-neutral-700 hover:bg-neutral-600 text-white text-sm rounded-lg transition-colors"
+                    onClick={() => { setEditTitle(plan.root_topic); setIsEditingTitle(false); }}
+                    className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white text-sm rounded-lg transition-colors"
                   >
                     Cancel
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 mb-0.5">
-                  <h2 className="text-base font-semibold text-white truncate">{plan.root_topic}</h2>
-                  {currentUserId && plan.user_id === currentUserId && (
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl sm:text-2xl font-bold text-white truncate drop-shadow-lg">
+                    {plan.title || plan.root_topic}
+                  </h1>
+                  {isOwner && (
                     <button
                       onClick={() => setIsEditingTitle(true)}
-                      className="text-neutral-500 hover:text-white transition-colors flex-shrink-0"
+                      className="text-white/40 hover:text-white transition-colors flex-shrink-0"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -352,100 +457,23 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                   )}
                 </div>
               )}
-              <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                {plan.source_type === "youtube" && (
-                  <span className="inline-flex items-center gap-1 text-red-400 font-medium">
-                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                    </svg>
-                    {t('planView.youtube')}
-                  </span>
-                )}
-                {plan.is_public ? (
-                  <span className="text-green-400 font-medium">{t('planView.public')}</span>
-                ) : (
-                  <span className="text-neutral-400 font-medium">{t('planView.private')}</span>
-                )}
-                {plan.is_public && (
-                  <span className="text-neutral-500">
-                    · {(plan.remix_count || 0)} {(plan.remix_count || 0) === 1 ? t('planView.fork') : t('planView.forks', { count: plan.remix_count || 0 })}
-                  </span>
-                )}
-                {plan.is_public && plan.author_username && (
-                  <span className="text-neutral-500">{t('planView.by')} @{plan.author_username}</span>
-                )}
-                {plan.original_plan_id && (
-                  <span className="text-neutral-500">· {t('planView.remixed')}</span>
-                )}
-              </div>
-              
-              {/* Description */}
-              {isEditingDescription ? (
-                <div className="mt-2">
-                  <textarea
-                    value={editDescription}
-                    onChange={(e) => setEditDescription(e.target.value)}
-                    placeholder={t('planView.addDescription')}
-                    className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 resize-none"
-                    rows={2}
-                    autoFocus
-                  />
-                  <div className="flex gap-2 mt-2">
-                    <button
-                      onClick={saveDescription}
-                      disabled={savingDescription}
-                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 text-white text-xs rounded-lg transition-colors"
-                    >
-                      {savingDescription ? t('common.saving') : t('common.save')}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEditDescription(plan.description || "");
-                        setIsEditingDescription(false);
-                      }}
-                      className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white text-xs rounded-lg transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-2 group/desc">
-                  {plan.description ? (
-                    <p className="text-sm text-neutral-400 leading-relaxed line-clamp-2">
-                      {plan.description}
-                      {currentUserId && plan.user_id === currentUserId && (
-                        <button
-                          onClick={() => setIsEditingDescription(true)}
-                          className="ml-2 text-neutral-500 hover:text-white transition-colors opacity-0 group-hover/desc:opacity-100"
-                        >
-                          <svg className="w-3.5 h-3.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                          </svg>
-                        </button>
-                      )}
-                    </p>
-                  ) : currentUserId && plan.user_id === currentUserId ? (
-                    <button
-                      onClick={() => setIsEditingDescription(true)}
-                      className="text-sm text-neutral-500 hover:text-neutral-400 transition-colors"
-                    >
-                      {t('planView.addDescriptionBtn')}
-                    </button>
-                  ) : null}
-                </div>
+              {/* Subtitle: topic name if title differs */}
+              {plan.title && plan.title !== plan.root_topic && (
+                <p className="text-sm text-white/50 truncate mt-0.5">{plan.root_topic}</p>
               )}
             </div>
-            {currentUserId && plan.user_id === currentUserId ? (
-              <div className="flex gap-2">
-                {plan.is_public && (
-                  <button
-                    onClick={handleShare}
-                    className="text-xs px-3 py-1.5 rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors whitespace-nowrap"
-                  >
-                    {copied ? t('planView.copied') : t('planView.share')}
-                  </button>
-                )}
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {plan.is_public && (
+                <button
+                  onClick={handleShare}
+                  className="text-xs px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 text-white/70 hover:text-white hover:bg-white/20 transition-all"
+                >
+                  {copied ? t('planView.copied') : t('planView.share')}
+                </button>
+              )}
+              {isOwner ? (
                 <button
                   onClick={async () => {
                     try {
@@ -458,81 +486,119 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                       const data = await res.json();
                       if (data.success) {
                         setPlan({ ...plan, is_public: !isPublic });
-                      } else {
-                        alert(data.error || "Failed to update visibility");
                       }
                     } catch (err) {
                       console.error("Error toggling visibility:", err);
-                      alert("Failed to update visibility");
                     }
                   }}
-                  className={`text-xs px-3 py-1.5 rounded-lg border transition-colors whitespace-nowrap ${
+                  className={`text-xs px-3 py-1.5 rounded-full backdrop-blur-sm border transition-all ${
                     plan.is_public
-                      ? "bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-white hover:bg-neutral-700"
-                      : "bg-green-900/30 border-green-800 text-green-400 hover:bg-green-900/50"
+                      ? "bg-green-500/15 border-green-500/30 text-green-400 hover:bg-green-500/25"
+                      : "bg-white/10 border-white/10 text-white/70 hover:text-white hover:bg-white/20"
                   }`}
                 >
-                  {plan.is_public ? t('planView.makePrivate') : t('planView.makePublic')}
+                  {plan.is_public ? t('planView.public') : t('planView.makePublic')}
                 </button>
-              </div>
-            ) : !currentUserId ? (
-              <div className="flex gap-2">
-                {plan.is_public && (
-                  <button
-                    onClick={handleShare}
-                    className="text-xs px-3 py-1.5 rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors whitespace-nowrap"
-                  >
-                    {copied ? t('planView.copied') : t('planView.share')}
-                  </button>
-                )}
+              ) : currentUserId ? (
+                <button
+                  onClick={() => setShowRemixModal(true)}
+                  className="text-xs px-3 py-1.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-400 hover:bg-blue-500/25 transition-all"
+                >
+                  {t('planView.forkRemix')}
+                </button>
+              ) : (
                 <Link
                   href="/register"
-                  className="text-xs px-3 py-1.5 rounded-lg border border-blue-500/50 text-blue-400 hover:bg-blue-500/10 transition-colors whitespace-nowrap"
+                  className="text-xs px-3 py-1.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-400 hover:bg-blue-500/25 transition-all"
                 >
                   {t('planView.forkRemix')}
                 </Link>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                {plan.is_public && (
-                  <button
-                    onClick={handleShare}
-                    className="text-xs px-3 py-1.5 rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors whitespace-nowrap"
-                  >
-                    {copied ? t('planView.copied') : t('planView.share')}
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowRemixModal(true)}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-blue-500/50 text-blue-400 hover:bg-blue-500/10 transition-colors whitespace-nowrap"
-                >
-                  {t('planView.forkRemix')}
-                </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Tab bar */}
-      <div className="px-3 sm:px-4 pt-2 flex-shrink-0">
-        <div className="flex gap-1 border-b border-neutral-800">
-          {(["graph", "notes", "analytics"] as const).map((tab) => (
+      {/* Metadata bar */}
+      <div className="px-4 py-2 flex items-center gap-3 text-xs flex-shrink-0 border-b border-neutral-800/50">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {plan.is_public && plan.author_username && (
+            <span className="text-neutral-500">{t('planView.by')} <span className="text-neutral-400">@{plan.author_username}</span></span>
+          )}
+          {plan.is_public && (plan.remix_count ?? 0) > 0 && (
+            <span className="text-neutral-600">·</span>
+          )}
+          {plan.is_public && (plan.remix_count ?? 0) > 0 && (
+            <span className="text-neutral-500">
+              {plan.remix_count} {(plan.remix_count || 0) === 1 ? t('planView.fork') : t('planView.forks', { count: plan.remix_count || 0 })}
+            </span>
+          )}
+          {plan.original_plan_id && (
+            <>
+              <span className="text-neutral-600">·</span>
+              <span className="text-violet-400/70 font-medium">{t('planView.remixed')}</span>
+            </>
+          )}
+        </div>
+
+        {/* Inline description */}
+        {isEditingDescription ? (
+          <div className="flex items-center gap-2 flex-1">
+            <input
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              placeholder={t('planView.addDescription')}
+              className="flex-1 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-xs focus:outline-none focus:border-blue-500"
+              autoFocus
+            />
+            <button onClick={saveDescription} disabled={savingDescription} className="text-blue-400 hover:text-blue-300 text-xs font-medium">
+              {savingDescription ? "..." : "Save"}
+            </button>
+            <button onClick={() => { setEditDescription(plan.description || ""); setIsEditingDescription(false); }} className="text-neutral-500 hover:text-neutral-300 text-xs">
+              Cancel
+            </button>
+          </div>
+        ) : plan.description ? (
+          <p className="text-neutral-500 truncate flex-1 cursor-pointer hover:text-neutral-400 transition-colors" onClick={() => isOwner && setIsEditingDescription(true)}>
+            {plan.description}
+          </p>
+        ) : isOwner ? (
+          <button onClick={() => setIsEditingDescription(true)} className="text-neutral-600 hover:text-neutral-400 transition-colors text-xs">
+            {t('planView.addDescriptionBtn')}
+          </button>
+        ) : null}
+
+        {isOwner && plan.is_public && !isEditingDescription && (
+          <button
+            onClick={() => setShowRemixModal(true)}
+            className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+          >
+            {t('planView.forkRemix')}
+          </button>
+        )}
+      </div>
+
+      {/* Pill Tab Bar */}
+      <div className="px-4 pt-2.5 pb-1 flex-shrink-0">
+        <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-neutral-900/80 border border-neutral-800/50">
+          {tabConfig.map(({ key, label, icon }) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                activeTab === tab
-                  ? "text-white border-blue-500"
-                  : "text-neutral-500 border-transparent hover:text-neutral-300"
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                activeTab === key
+                  ? "bg-neutral-700/80 text-white shadow-sm"
+                  : "text-neutral-500 hover:text-neutral-300"
               }`}
             >
-              {tab === "graph" ? "Plan Builder" : tab === "notes" ? "Notes" : "Analytics"}
+              {icon}
+              {label}
             </button>
           ))}
         </div>
       </div>
 
+      {/* Tab Content */}
       <main className="flex-1 p-3 sm:p-4 pb-3 sm:pb-4 min-h-0 overflow-hidden">
         {activeTab === "graph" && (
           <PlanChat 
@@ -542,7 +608,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
             planId={planId}
             onRefresh={refreshNodes}
             onNodesUpdate={handleNodesUpdate}
-            isOwner={currentUserId ? plan.user_id === currentUserId : false}
+            isOwner={isOwner}
             currentUserId={currentUserId}
           />
         )}
@@ -550,15 +616,14 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
         {activeTab === "notes" && (
           <div className="h-full overflow-y-auto">
             <div className="w-full">
-              {currentUserId && plan.user_id === currentUserId ? (
-                // Owner: editable notes
+              {isOwner ? (
                 isEditingNotes ? (
                   <div className="space-y-3">
                     <textarea
                       value={notesContent}
                       onChange={(e) => setNotesContent(e.target.value)}
                       placeholder="Write notes about this plan... (Markdown supported)"
-                      className="w-full h-[60vh] px-4 py-3 bg-neutral-900 border border-neutral-700 rounded-lg text-white text-sm font-mono focus:outline-none focus:border-blue-500 resize-none"
+                      className="w-full h-[60vh] px-4 py-3 bg-neutral-900/50 border border-neutral-800 rounded-xl text-white text-sm font-mono focus:outline-none focus:border-blue-500/50 resize-none"
                       autoFocus
                     />
                     <div className="flex gap-2">
@@ -570,11 +635,8 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                         {savingNotes ? "Saving..." : "Save"}
                       </button>
                       <button
-                        onClick={() => {
-                          setNotesContent(plan.notes || "");
-                          setIsEditingNotes(false);
-                        }}
-                        className="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white text-sm rounded-lg transition-colors"
+                        onClick={() => { setNotesContent(plan.notes || ""); setIsEditingNotes(false); }}
+                        className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-sm rounded-lg transition-colors"
                       >
                         Cancel
                       </button>
@@ -584,7 +646,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                   <div>
                     {notesContent ? (
                       <div 
-                        className="prose prose-invert prose-sm max-w-none cursor-pointer hover:bg-neutral-900/50 rounded-lg p-4 transition-colors"
+                        className="prose prose-invert prose-sm max-w-none cursor-pointer hover:bg-neutral-900/30 rounded-xl p-5 transition-colors border border-transparent hover:border-neutral-800/50"
                         onClick={() => setIsEditingNotes(true)}
                       >
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{notesContent}</ReactMarkdown>
@@ -593,22 +655,27 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                     ) : (
                       <button
                         onClick={() => setIsEditingNotes(true)}
-                        className="w-full py-12 border-2 border-dashed border-neutral-700 rounded-lg text-neutral-500 hover:text-neutral-400 hover:border-neutral-600 transition-colors"
+                        className="w-full py-16 border border-dashed border-neutral-800 rounded-xl text-neutral-600 hover:text-neutral-400 hover:border-neutral-700 transition-all flex flex-col items-center gap-3"
                       >
-                        Add notes to this plan...
+                        <svg className="w-8 h-8 text-neutral-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                        </svg>
+                        <span className="text-sm">Add notes to this plan...</span>
                       </button>
                     )}
                   </div>
                 )
               ) : (
-                // Viewer: read-only notes
                 notesContent ? (
-                  <div className="prose prose-invert prose-sm max-w-none p-4">
+                  <div className="prose prose-invert prose-sm max-w-none p-5">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{notesContent}</ReactMarkdown>
                   </div>
                 ) : (
-                  <div className="text-center py-12 text-neutral-500">
-                    No notes for this plan yet.
+                  <div className="text-center py-16 text-neutral-600 flex flex-col items-center gap-3">
+                    <svg className="w-8 h-8 text-neutral-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                    </svg>
+                    <span className="text-sm">No notes for this plan yet.</span>
                   </div>
                 )
               )}
@@ -619,7 +686,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
         {activeTab === "analytics" && (
           <PlanAnalytics 
             planId={planId}
-            isOwner={currentUserId ? plan.user_id === currentUserId : false}
+            isOwner={isOwner}
           />
         )}
       </main>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { callOpenRouterWithYouTube, VIDEO_MODEL } from "@/lib/openrouter-client";
 import { isValidYouTubeUrl, normalizeYouTubeUrl } from "@/lib/youtube";
+import { generateAndStorePlanCover } from "@/lib/plan-image";
 
 interface NodeData {
   id: string;
@@ -12,6 +13,7 @@ interface NodeData {
 }
 
 interface VideoPlanData {
+  title: string;
   video_title: string;
   video_summary: string;
   nodes: NodeData[];
@@ -59,6 +61,7 @@ export async function POST(req: NextRequest) {
 
 Return ONLY valid JSON (no markdown, no code blocks) with this exact structure:
 {
+  "title": "A short, catchy, social-media-friendly title for this learning plan (max 6 words, creative and engaging — NOT just the video title)",
   "video_title": "The title or topic of the video",
   "video_summary": "A 2-3 paragraph summary of the key concepts covered in the video. This should be detailed enough for a tutor to reference when helping a student learn this material. Include main topics, key insights, and any prerequisites that would be helpful.",
   "nodes": [
@@ -113,12 +116,14 @@ Rules for nodes:
       planData.video_summary = "";
     }
 
+    const catchyTitle = planData.title || planData.video_title;
+
     // Create the learning plan with YouTube source metadata
     const { data: plan, error: planError } = await supabase
       .from("learning_plans")
       .insert({
         user_id: user.id,
-        title: planData.video_title,
+        title: catchyTitle,
         root_topic: planData.video_title,
         status: "active",
         source_type: "youtube",
@@ -181,8 +186,17 @@ Rules for nodes:
         .eq("id", currentNodeId);
     }
 
+    // Fire-and-forget: generate cover image asynchronously
+    generateAndStorePlanCover(
+      supabase as any,
+      user.id,
+      plan.id,
+      planData.video_title
+    ).catch((err) => console.error("Async cover generation failed:", err));
+
     return NextResponse.json({ 
       planId: plan.id,
+      title: catchyTitle,
       videoTitle: planData.video_title,
     });
 
