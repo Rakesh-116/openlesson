@@ -32,8 +32,8 @@ export const EEG_CHANNELS = [
   "AUX_L",
 ] as const;
 
-// EEG scaling: convert 12-bit ADC to microvolts
-const EEG_SCALE = 1000.0 / 2048.0;
+// EEG scaling: convert 14-bit ADC to microvolts (Muse S Athena is 14-bit)
+const EEG_SCALE = 1000.0 / 8192.0;
 // IMU scaling
 const IMU_SCALE = 1.0 / 100.0;
 
@@ -55,6 +55,22 @@ export interface IMUSample {
   timestamp: number;
   accel: [number, number, number];
   gyro: [number, number, number];
+}
+
+export interface FNIRSSample {
+  timestamp: number;
+  raw: number[]; // Raw light intensities
+  hbo: number;   // Oxygenated hemoglobin (HbO2)
+  hbr: number;   // Deoxygenated hemoglobin (HbR)
+  hbt: number;   // Total hemoglobin
+  spO2: number;  // Blood oxygen saturation estimate
+}
+
+export interface DeviceStatus {
+  battery: number; // 0-100
+  electrodeQuality: Record<string, number>; // channel -> quality 0-1
+  signalQuality: "good" | "fair" | "poor";
+  firmware?: string;
 }
 
 export interface DeviceInfo {
@@ -154,6 +170,34 @@ function decodePacketF4(
   };
 }
 
+function decodePacketE0(data: DataView): FNIRSSample | null {
+  if (data.byteLength < 20) return null;
+  
+  const raw: number[] = [];
+  let offset = 4;
+  
+  while (offset + 2 <= data.byteLength) {
+    raw.push(data.getUint16(offset, false));
+    offset += 2;
+  }
+  
+  if (raw.length < 4) return null;
+  
+  const hbo = (raw[0] - 32768) / 1000;
+  const hbr = (raw[1] - 32768) / 1000;
+  const hbt = (raw[2] - 32768) / 1000;
+  const spO2 = raw[3] / 10;
+  
+  return {
+    timestamp: Date.now(),
+    raw,
+    hbo,
+    hbr,
+    hbt,
+    spO2: Math.min(100, Math.max(0, spO2)),
+  };
+}
+
 // ============================================
 // MuseAthenaClient
 // ============================================
@@ -167,11 +211,16 @@ export class MuseAthenaClient {
   private _status: MuseAthenaStatus = "disconnected";
   private _deviceName: string | null = null;
   private _deviceInfo: DeviceInfo = {};
+  private _lastSignalQuality: DeviceStatus["signalQuality"] = "poor";
+  private _electrodeQuality: Record<string, number> = {};
 
   // Callbacks
   private onEEGCallbacks: ((sample: EEGSample) => void)[] = [];
   private onPPGCallbacks: ((sample: PPGSample) => void)[] = [];
   private onIMUCallbacks: ((sample: IMUSample) => void)[] = [];
+  private onFNIRSCallbacks: ((sample: FNIRSSample) => void)[] = [];
+  private onDeviceStatusCallbacks: ((status: DeviceStatus) => void)[] = [];
+  private onSignalQualityCallbacks: ((quality: DeviceStatus) => void)[] = [];
   private onStatusCallbacks: ((status: MuseAthenaStatus) => void)[] = [];
 
   get status(): MuseAthenaStatus {
@@ -184,6 +233,18 @@ export class MuseAthenaClient {
 
   get deviceInfo(): DeviceInfo {
     return this._deviceInfo;
+  }
+
+  get electrodeQuality(): Record<string, number> {
+    return this._electrodeQuality;
+  }
+
+  get signalQuality(): DeviceStatus["signalQuality"] {
+    return this._lastSignalQuality;
+  }
+
+  get battery(): number {
+    return this._deviceInfo.battery ?? 0;
   }
 
   // ---- Event registration ----
@@ -206,6 +267,27 @@ export class MuseAthenaClient {
     this.onIMUCallbacks.push(cb);
     return () => {
       this.onIMUCallbacks = this.onIMUCallbacks.filter((c) => c !== cb);
+    };
+  }
+
+  onFNIRS(cb: (sample: FNIRSSample) => void): () => void {
+    this.onFNIRSCallbacks.push(cb);
+    return () => {
+      this.onFNIRSCallbacks = this.onFNIRSCallbacks.filter((c) => c !== cb);
+    };
+  }
+
+  onDeviceStatus(cb: (status: DeviceStatus) => void): () => void {
+    this.onDeviceStatusCallbacks.push(cb);
+    return () => {
+      this.onDeviceStatusCallbacks = this.onDeviceStatusCallbacks.filter((c) => c !== cb);
+    };
+  }
+
+  onSignalQualityChange(cb: (quality: DeviceStatus) => void): () => void {
+    this.onSignalQualityCallbacks.push(cb);
+    return () => {
+      this.onSignalQualityCallbacks = this.onSignalQualityCallbacks.filter((c) => c !== cb);
     };
   }
 
@@ -394,7 +476,45 @@ export class MuseAthenaClient {
         }
         break;
       }
+
+      // fNIRS packet (0xE0)
+      case 0xe0: {
+        const fnirs = decodePacketE0(data);
+        if (fnirs) {
+          this.onFNIRSCallbacks.forEach((cb) => cb(fnirs));
+          this.updateSignalQuality();
+        }
+        break;
+      }
     }
+  }
+
+  private updateSignalQuality(): void {
+    const eegChannels = ["TP9", "AF7", "AF8", "TP10", "FPz", "AUX_R", "AUX_L"];
+    
+    let goodChannels = 0;
+    for (const ch of eegChannels) {
+      const q = this._electrodeQuality[ch] ?? 0;
+      if (q > 0.5) goodChannels++;
+    }
+    
+    const overall = goodChannels >= 5 ? "good" : goodChannels >= 3 ? "fair" : "poor";
+    this._lastSignalQuality = overall;
+    
+    const status: DeviceStatus = {
+      battery: this._deviceInfo.battery ?? 0,
+      electrodeQuality: { ...this._electrodeQuality },
+      signalQuality: overall,
+      firmware: this._deviceInfo.firmware,
+    };
+    
+    this.onDeviceStatusCallbacks.forEach((cb) => cb(status));
+    this.onSignalQualityCallbacks.forEach((cb) => cb(status));
+  }
+
+  updateElectrodeQuality(channel: string, quality: number): void {
+    this._electrodeQuality[channel] = Math.max(0, Math.min(1, quality));
+    this.updateSignalQuality();
   }
 
   private async writeCommand(cmd: Uint8Array): Promise<void> {

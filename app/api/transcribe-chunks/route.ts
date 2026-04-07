@@ -47,7 +47,7 @@ async function transcribeChunk(supabase: SupabaseServerClient, storagePath: stri
         "X-Title": "Socrates Transcription",
       },
       body: JSON.stringify({
-        model: "anthropic/claude-3-haiku",
+        model: "google/gemini-2.5-flash",
         messages: [
           {
             role: "system",

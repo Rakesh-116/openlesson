@@ -305,7 +305,7 @@ CURRENT PLAN:
 RECENT SESSION ACTIVITY:
 {context_description}
 
-RECENT TRANSCRIPT (from audio):
+TRANSCRIPT CONTEXT (up to 3 minutes of session audio, most recent speech is most important):
 {transcript}
 
 Requests/Probes Already Presented:
@@ -344,7 +344,6 @@ IMPORTANT CONSTRAINT: There can be a maximum of 5 open (non-archived) probes at 
 - If you determine a probe has been adequately addressed, include its ID in "probes_to_archive"
 
 CRITICAL RULES:
-- NEVER suggest taking a break or pausing. Always set should_pause to false.
 - EVERY question or request MUST be specific to the CURRENT STEP in the plan. Never ask abstract, meta, or philosophical questions.
 - Stay laser-focused on the concrete topic of the current step. Ask about specific concepts, specific examples, specific applications — not "how do you feel about..." or "what is your approach to...".
 - Your obsession is to move the student FORWARD through concrete understanding of each step. Every probe should make tangible progress.
@@ -377,18 +376,21 @@ Based on these observations, decide:
      * Gap score is < 0.5 (student is progressing well)
      * There are positive signals of progress (not just neutral)
      * The student is clearly moving toward or past the current step's objective
-   - Set can_auto_advance to false if:
-     * Gap score >= 0.5 (hesitation or gaps present)
-     * Confusion signals detected
-     * Student seems stuck or is going in circles
-     * There's insufficient evidence the step is complete
+    - Set can_auto_advance to false if:
+      * Gap score >= 0.5 (hesitation or gaps present)
+      * Confusion signals detected
+      * Student seems stuck or is going in circles
+      * There's insufficient evidence the step is complete
+    - IMPORTANT: When can_auto_advance is false, the advance_reasoning MUST be specific and actionable. 
+      Do NOT say vague things like "insufficient evidence". Instead explain exactly what the student 
+      still needs to demonstrate, e.g. "You haven't yet explained why X leads to Y" or 
+      "Try working through a concrete example of Z before moving on".
 
 Return ONLY valid JSON:
 {
   "gap_score": 0.5,
   "signals": ["hesitation", "confusion"],
   "plan_changed": true/false,
-  "should_pause": false,
   "updated_steps": [...],
   "current_step_index": <number>,
   "next_request": {
@@ -919,8 +921,6 @@ export interface SessionPlanUpdateRequest {
 
 export interface SessionPlanUpdateResult {
   planChanged: boolean;
-  shouldPause: boolean;
-  pauseReason?: string;
   updatedSteps?: SessionPlanStep[];
   currentStepIndex: number;
   nextRequest: SessionPlanUpdateRequest | null;
@@ -980,8 +980,6 @@ export async function updateSessionPlanLLM(options: {
 
   interface RawPlanUpdate {
     plan_changed?: boolean;
-    should_pause?: boolean;
-    pause_reason?: string;
     updated_steps?: SessionPlanStep[];
     current_step_index?: number;
     next_request?: { type?: string; text?: string } | null;
@@ -1038,8 +1036,6 @@ export async function updateSessionPlanLLM(options: {
 
   const result: SessionPlanUpdateResult = {
     planChanged,
-    shouldPause: parsed.should_pause || false,
-    pauseReason: parsed.pause_reason,
     updatedSteps,
     currentStepIndex: parsed.current_step_index ?? options.currentStepIndex,
     nextRequest: parsed.next_request === null ? null : {

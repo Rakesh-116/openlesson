@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionPlan, updateSessionPlan, validatePlanSteps, logToolUsage, type SessionPlanStep } from "@/lib/storage";
+import { getSessionPlan, updateSessionPlan, validatePlanSteps, logToolUsage, getRecentTranscripts, type SessionPlanStep } from "@/lib/storage";
 import { createClient } from "@/lib/supabase/server";
+import { updateSessionPlanLLM } from "@/lib/openrouter";
+import { getUserPrompts } from "@/lib/prompts";
 
 export const runtime = "nodejs";
-export const maxDuration = 10;
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { sessionId } = body;
+    const { sessionId, forceAdvance, previousProbes, focusedProbes, openProbeCount } = body;
 
     if (!sessionId) {
       return NextResponse.json(
@@ -42,6 +44,46 @@ export async function POST(request: NextRequest) {
         { error: "Plan has no steps" },
         { status: 400 }
       );
+    }
+
+    // Unless forceAdvance, evaluate whether the student is ready to move on
+    if (!forceAdvance) {
+      try {
+        const [transcripts, promptOverrides] = await Promise.all([
+          getRecentTranscripts(sessionId, 180000),
+          getUserPrompts(supabase, user.id),
+        ]);
+        const transcriptText = transcripts.map(t => t.content).join("\n\n");
+
+        if (transcriptText.length > 0) {
+          const evalResult = await updateSessionPlanLLM({
+            goal: currentPlan.goal,
+            strategy: currentPlan.strategy,
+            steps: currentPlan.steps,
+            currentStepIndex: currentPlan.currentStepIndex,
+            transcript: transcriptText,
+            previousProbes: previousProbes || [],
+            focusedProbes: focusedProbes || [],
+            openProbeCount: openProbeCount ?? 0,
+            lastProbeTimestamp: 0,
+            promptOverrides,
+          });
+
+          if (evalResult.success && evalResult.result && !evalResult.result.canAutoAdvance) {
+            return NextResponse.json({
+              plan: currentPlan,
+              allComplete: false,
+              blocked: true,
+              advanceReasoning: evalResult.result.advanceReasoning || "The current step doesn't appear to be fully complete yet.",
+              gapScore: evalResult.result.gapScore,
+              nextRequest: evalResult.result.nextRequest,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("[advance-step] Evaluation failed, allowing advance:", err);
+        // Fall through to mechanical advance if evaluation fails
+      }
     }
 
     // Mark the current step as completed

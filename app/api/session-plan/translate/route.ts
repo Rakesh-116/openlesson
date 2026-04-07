@@ -113,7 +113,7 @@ Return ONLY valid JSON (no markdown, no explanation):
     }>(
       [userMessage(translationPrompt)],
       {
-        model: "anthropic/claude-3.5-sonnet",
+        model: "anthropic/claude-sonnet-4",
         maxTokens: 1500,
         temperature: 0.3,
       }

@@ -60,6 +60,7 @@ interface ProbeNotificationsProps {
   // Loading and celebration states
   isInitializing?: boolean;
   isCelebrating?: boolean;
+  isGeneratingProbe?: boolean;
 }
 
 // Type badge styling based on request type
@@ -115,6 +116,7 @@ export function ProbeNotifications({
   onToggleAutoAdvance,
   isInitializing = false,
   isCelebrating = false,
+  isGeneratingProbe = false,
 }: ProbeNotificationsProps) {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -485,6 +487,11 @@ export function ProbeNotifications({
               <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
               <p className="text-xs text-neutral-500">{t('probes.preparing')}</p>
             </div>
+          ) : isGeneratingProbe && viewMode === "active" ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-3">
+              <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+              <p className="text-xs text-neutral-500">Generating probe...</p>
+            </div>
           ) : (
             <p className="text-xs text-neutral-600 text-center py-4">
               {searchQuery 
@@ -632,6 +639,13 @@ export function ProbeNotifications({
                 </p>
               </div>
             ))}
+            {/* Probe generation spinner */}
+            {isGeneratingProbe && viewMode === "active" && (
+              <div className="flex items-center gap-2.5 p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/30 animate-pulse">
+                <div className="w-4 h-4 border-2 border-neutral-600 border-t-cyan-500 rounded-full animate-spin shrink-0" />
+                <span className="text-xs text-neutral-500">Generating probe...</span>
+              </div>
+            )}
           </>
         )}
             </div>

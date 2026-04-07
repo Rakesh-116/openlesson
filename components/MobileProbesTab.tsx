@@ -9,6 +9,7 @@ interface MobileProbesTabProps {
   onArchiveProbe?: (probeId: string) => Promise<void>;
   onToggleFocus?: (probeId: string, focused: boolean) => void;
   archivingProbeId?: string | null;
+  isGeneratingProbe?: boolean;
 }
 
 // Type badge styling based on request type
@@ -35,6 +36,7 @@ export function MobileProbesTab({
   onArchiveProbe,
   onToggleFocus,
   archivingProbeId,
+  isGeneratingProbe = false,
 }: MobileProbesTabProps) {
   const [viewMode, setViewMode] = useState<"active" | "archived">("active");
   const [expandedProbeId, setExpandedProbeId] = useState<string | null>(null);
@@ -86,25 +88,32 @@ export function MobileProbesTab({
       {/* Probes list */}
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 space-y-3">
         {displayedProbes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-neutral-800 flex items-center justify-center mb-4">
-              <svg className="w-8 h-8 text-neutral-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+          isGeneratingProbe && viewMode === "active" ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <div className="w-7 h-7 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+              <p className="text-neutral-500 text-sm">Generating probe...</p>
             </div>
-            <p className="text-neutral-500 text-sm">
-              {viewMode === "active" 
-                ? "No active probes yet" 
-                : "No archived probes"
-              }
-            </p>
-            <p className="text-neutral-600 text-xs mt-1">
-              {viewMode === "active" 
-                ? "Start your session to receive guiding questions" 
-                : "Completed probes will appear here"
-              }
-            </p>
-          </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="w-16 h-16 rounded-full bg-neutral-800 flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-neutral-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-neutral-500 text-sm">
+                {viewMode === "active" 
+                  ? "No active probes yet" 
+                  : "No archived probes"
+                }
+              </p>
+              <p className="text-neutral-600 text-xs mt-1">
+                {viewMode === "active" 
+                  ? "Start your session to receive guiding questions" 
+                  : "Completed probes will appear here"
+                }
+              </p>
+            </div>
+          )
         ) : (
           displayedProbes.map((probe) => {
             const planStep = probe.planStepId 
@@ -206,6 +215,13 @@ export function MobileProbesTab({
               </div>
             );
           })
+        )}
+        {/* Probe generation spinner at bottom of list */}
+        {isGeneratingProbe && viewMode === "active" && displayedProbes.length > 0 && (
+          <div className="flex items-center gap-2.5 p-3 rounded-xl bg-neutral-800/50 border border-neutral-700/30 animate-pulse">
+            <div className="w-4 h-4 border-2 border-neutral-600 border-t-cyan-500 rounded-full animate-spin shrink-0" />
+            <span className="text-xs text-neutral-500">Generating probe...</span>
+          </div>
         )}
       </div>
     </div>

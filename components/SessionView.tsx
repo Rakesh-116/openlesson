@@ -53,8 +53,10 @@ import { LLMChat, type ChatMessage } from "./LLMChat";
 import { DataInputTool } from "./DataInputTool";
 import { LogsTool, type LogEntry } from "./LogsTool";
 import { createScreenCapture } from "@/lib/screen-capture";
-import { saveScreenshot } from "@/lib/storage";
-
+import { saveScreenshot, updateSessionPlan } from "@/lib/storage";
+import { LocalInferenceManager, type InitProgress, type LocalAnalysisContext } from "@/lib/local-inference";
+import { LocalContextBuffer } from "@/lib/local-context";
+// ModelLoadingModal no longer used -- loading UI is inline in welcome modal
 
 import { PopOutBanner } from "./PopOutBanner";
 import { 
@@ -166,6 +168,23 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     storage?: string;
   }>({});
 
+  // Local inference
+  const [localInferenceEnabled, setLocalInferenceEnabled] = useState(false);
+  const localInferenceEnabledRef = useRef(false);
+  const localContextRef = useRef<LocalContextBuffer | null>(null);
+  const [modelLoadProgress, setModelLoadProgress] = useState<InitProgress | null>(null);
+  const [modelLoadError, setModelLoadError] = useState<string | null>(null);
+  const [webGPUAvailable, setWebGPUAvailable] = useState(false);
+  const [isGeneratingProbe, setIsGeneratingProbe] = useState(false);
+
+  // Combined session prep modal (plan + optional model loading)
+  const [prepStage, setPrepStage] = useState<"plan" | "model" | "done">("plan");
+
+  // Detect WebGPU on mount
+  useEffect(() => {
+    setWebGPUAvailable(LocalInferenceManager.isWebGPUAvailable());
+  }, []);
+
   // Welcome modal
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
 
@@ -248,6 +267,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       logToolUsage(session.id, prevTool as ToolName, "close", elapsedTime, {});
     }
     logToolUsage(session.id, activeTool as ToolName, "open", elapsedTime, {});
+    // Feed tool events into local context buffer
+    if (localInferenceEnabledRef.current && localContextRef.current) {
+      localContextRef.current.addToolEvent(`opened ${activeTool}`);
+    }
     
     prevToolRef.current = activeTool;
   }, [activeTool, session?.id, session?.startedAt]);
@@ -355,6 +378,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     if (facialBufferRef.current.length > 120) {
       facialBufferRef.current = facialBufferRef.current.slice(-120);
     }
+    // Feed into local context buffer if local inference is active
+    if (localInferenceEnabledRef.current && localContextRef.current) {
+      localContextRef.current.addFacialData({
+        confusionScore: data.confusionScore ?? 0,
+        frustrationScore: data.frustrationScore ?? 0,
+        emotion: data.emotion === "confused" ? 0.8 : data.emotion === "frustrated" ? 0.7 : 0.2,
+        attention: data.attentionLevel === "high" ? 0.9 : data.attentionLevel === "medium" ? 0.5 : 0.2,
+      });
+    }
   }, []);
 
   const handleFaceError = useCallback((error: string) => {
@@ -380,6 +412,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   useEffect(() => { objectivesRef.current = objectives; }, [objectives]);
   useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
   useEffect(() => { autoAdvanceRef.current = autoAdvance; }, [autoAdvance]);
+  useEffect(() => { localInferenceEnabledRef.current = localInferenceEnabled; }, [localInferenceEnabled]);
   useEffect(() => { museStatusRef.current = museStatus; }, [museStatus]);
   useEffect(() => { isWebcamEnabledRef.current = isWebcamEnabled; }, [isWebcamEnabled]);
   useEffect(() => { sessionPlanRef.current = sessionPlan; }, [sessionPlan]);
@@ -828,8 +861,109 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     setMuseStatus("disconnected");
   };
 
+  // ---- Local Analysis Heartbeat (runs Gemma 4 E2B in-browser) ----
+  const runLocalAnalysisHeartbeat = useCallback(async () => {
+    const currentSession = sessionRef.current;
+    const currentPlan = sessionPlanRef.current;
+    const recorder = recorderRef.current;
+    const manager = LocalInferenceManager.getInstance();
+
+    if (!currentSession || !currentPlan || !manager.isReady()) return;
+    if (observerModeRef.current === "off") return;
+    if (isMutedRef.current) return;
+    if (isAnalyzingRef.current) return;
+
+    isAnalyzingRef.current = true;
+    setIsAnalyzing(true);
+
+    try {
+      // Ensure local context buffer exists
+      if (!localContextRef.current) {
+        localContextRef.current = new LocalContextBuffer();
+      }
+      const ctx = localContextRef.current;
+
+      // Step 1: Transcribe recent audio locally
+      if (recorder && isRecordingRef.current) {
+        try {
+          const recentAudio = recorder.getRecentAudio(10000); // last 10s
+          if (recentAudio && recentAudio.size > 100) {
+            const transcript = await manager.transcribe(recentAudio);
+            if (transcript) {
+              ctx.addTranscript(transcript);
+            }
+          }
+        } catch (err) {
+          console.warn("[LocalInference] Transcription error:", err);
+        }
+      }
+
+      // Step 2: Generate a probe locally (no plan update)
+      const openProbes = currentSession.probes.filter(p => !p.archived);
+      if (openProbes.length >= 5) {
+        // Too many open probes, skip generation
+        return;
+      }
+
+      const currentStep = currentPlan.steps?.[currentPlan.currentStepIndex];
+      const snapshot = ctx.getContext();
+
+      const analysisContext: LocalAnalysisContext = {
+        planGoal: currentPlan.goal || "",
+        currentStep: currentStep?.description || "",
+        recentTranscripts: snapshot.recentTranscripts,
+        toolEvents: snapshot.toolEvents,
+        facialSummary: snapshot.facialSummary,
+        eegSummary: snapshot.eegSummary,
+        previousProbes: currentSession.probes.map(p => p.text),
+        tutoringLanguage: tutoringLanguage,
+      };
+
+      setIsGeneratingProbe(true);
+      const probeText = await manager.generateProbe(analysisContext);
+      setIsGeneratingProbe(false);
+
+      if (probeText && probeText.trim().length > 5) {
+        // Add probe in-memory only (not persisted to Supabase)
+        const localProbe: Probe = {
+          id: `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
+          gapScore: 0.5,
+          signals: ["local-inference"],
+          text: probeText.trim(),
+          requestType: "question" as RequestType,
+          archived: false,
+          starred: false,
+          focused: false,
+          isRevealed: false,
+        };
+
+        const updatedSession = {
+          ...currentSession,
+          probes: [...currentSession.probes, localProbe],
+        };
+        setSession(updatedSession);
+        sessionRef.current = updatedSession;
+        setActiveProbe(localProbe);
+        setViewingProbeIndex(updatedSession.probes.length - 1);
+        lastProbeTimeRef.current = Date.now();
+      }
+    } catch (err) {
+      console.error("[LocalInference] Analysis error:", err);
+    } finally {
+      isAnalyzingRef.current = false;
+      setIsAnalyzing(false);
+      setIsGeneratingProbe(false);
+    }
+  }, [tutoringLanguage]);
+
   // ---- Analysis Heartbeat (10s) ----
   const runAnalysisHeartbeat = useCallback(async () => {
+    // Route to local analysis if enabled
+    if (localInferenceEnabledRef.current) {
+      return runLocalAnalysisHeartbeat();
+    }
+
     const currentSession = sessionRef.current;
 
     if (!currentSession) return;
@@ -874,6 +1008,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       };
 
       // Single call to session-plan/update (now includes gap analysis)
+      setIsGeneratingProbe(true);
       const res = await fetch("/api/session-plan/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1038,6 +1173,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     } finally {
       isAnalyzingRef.current = false;
       setIsAnalyzing(false);
+      setIsGeneratingProbe(false);
     }
   }, []);
 
@@ -1199,9 +1335,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     if (timerRef.current) clearInterval(timerRef.current);
     if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
 
+    // Clean up local inference if active
+    if (localInferenceEnabledRef.current) {
+      LocalInferenceManager.getInstance().dispose();
+      localContextRef.current?.clear();
+    }
+
     // Trigger final heartbeat to save all remaining data
     await runStorageHeartbeat();
-    await runAnalysisHeartbeat();
+    await (localInferenceEnabledRef.current ? Promise.resolve() : runAnalysisHeartbeat());
 
     const recorder = recorderRef.current;
     
@@ -1537,7 +1679,117 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     if (!session) return;
     const currentSession = sessionRef.current || session;
     const openProbes = currentSession.probes.filter(p => !p.archived);
-    
+
+    // --- Local inference mode: advance step entirely in-browser ---
+    if (localInferenceEnabledRef.current) {
+      const currentPlan = sessionPlanRef.current;
+      if (!currentPlan?.steps?.length) return;
+
+      const currentIdx = currentPlan.currentStepIndex ?? 0;
+      const isLastStep = currentIdx >= currentPlan.steps.length - 1;
+
+      // Mark current step completed, next step in_progress, and advance index
+      const nextIdx = isLastStep ? currentIdx : currentIdx + 1;
+      const updatedSteps = currentPlan.steps.map((s, i) => {
+        if (i === currentIdx) return { ...s, status: "completed" as const };
+        if (i === nextIdx && !isLastStep) return { ...s, status: "in_progress" as const };
+        return s;
+      });
+      const updatedPlan = {
+        ...currentPlan,
+        steps: updatedSteps,
+        currentStepIndex: nextIdx,
+      };
+      setSessionPlan(updatedPlan);
+      sessionPlanRef.current = updatedPlan;
+
+      // Sync step completion to backend
+      updateSessionPlan(currentPlan.id, {
+        steps: updatedSteps,
+        currentStepIndex: updatedPlan.currentStepIndex,
+      }).catch(err => console.warn("[LocalInference] Failed to sync plan to backend:", err));
+
+      // Archive all active probes in-memory (not persisted since local mode)
+      if (openProbes.length > 0) {
+        const archivedSession = {
+          ...currentSession,
+          probes: currentSession.probes.map(p => !p.archived ? { ...p, archived: true } : p),
+        };
+        setSession(archivedSession);
+        sessionRef.current = archivedSession;
+      }
+
+      if (isLastStep) {
+        // All steps done
+        setIsCelebrating(true);
+        playSessionCompleteSound();
+        setTimeout(() => {
+          setIsCelebrating(false);
+          setShowPlanCompleteModal(true);
+          if (isRecording && !isPaused) setIsPaused(true);
+        }, 1500);
+      } else {
+        // Step completed, generate local probe for next step
+        setIsCelebrating(true);
+        playStepCompleteSound();
+        setTimeout(() => setIsCelebrating(false), 1500);
+
+        const newStep = updatedPlan.steps[updatedPlan.currentStepIndex];
+        if (newStep) {
+          let probeText = "";
+          const manager = LocalInferenceManager.getInstance();
+
+          setIsGeneratingProbe(true);
+          if (manager.isReady()) {
+            try {
+              const ctx = localContextRef.current;
+              const snapshot = ctx?.getContext();
+              const latestForProbe = sessionRef.current || currentSession;
+              probeText = await manager.generateProbe({
+                planGoal: updatedPlan.goal || "",
+                currentStep: newStep.description || "",
+                recentTranscripts: snapshot?.recentTranscripts || [],
+                toolEvents: snapshot?.toolEvents || [],
+                facialSummary: snapshot?.facialSummary,
+                eegSummary: snapshot?.eegSummary,
+                previousProbes: latestForProbe.probes.map(p => p.text),
+                tutoringLanguage,
+              });
+            } catch (err) {
+              console.warn("[LocalInference] Probe generation failed:", err);
+            }
+          }
+          setIsGeneratingProbe(false);
+
+          if (probeText && probeText.trim().length > 5) {
+            const latestSession = sessionRef.current || currentSession;
+            const localProbe: Probe = {
+              id: `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+              timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
+              gapScore: 0.5,
+              signals: ["local-inference", "manual_step_advance"],
+              text: probeText.trim(),
+              requestType: (newStep.type || "question") as RequestType,
+              archived: false,
+              starred: false,
+              focused: false,
+              isRevealed: false,
+            };
+            const updatedSession = addProbeToSession(latestSession, localProbe);
+            setSession(updatedSession);
+            sessionRef.current = updatedSession;
+            setActiveProbe(localProbe);
+            setViewingProbeIndex(updatedSession.probes.length - 1);
+            lastProbeTimeRef.current = Date.now();
+          } else {
+            setPipelineErrors(prev => ({ ...prev, analysis: "Local inference failed to generate a probe for this step." }));
+          }
+        }
+      }
+      return;
+    }
+
+    // --- API mode (unchanged) ---
     try {
       const res = await fetch("/api/session-plan/advance-step", {
         method: "POST",
@@ -1643,6 +1895,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         // Immediately generate a probe for the new step
         const newStep = updatedPlan.steps?.[updatedPlan.currentStepIndex];
         if (newStep) {
+          setIsGeneratingProbe(true);
           try {
             const probeRes = await fetch("/api/generate-probe", {
               method: "POST",
@@ -1679,6 +1932,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             }
           } catch (probeErr) {
             console.warn("Failed to generate probe for new step:", probeErr);
+          } finally {
+            setIsGeneratingProbe(false);
           }
         }
       }
@@ -1690,7 +1945,92 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const handleRollbackToStep = async (stepIndex: number) => {
     if (!session) return;
     const currentSession = sessionRef.current || session;
-    
+
+    // --- Local inference mode: rollback entirely in-browser ---
+    if (localInferenceEnabledRef.current) {
+      const currentPlan = sessionPlanRef.current;
+      if (!currentPlan?.steps?.length) return;
+
+      // Reset steps: target step becomes in_progress, everything after becomes pending
+      const updatedSteps = currentPlan.steps.map((s, i) => {
+        if (i < stepIndex) return s; // keep completed steps before target
+        if (i === stepIndex) return { ...s, status: "in_progress" as const };
+        return { ...s, status: "pending" as const };
+      });
+      const updatedPlan = { ...currentPlan, steps: updatedSteps, currentStepIndex: stepIndex };
+      setSessionPlan(updatedPlan);
+      sessionPlanRef.current = updatedPlan;
+
+      // Sync to backend
+      updateSessionPlan(currentPlan.id, {
+        steps: updatedSteps,
+        currentStepIndex: stepIndex,
+      }).catch(err => console.warn("[LocalInference] Failed to sync rollback to backend:", err));
+
+      // Archive all active probes in-memory
+      const activeProbes = currentSession.probes.filter(p => !p.archived);
+      let latestSession = currentSession;
+      if (activeProbes.length > 0) {
+        latestSession = {
+          ...currentSession,
+          probes: currentSession.probes.map(p => !p.archived ? { ...p, archived: true } : p),
+        };
+        setSession(latestSession);
+        sessionRef.current = latestSession;
+      }
+
+      // Generate probe for rolled-back step
+      const targetStep = updatedPlan.steps[stepIndex];
+      if (targetStep) {
+        let probeText = "";
+        const manager = LocalInferenceManager.getInstance();
+        setIsGeneratingProbe(true);
+        if (manager.isReady()) {
+          try {
+            const ctx = localContextRef.current;
+            const snapshot = ctx?.getContext();
+            probeText = await manager.generateProbe({
+              planGoal: updatedPlan.goal || "",
+              currentStep: targetStep.description || "",
+              recentTranscripts: snapshot?.recentTranscripts || [],
+              toolEvents: snapshot?.toolEvents || [],
+              facialSummary: snapshot?.facialSummary,
+              eegSummary: snapshot?.eegSummary,
+              previousProbes: latestSession.probes.map(p => p.text),
+              tutoringLanguage,
+            });
+          } catch (err) {
+            console.warn("[LocalInference] Probe generation failed on rollback:", err);
+          }
+        }
+        setIsGeneratingProbe(false);
+        if (probeText && probeText.trim().length > 5) {
+          const localProbe: Probe = {
+            id: `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
+            gapScore: 0.5,
+            signals: ["local-inference", "manual_step_rollback"],
+            text: probeText.trim(),
+            requestType: (targetStep.type || "question") as RequestType,
+            archived: false,
+            starred: false,
+            focused: false,
+            isRevealed: false,
+          };
+          const updatedSession = addProbeToSession(latestSession, localProbe);
+          setSession(updatedSession);
+          sessionRef.current = updatedSession;
+          setActiveProbe(localProbe);
+          setViewingProbeIndex(updatedSession.probes.length - 1);
+          lastProbeTimeRef.current = Date.now();
+        } else {
+          setPipelineErrors(prev => ({ ...prev, analysis: "Local inference failed to generate a probe for this step." }));
+        }
+      }
+      return;
+    }
+
+    // --- API mode (unchanged) ---
     try {
       const res = await fetch("/api/session-plan/rollback-step", {
         method: "POST",
@@ -1736,6 +2076,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       // Generate a probe for the rolled-back step
       const targetStep = updatedPlan.steps?.[stepIndex];
       if (targetStep) {
+        setIsGeneratingProbe(true);
         try {
           const probeRes = await fetch("/api/generate-probe", {
             method: "POST",
@@ -1772,6 +2113,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           }
         } catch (probeErr) {
           console.warn("Failed to generate probe for rolled-back step:", probeErr);
+        } finally {
+          setIsGeneratingProbe(false);
         }
       }
     } catch (err) {
@@ -1948,14 +2291,51 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                       </label>
                     </div>
 
+                    {/* Local Inference Toggle */}
+                    <div className={`mb-4 p-3 rounded-xl border transition-all ${
+                      localInferenceEnabled 
+                        ? 'bg-purple-500/5 border-purple-500/20' 
+                        : 'bg-neutral-800/30 border-neutral-700/50'
+                    }`}>
+                      <label className={`flex items-center gap-3 ${webGPUAvailable ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'} group`}>
+                        <div className="relative shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={localInferenceEnabled}
+                            onChange={(e) => setLocalInferenceEnabled(e.target.checked)}
+                            disabled={!webGPUAvailable}
+                            className="sr-only"
+                          />
+                          <div className={`w-10 h-5.5 rounded-full transition-colors ${localInferenceEnabled ? 'bg-purple-500' : 'bg-neutral-600'}`}>
+                            <div className={`absolute top-0.5 w-4.5 h-4.5 rounded-full bg-white shadow transition-transform ${localInferenceEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                          </div>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium leading-tight">
+                            <span className={localInferenceEnabled ? 'text-purple-400' : 'text-neutral-400'}>
+                              {localInferenceEnabled ? 'Local Inference ON' : 'Local Inference'}
+                            </span>
+                          </span>
+                          <span className="text-xs text-neutral-500 leading-tight mt-0.5">
+                            {!webGPUAvailable 
+                              ? 'WebGPU not available in this browser'
+                              : 'A less capable tutor but a faster, more real-time experience'}
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+
                     <button
                       onClick={async () => {
                         if (!session || isPreparing) return;
                         
+                        setPrepStage("plan");
                         setIsPreparing(true);
                         setPlanLoading(true);
                         setOpeningProbeLoading(true);
                         setPlanError(null);
+                        setModelLoadError(null);
+                        setModelLoadProgress(null);
                         
                         try {
                           // Save language to session metadata
@@ -1976,25 +2356,30 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                           let newPlan = null;
                           
                           if (existingPlan && existingPlan.steps && existingPlan.steps.length > 0 && existingPlan.goal) {
-                            // Translate existing plan
-                            console.log("[SessionView] Attempting to translate plan to:", tutoringLanguage);
-                            const translateRes = await fetch("/api/session-plan/translate", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ 
-                                sessionId: session.id, 
-                                tutoringLanguage,
-                                objectives,
-                              }),
-                            });
-                            console.log("[SessionView] Translate response status:", translateRes.status);
-                            if (translateRes.ok) {
-                              const { plan } = await translateRes.json();
-                              newPlan = plan;
-                              console.log("[SessionView] Translation succeeded, plan goal:", plan?.goal);
+                            if (tutoringLanguage === "en") {
+                              // English — no translation needed, use plan as-is
+                              newPlan = existingPlan;
                             } else {
-                              const err = await translateRes.json().catch(() => ({}));
-                              console.error("[SessionView] Translation failed:", err);
+                              // Translate existing plan
+                              console.log("[SessionView] Attempting to translate plan to:", tutoringLanguage);
+                              const translateRes = await fetch("/api/session-plan/translate", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ 
+                                  sessionId: session.id, 
+                                  tutoringLanguage,
+                                  objectives,
+                                }),
+                              });
+                              console.log("[SessionView] Translate response status:", translateRes.status);
+                              if (translateRes.ok) {
+                                const { plan } = await translateRes.json();
+                                newPlan = plan;
+                                console.log("[SessionView] Translation succeeded, plan goal:", plan?.goal);
+                              } else {
+                                const err = await translateRes.json().catch(() => ({}));
+                                console.error("[SessionView] Translation failed:", err);
+                              }
                             }
                           } 
                           
@@ -2066,8 +2451,29 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                             }
                           }
                           
-                          // Mark language as confirmed
+                          // Plan prep done
+                          setPlanLoading(false);
+                          setOpeningProbeLoading(false);
                           setLanguageConfirmed(true);
+
+                          // Stage 2: Load local model if enabled
+                          if (localInferenceEnabled) {
+                            setPrepStage("model");
+                            try {
+                              const manager = LocalInferenceManager.getInstance();
+                              await manager.init((progress) => {
+                                setModelLoadProgress(progress);
+                              });
+                              localContextRef.current = new LocalContextBuffer();
+                            } catch (modelErr) {
+                              setModelLoadError(modelErr instanceof Error ? modelErr.message : String(modelErr));
+                              setIsPreparing(false);
+                              return; // Keep modal open to show error
+                            }
+                          }
+
+                          // All done - Phase 2 will show "Get Started"
+                          setPrepStage("done");
                         } catch (err) {
                           console.error("Failed to prepare session:", err);
                           setPlanError("Failed to prepare session");
@@ -2078,38 +2484,130 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         }
                       }}
                       disabled={isButtonDisabled}
-                      className="w-full py-2.5 px-4 font-medium rounded-lg transition-colors bg-cyan-500 hover:bg-cyan-400 text-neutral-900 disabled:bg-neutral-700 disabled:text-neutral-500"
+                      className={`w-full py-2.5 px-4 font-medium rounded-lg transition-colors ${
+                        localInferenceEnabled
+                          ? 'bg-purple-500 hover:bg-purple-400 text-white disabled:bg-neutral-700 disabled:text-neutral-500'
+                          : 'bg-cyan-500 hover:bg-cyan-400 text-neutral-900 disabled:bg-neutral-700 disabled:text-neutral-500'
+                      }`}
                     >
-                      {isButtonDisabled ? 'Preparing...' : 'Confirm Language'}
+                      {isButtonDisabled ? 'Preparing...' : 'Confirm Settings'}
                     </button>
+
+                    {/* Inline loading progress (replaces the separate prep modal) */}
+                    {isPreparing && (
+                      <div className="mt-4 p-4 bg-neutral-800/50 rounded-xl border border-neutral-700/50">
+                        {/* Step indicators */}
+                        <div className="space-y-2.5 mb-4">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                              prepStage !== "plan"
+                                ? 'bg-green-500 text-black'
+                                : 'border border-cyan-500/40 text-cyan-400'
+                            }`}>
+                              {prepStage !== "plan" ? (
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                              ) : '1'}
+                            </div>
+                            <span className={`text-xs ${prepStage !== "plan" ? 'text-neutral-500' : 'text-neutral-300'}`}>
+                              {prepStage === "plan" ? 'Preparing session plan...' : 'Session plan ready'}
+                            </span>
+                            {prepStage === "plan" && (
+                              <div className="w-3.5 h-3.5 border-2 border-neutral-600 border-t-cyan-500 rounded-full animate-spin ml-auto" />
+                            )}
+                          </div>
+
+                          {localInferenceEnabled && (
+                            <div className="flex items-center gap-2.5">
+                              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                                prepStage === "done"
+                                  ? 'bg-green-500 text-black'
+                                  : prepStage === "model"
+                                    ? 'border border-purple-500/40 text-purple-400'
+                                    : 'border border-neutral-700 text-neutral-600'
+                              }`}>
+                                {prepStage === "done" ? (
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                ) : '2'}
+                              </div>
+                              <span className={`text-xs ${
+                                prepStage === "done" ? 'text-neutral-500' : prepStage === "model" ? 'text-neutral-300' : 'text-neutral-600'
+                              }`}>
+                                {prepStage === "done" ? 'Local model loaded' : prepStage === "model" ? 'Loading local model...' : 'Load local model'}
+                              </span>
+                              {prepStage === "model" && !modelLoadProgress && (
+                                <div className="w-3.5 h-3.5 border-2 border-neutral-600 border-t-purple-500 rounded-full animate-spin ml-auto" />
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Progress bar (only during model download) */}
+                        {prepStage === "model" && modelLoadProgress && (
+                          <div className="mb-2">
+                            <div className="w-full h-1.5 bg-neutral-700 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all duration-500 ease-out"
+                                style={{ width: `${modelLoadProgress.progress}%` }}
+                              />
+                            </div>
+                            <div className="flex justify-between mt-1">
+                              <span className="text-[10px] text-neutral-500">
+                                {modelLoadProgress.loaded && modelLoadProgress.total
+                                  ? `${(modelLoadProgress.loaded / 1024 / 1024).toFixed(0)} / ${(modelLoadProgress.total / 1024 / 1024).toFixed(0)} MB`
+                                  : 'Downloading...'}
+                              </span>
+                              <span className="text-[10px] text-neutral-500">{modelLoadProgress.progress}%</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Errors */}
+                        {(planError || modelLoadError) && (
+                          <div className="p-2.5 bg-red-500/10 border border-red-500/20 rounded-lg mt-2">
+                            <p className="text-xs text-red-400">{planError || modelLoadError}</p>
+                          </div>
+                        )}
+
+                        {/* Cancel for model loading errors */}
+                        {modelLoadError && (
+                          <button
+                            onClick={() => {
+                              LocalInferenceManager.getInstance().dispose();
+                              setModelLoadError(null);
+                              setLocalInferenceEnabled(false);
+                              setIsPreparing(false);
+                              setPrepStage("done");
+                              // Plan was already done, let them proceed in API mode
+                            }}
+                            className="w-full mt-2 py-1.5 text-xs text-neutral-400 hover:text-neutral-300 transition-colors"
+                          >
+                            Continue without local inference
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Ready to go - show after all prep is done */}
+                    {prepStage === "done" && languageConfirmed && !isPreparing && (
+                      <button
+                        onClick={() => setShowWelcomeModal(false)}
+                        className="mt-4 w-full py-2.5 px-4 font-medium rounded-lg transition-colors bg-white hover:bg-neutral-100 text-neutral-900"
+                      >
+                        {t('session.getStarted')}
+                      </button>
+                    )}
                   </>
                 );
               }
               
-              // Phase 2: Preparation or Ready (after language confirmed)
+              // Phase 2: Ready (already confirmed before, e.g. page refresh)
               return (
-                <>
-                  {!isSessionReady && (
-                    <div className="flex items-center gap-3 mb-4 p-3 bg-neutral-800/50 rounded-lg">
-                      <div className="w-4 h-4 border-2 border-neutral-600 border-t-white rounded-full animate-spin" />
-                      <span className="text-sm text-neutral-400">{t('session.preparing')}</span>
-                    </div>
-                  )}
-
-                  <button
-                    onClick={() => {
-                      setShowWelcomeModal(false);
-                    }}
-                    disabled={!isSessionReady}
-                    className={`w-full py-2.5 px-4 font-medium rounded-lg transition-colors ${
-                      !isSessionReady
-                        ? 'bg-neutral-700 text-neutral-500 cursor-not-allowed'
-                        : 'bg-white hover:bg-neutral-100 text-neutral-900'
-                    }`}
-                  >
-                    {!isSessionReady ? t('session.pleaseWait') : t('session.getStarted')}
-                  </button>
-                </>
+                <button
+                  onClick={() => setShowWelcomeModal(false)}
+                  className="w-full py-2.5 px-4 font-medium rounded-lg transition-colors bg-white hover:bg-neutral-100 text-neutral-900"
+                >
+                  {t('session.getStarted')}
+                </button>
               );
             })()}
           </div>
@@ -2494,7 +2992,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   autoAdvance={autoAdvance}
                   onToggleAutoAdvance={setAutoAdvance}
                   isInitializing={planLoading || openingProbeLoading}
-                  isCelebrating={isCelebrating}
+                   isCelebrating={isCelebrating}
+                   isGeneratingProbe={isGeneratingProbe}
                 />
               }
             />
@@ -2532,6 +3031,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           </div>
         </div>
       )}
+
+      {/* SessionPrepModal removed -- loading progress now inline in welcome modal */}
 
       {/* Plan Complete Modal - shown when all steps are done */}
       {showPlanCompleteModal && (

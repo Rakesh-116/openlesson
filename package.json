@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.0.1",
     "@mediapipe/tasks-vision": "^0.10.32",
     "@monaco-editor/react": "^4.7.0",
     "@supabase/ssr": "^0.8.0",

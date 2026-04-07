@@ -37,11 +37,11 @@ export async function POST(request: NextRequest) {
     const [currentPlan, promptOverrides, transcripts, toolEvents, facialData, eegData, screenshots] = await Promise.all([
       getSessionPlan(sessionId, supabase),
       getUserPrompts(supabase, user.id),
-      getRecentTranscripts(sessionId, 15000),
-      getRecentToolEvents(sessionId, 15000),
-      getRecentFacialData(sessionId, 15000),
-      getRecentEEGData(sessionId, 15000),
-      getRecentScreenshots(sessionId, 15000),
+      getRecentTranscripts(sessionId, 180000),  // 3 minutes of transcripts for cumulative context
+      getRecentToolEvents(sessionId, 60000),    // 1 minute of tool events
+      getRecentFacialData(sessionId, 60000),
+      getRecentEEGData(sessionId, 60000),
+      getRecentScreenshots(sessionId, 60000),
     ]);
     
     if (!currentPlan) {
@@ -55,11 +55,25 @@ export async function POST(request: NextRequest) {
     let contextDescription = "Recent session activity:\n";
     
     // Transcript - most important for gap analysis
+    // Split into "recent" (last 30s) and "earlier" for context
+    const now = Date.now();
+    const recentCutoff = now - 30000; // last 30 seconds
+    const recentTranscripts = transcripts.filter(t => t.timestamp >= recentCutoff);
+    const earlierTranscripts = transcripts.filter(t => t.timestamp < recentCutoff);
+    
     if (transcripts.length > 0) {
-      contextDescription += `- Recent transcripts (${transcripts.length} chunks):\n`;
-      transcripts.forEach((t, i) => {
-        contextDescription += `  ${i + 1}. [${new Date(t.timestamp).toLocaleTimeString()}] ${t.content.slice(0, 200)}${t.content.length > 200 ? '...' : ''}\n`;
-      });
+      if (earlierTranscripts.length > 0) {
+        contextDescription += `- Earlier transcript context (${earlierTranscripts.length} chunks, for background):\n`;
+        earlierTranscripts.forEach((t, i) => {
+          contextDescription += `  ${i + 1}. [${new Date(t.timestamp).toLocaleTimeString()}] ${t.content.slice(0, 300)}${t.content.length > 300 ? '...' : ''}\n`;
+        });
+      }
+      if (recentTranscripts.length > 0) {
+        contextDescription += `- MOST RECENT speech (last 30s, ${recentTranscripts.length} chunks — focus gap analysis here):\n`;
+        recentTranscripts.forEach((t, i) => {
+          contextDescription += `  ${i + 1}. [${new Date(t.timestamp).toLocaleTimeString()}] ${t.content}\n`;
+        });
+      }
     }
     
     if (toolEvents.length > 0) {
@@ -79,8 +93,32 @@ export async function POST(request: NextRequest) {
       contextDescription += `- ${screenshots.length} screenshot(s) available for analysis\n`;
     }
 
-    // If no transcripts, return default - can't do gap analysis without speech
+    // If no transcripts, generate a silence-aware nudge instead of returning nothing
     if (transcripts.length === 0) {
+      const secondsSinceLastProbe = lastProbeTimestamp 
+        ? Math.floor((Date.now() - lastProbeTimestamp) / 1000)
+        : 999;
+      
+      // If it's been more than 30s since last probe and there's silence, nudge the student
+      if (secondsSinceLastProbe > 30 && openProbeCount < 5) {
+        const currentStep = currentPlan.steps[currentPlan.currentStepIndex];
+        const stepDescription = currentStep?.description || currentPlan.goal;
+        return NextResponse.json({
+          plan: currentPlan,
+          gapScore: 0.4,
+          signals: ["silence", "waiting_for_engagement"],
+          transcript: "",
+          planChanged: false,
+          nextRequest: {
+            type: "suggestion",
+            text: `Take a moment to think about: ${stepDescription}. Try thinking out loud — what comes to mind first?`,
+          },
+          probesToArchive: [],
+          canGenerateProbe: true,
+          reasoning: "Extended silence detected — generating a gentle nudge to re-engage",
+        });
+      }
+      
       return NextResponse.json({
         plan: currentPlan,
         gapScore: 0.5,
@@ -119,7 +157,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { planChanged, shouldPause, pauseReason, updatedSteps, currentStepIndex, nextRequest, probesToArchive, canGenerateProbe, reasoning, gapScore, signals, canAutoAdvance, advanceReasoning } = result.result;
+    const { planChanged, updatedSteps, currentStepIndex, nextRequest, probesToArchive, canGenerateProbe, reasoning, gapScore, signals, canAutoAdvance, advanceReasoning } = result.result;
 
     // Update plan in database if it changed
     let updatedPlan = currentPlan;
@@ -182,8 +220,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       plan: updatedPlan,
       planChanged,
-      shouldPause,
-      pauseReason,
       nextRequest,
       probesToArchive,
       canGenerateProbe,
