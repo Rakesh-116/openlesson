@@ -57,6 +57,9 @@ interface ProbeNotificationsProps {
   onRollbackToStep?: (stepIndex: number) => Promise<void>;
   autoAdvance?: boolean;
   onToggleAutoAdvance?: (value: boolean) => void;
+  onOpenResources?: (stepDescription: string) => void;
+  onOpenPractice?: (stepDescription: string) => void;
+  onAskAssistant?: (stepDescription: string) => void;
   // Loading and celebration states
   isInitializing?: boolean;
   isCelebrating?: boolean;
@@ -114,6 +117,9 @@ export function ProbeNotifications({
   onRollbackToStep,
   autoAdvance = true,
   onToggleAutoAdvance,
+  onOpenResources,
+  onOpenPractice,
+  onAskAssistant,
   isInitializing = false,
   isCelebrating = false,
   isGeneratingProbe = false,
@@ -663,6 +669,10 @@ export function ProbeNotifications({
                 autoAdvance={autoAdvance}
                 onToggleAutoAdvance={onToggleAutoAdvance}
                 sessionId={sessionId}
+                onOpenResources={onOpenResources}
+                onOpenPractice={onOpenPractice}
+                onAskAssistant={onAskAssistant}
+                isSessionActive={isRecording && !isPaused}
               />
             </div>
           </div>

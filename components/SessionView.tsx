@@ -136,6 +136,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   // Teaching Assistant Chat
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [pendingChatMessage, setPendingChatMessage] = useState<string | null>(null);
 
   // New 3-panel layout state
   const [activeTool, setActiveTool] = useState<Tool>("chat");
@@ -275,7 +276,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     prevToolRef.current = activeTool;
   }, [activeTool, session?.id, session?.startedAt]);
 
-  const loadPrepToolContent = async (type: string) => {
+  const loadPrepToolContent = async (type: string, stepContext?: string) => {
     if (!session?.problem) return;
     if (type === "grokipedia") {
       setShowGrokipediaOnly(true);
@@ -285,7 +286,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     setShowGrokipediaOnly(false);
     setPrepToolLoading(true);
     try {
-      const response = await fetch(`/api/prep-material?topic=${encodeURIComponent(session.problem)}&type=${type}`);
+      let url = `/api/prep-material?topic=${encodeURIComponent(session.problem)}&type=${type}`;
+      if (stepContext) {
+        url += `&step=${encodeURIComponent(stepContext)}`;
+      }
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         setPrepToolContent(data);
@@ -295,6 +300,24 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     } finally {
       setPrepToolLoading(false);
     }
+  };
+
+  // Step action handlers — Resources, Practice, Ask Assistant
+  const handleStepResources = (stepDescription: string) => {
+    setActiveTool("reading");
+    setPrepToolContent(null);
+    loadPrepToolContent("reading", stepDescription);
+  };
+
+  const handleStepPractice = (stepDescription: string) => {
+    setActiveTool("exercise");
+    setPrepToolContent(null);
+    loadPrepToolContent("exercise", stepDescription);
+  };
+
+  const handleStepAskAssistant = (stepDescription: string) => {
+    setActiveTool("chat");
+    setPendingChatMessage(`Help me understand and work through this step: "${stepDescription}"`);
   };
 
   // Muse EEG
@@ -2693,6 +2716,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         onMessagesChange={setChatMessages}
                         sessionId={session.id}
                         tutoringLanguage={tutoringLanguage}
+                        pendingMessage={pendingChatMessage}
+                        onPendingMessageHandled={() => setPendingChatMessage(null)}
                       />
                     )}
 
@@ -3001,9 +3026,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   planError={planError}
                   onAdvanceStep={handleAdvanceStep}
                   onRollbackToStep={handleRollbackToStep}
-                  autoAdvance={autoAdvance}
-                  onToggleAutoAdvance={setAutoAdvance}
-                  isInitializing={planLoading || openingProbeLoading}
+                   autoAdvance={autoAdvance}
+                   onToggleAutoAdvance={setAutoAdvance}
+                   onOpenResources={handleStepResources}
+                   onOpenPractice={handleStepPractice}
+                   onAskAssistant={handleStepAskAssistant}
+                   isInitializing={planLoading || openingProbeLoading}
                    isCelebrating={isCelebrating}
                    isGeneratingProbe={isGeneratingProbe}
                 />

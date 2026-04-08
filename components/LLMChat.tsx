@@ -32,6 +32,9 @@ interface LLMChatProps {
   onMessagesChange?: (messages: ChatMessage[]) => void;
   sessionId?: string;
   tutoringLanguage?: string;
+  /** When set to a non-null string, auto-submits it as a user message and clears via the callback */
+  pendingMessage?: string | null;
+  onPendingMessageHandled?: () => void;
 }
 
 const CHAT_WELCOME_MESSAGES: Record<string, string> = {
@@ -44,7 +47,7 @@ const CHAT_WELCOME_MESSAGES: Record<string, string> = {
   ca: "Hola! Soc aquí per ajudar-te amb el teu aprenentatge. No dubtis a preguntar-me sobre el tema, demanar aclariments o discutir conceptes d'una altra manera.\n\nRecorda - soc un assistent separat del tutor. Digues-me com puc ajudar!",
 };
 
-export function LLMChat({ problem, messages: externalMessages, onMessagesChange, sessionId, tutoringLanguage }: LLMChatProps) {
+export function LLMChat({ problem, messages: externalMessages, onMessagesChange, sessionId, tutoringLanguage, pendingMessage, onPendingMessageHandled }: LLMChatProps) {
   const { t } = useI18n();
   
   // Get localized welcome message based on tutoring language
@@ -99,17 +102,17 @@ export function LLMChat({ problem, messages: externalMessages, onMessagesChange,
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
+  // Core send logic shared by form submit and programmatic pendingMessage
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || isLoading) return;
 
-    const userMessage: ChatMessage = {
+    const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: "user",
-      content: input.trim(),
+      content: text.trim(),
     };
 
-    updateMessages([...messages, userMessage]);
+    updateMessages([...messages, userMsg]);
     setInput("");
     setIsLoading(true);
 
@@ -124,7 +127,7 @@ export function LLMChat({ problem, messages: externalMessages, onMessagesChange,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           problem,
-          messages: [...conversationHistory, { role: "user", content: userMessage.content }],
+          messages: [...conversationHistory, { role: "user", content: userMsg.content }],
           sessionId,
         }),
       });
@@ -142,7 +145,7 @@ export function LLMChat({ problem, messages: externalMessages, onMessagesChange,
           content: data.message,
         };
         // Need to include user message + assistant message since we're using spread
-        updateMessages([...messages, userMessage, assistantMessage]);
+        updateMessages([...messages, userMsg, assistantMessage]);
       }
     } catch (error) {
       console.error("Chat error:", error);
@@ -151,12 +154,25 @@ export function LLMChat({ problem, messages: externalMessages, onMessagesChange,
         role: "assistant",
         content: "Sorry, I encountered an error. Please try again.",
       };
-      updateMessages([...messages, userMessage, errorMessage]);
+      updateMessages([...messages, userMsg, errorMessage]);
     } finally {
       setIsLoading(false);
       inputRef.current?.focus();
     }
   };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await sendMessage(input);
+  };
+
+  // Auto-submit pendingMessage from parent (e.g. "Ask Assistant" button on plan steps)
+  useEffect(() => {
+    if (pendingMessage) {
+      sendMessage(pendingMessage);
+      onPendingMessageHandled?.();
+    }
+  }, [pendingMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
