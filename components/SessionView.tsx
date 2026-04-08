@@ -68,6 +68,22 @@ import { useI18n } from "@/lib/i18n";
 import { tutoringLocales, tutoringLanguageNames } from "@/lib/tutoring-languages";
 
 
+// Check if a new probe is a duplicate of any existing probe (normalized comparison)
+function isDuplicateProbe(newText: string, existingProbes: { text: string; archived?: boolean }[]): boolean {
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const newNorm = normalize(newText);
+  return existingProbes.some(p => {
+    const existingNorm = normalize(p.text);
+    // Exact match after normalization
+    if (newNorm === existingNorm) return true;
+    // One is a substring of the other (catches minor rewording)
+    if (newNorm.length > 20 && existingNorm.length > 20) {
+      if (newNorm.includes(existingNorm) || existingNorm.includes(newNorm)) return true;
+    }
+    return false;
+  });
+}
+
 // Configuration
 const STORAGE_INTERVAL_MS = 5000;
 const ANALYSIS_INTERVAL_MS = 10000;
@@ -955,7 +971,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       const probeText = await manager.generateProbe(analysisContext);
       setIsGeneratingProbe(false);
 
-      if (probeText && probeText.trim().length > 5) {
+      if (probeText && probeText.trim().length > 5 && !isDuplicateProbe(probeText, currentSession.probes)) {
         // Add probe in-memory only (not persisted to Supabase)
         const localProbe: Probe = {
           id: `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -1179,7 +1195,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           const timeSinceLastProbe = Date.now() - (lastProbeTimeRef.current || 0);
           const cooldownMet = lastProbeTimeRef.current === 0 || timeSinceLastProbe >= PROBE_COOLDOWN_MS;
 
-          if (planData.canGenerateProbe !== false && currentOpenProbeCount < 5 && cooldownMet) {
+          const allProbes = (sessionRef.current?.probes || currentSession.probes);
+          const isDupe = isDuplicateProbe(planData.nextRequest.text, allProbes);
+
+          if (planData.canGenerateProbe !== false && currentOpenProbeCount < 5 && cooldownMet && !isDupe) {
             const savedProbe = await addProbe(currentSession.id, {
               timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
               gapScore: planData.gapScore ?? 0.5,
