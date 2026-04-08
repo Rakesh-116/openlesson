@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
     const { 
       sessionId, 
       previousProbes,
+      activeProbes,
       focusedProbes,
       openProbeCount,
       lastProbeTimestamp,
@@ -144,6 +145,7 @@ export async function POST(request: NextRequest) {
       contextDescription,
       transcript: transcriptText,
       previousProbes: previousProbes || [],
+      activeProbes: activeProbes || [],
       focusedProbes: focusedProbes || [],
       openProbeCount: openProbeCount ?? 0,
       lastProbeTimestamp: lastProbeTimestamp ?? 0,

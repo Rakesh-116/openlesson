@@ -459,6 +459,7 @@ export function MobileSessionView({
         body: JSON.stringify({
           sessionId: currentSession.id,
           previousProbes: currentSession.probes.map((p: Probe) => p.text),
+          activeProbes: openProbes.map((p: Probe) => p.text),
           focusedProbes,
           openProbeCount: openProbes.length,
           lastProbeTimestamp: lastProbeTimeRef.current || 0,

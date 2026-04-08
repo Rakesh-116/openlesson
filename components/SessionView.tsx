@@ -1063,6 +1063,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         body: JSON.stringify({
           sessionId: currentSession.id,
           previousProbes: currentSession.probes.map((p) => p.text),
+          activeProbes: openProbes.map(p => p.text),
           focusedProbes,
           openProbeCount: openProbes.length,
           lastProbeTimestamp: lastProbeTimeRef.current || 0,
@@ -2988,7 +2989,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                                 </button>
                               )}
                             </div>
-                            <div className="prose prose-invert prose-sm max-w-none text-neutral-300">
+                            <div className={`prose prose-invert prose-sm max-w-none text-neutral-300 ${activeTool === "exercise" ? "[&_p]:mb-4 [&_p]:leading-relaxed [&_ol]:mb-4 [&_ol]:pl-5 [&_ol]:space-y-3 [&_ul]:mb-4 [&_ul]:pl-5 [&_ul]:space-y-3 [&_li]:leading-relaxed [&_h1]:text-white [&_h1]:text-base [&_h1]:font-semibold [&_h1]:mt-6 [&_h1]:mb-3 [&_h2]:text-white [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mt-5 [&_h2]:mb-2 [&_h3]:text-neutral-200 [&_h3]:text-sm [&_h3]:font-medium [&_h3]:mt-4 [&_h3]:mb-2 [&_strong]:text-white [&_hr]:my-4 [&_hr]:border-neutral-700" : ""}`}>
                               <ReactMarkdown
                                 remarkPlugins={[remarkGfm, remarkMath]}
                                 rehypePlugins={[rehypeKatex]}
