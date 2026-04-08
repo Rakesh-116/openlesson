@@ -347,7 +347,7 @@ IMPORTANT CONSTRAINT: There can be a maximum of 5 open (non-archived) probes at 
 - If you determine a probe has been adequately addressed, include its ID in "probes_to_archive"
 
 CRITICAL RULES:
-- NEVER generate a probe that is the same as or similar to any probe listed above (in "ALL Probes Already Presented" or "CURRENTLY ACTIVE PROBES"). If your proposed probe overlaps in meaning with ANY existing probe, you MUST generate a completely different one or set can_generate_probe to false.
+- Do NOT repeat or rephrase any probe already listed above. Each new probe must cover NEW ground. If you cannot think of a meaningfully different probe, set can_generate_probe to false rather than repeating.
 - EVERY question or request MUST be specific to the CURRENT STEP in the plan. Never ask abstract, meta, or philosophical questions.
 - Stay laser-focused on the concrete topic of the current step. Ask about specific concepts, specific examples, specific applications — not "how do you feel about..." or "what is your approach to...".
 - Your obsession is to move the student FORWARD through concrete understanding of each step. Every probe should make tangible progress.
