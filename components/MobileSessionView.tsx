@@ -318,6 +318,9 @@ export function MobileSessionView({
     }
   }, []);
 
+  // Hard minimum cooldown between probes (ms) to prevent rapid slot filling
+  const PROBE_COOLDOWN_MS = 30_000;
+
   // ---- Local Analysis Heartbeat (runs Gemma 4 E2B in-browser) ----
   const runLocalAnalysisHeartbeat = useCallback(async () => {
     const currentSession = sessionRef.current;
@@ -352,6 +355,10 @@ export function MobileSessionView({
       // Generate probe locally
       const openProbes = currentSession.probes.filter((p: Probe) => !p.archived);
       if (openProbes.length >= 5) return;
+
+      // Hard cooldown: don't generate probes too rapidly
+      const timeSinceLastLocal = Date.now() - (lastProbeTimeRef.current || 0);
+      if (lastProbeTimeRef.current !== 0 && timeSinceLastLocal < PROBE_COOLDOWN_MS) return;
 
       const currentStep = currentPlan.steps?.[currentPlan.currentStepIndex];
       const snapshot = ctx.getContext();
@@ -547,7 +554,10 @@ export function MobileSessionView({
         const latestSession = sessionRef.current || currentSession;
         const currentOpenProbeCount = latestSession.probes.filter((p: Probe) => !p.archived).length;
 
-        if (planData.canGenerateProbe !== false && currentOpenProbeCount < 5) {
+        const timeSinceLastProbe = Date.now() - (lastProbeTimeRef.current || 0);
+        const cooldownMet = lastProbeTimeRef.current === 0 || timeSinceLastProbe >= PROBE_COOLDOWN_MS;
+
+        if (planData.canGenerateProbe !== false && currentOpenProbeCount < 5 && cooldownMet) {
           const savedProbe = await addProbe(currentSession.id, {
             timestamp: Date.now() - new Date(currentSession.startedAt).getTime(),
             gapScore: planData.gapScore ?? 0.5,
