@@ -94,32 +94,8 @@ export async function POST(request: NextRequest) {
       contextDescription += `- ${screenshots.length} screenshot(s) available for analysis\n`;
     }
 
-    // If no transcripts, generate a silence-aware nudge instead of returning nothing
+    // If no transcripts, just return waiting state (no nudges)
     if (transcripts.length === 0) {
-      const secondsSinceLastProbe = lastProbeTimestamp 
-        ? Math.floor((Date.now() - lastProbeTimestamp) / 1000)
-        : 999;
-      
-      // If it's been more than 30s since last probe and there's silence, nudge the student
-      if (secondsSinceLastProbe > 30 && openProbeCount < 5) {
-        const currentStep = currentPlan.steps[currentPlan.currentStepIndex];
-        const stepDescription = currentStep?.description || currentPlan.goal;
-        return NextResponse.json({
-          plan: currentPlan,
-          gapScore: 0.4,
-          signals: ["silence", "waiting_for_engagement"],
-          transcript: "",
-          planChanged: false,
-          nextRequest: {
-            type: "suggestion",
-            text: `Take a moment to think about: ${stepDescription}. Try thinking out loud — what comes to mind first?`,
-          },
-          probesToArchive: [],
-          canGenerateProbe: true,
-          reasoning: "Extended silence detected — generating a gentle nudge to re-engage",
-        });
-      }
-      
       return NextResponse.json({
         plan: currentPlan,
         gapScore: 0.5,
