@@ -2973,6 +2973,21 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                               <ReactMarkdown
                                 remarkPlugins={[remarkGfm, remarkMath]}
                                 rehypePlugins={[rehypeKatex]}
+                                components={activeTool === "reading" ? {
+                                  a: ({ href, children }) => (
+                                    <a
+                                      href={href}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="no-underline inline-flex items-center gap-1.5 px-3 py-1.5 my-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/25 hover:bg-blue-500/20 hover:border-blue-500/40 hover:text-blue-300 transition-all text-sm font-medium"
+                                    >
+                                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                      </svg>
+                                      {children}
+                                    </a>
+                                  ),
+                                } : undefined}
                               >
                                 {prepToolContent.content}
                               </ReactMarkdown>
