@@ -1544,7 +1544,7 @@ export function MobileSessionView({
                 </label>
               </div>
               
-              {/* Local Inference Toggle */}
+              {/* Browser Inference Toggle */}
               <div className={`mb-5 p-3.5 rounded-xl border transition-all ${
                 localInferenceEnabled 
                   ? 'bg-purple-500/5 border-purple-500/20' 
@@ -1566,7 +1566,7 @@ export function MobileSessionView({
                   <div className="flex flex-col">
                     <span className="text-sm font-medium leading-tight">
                       <span className={localInferenceEnabled ? 'text-purple-400' : 'text-neutral-400'}>
-                        {localInferenceEnabled ? 'Local Inference ON' : 'Local Inference'}
+                        {localInferenceEnabled ? 'Browser Inference ON' : 'Browser Inference'}
                       </span>
                     </span>
                     <span className="text-xs text-neutral-500 leading-tight mt-0.5">
@@ -1673,7 +1673,7 @@ export function MobileSessionView({
                       }}
                       className="w-full mt-2 py-1.5 text-xs text-neutral-400 hover:text-neutral-300 transition-colors"
                     >
-                      Continue without local inference
+                      Continue without browser inference
                     </button>
                   )}
                 </div>
