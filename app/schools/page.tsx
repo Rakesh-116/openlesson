@@ -48,7 +48,7 @@ export default function SchoolsPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-slate-700">
-                        <th className="text-left text-[10px] text-slate-400 font-medium pb-2 pr-2">Student</th>
+                        <th className="text-left text-[10px] text-slate-400 font-medium pb-2 pr-2">{t('schools.studentHeader')}</th>
                         <th className="text-left text-[10px] text-slate-400 font-medium pb-2 px-2">{t('schools.inProgressLabel')}</th>
                         <th className="text-left text-[10px] text-slate-400 font-medium pb-2 px-2">{t('schools.lastCol')}</th>
                         <th className="text-left text-[10px] text-slate-400 font-medium pb-2 pl-2">{t('schools.gapsCol')}</th>
@@ -90,11 +90,11 @@ export default function SchoolsPage() {
                 </div>
                 <div className="mt-4 pt-4 border-t border-slate-700 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">Google Classroom</span>
-                    <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">Canvas</span>
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">{t('schools.googleClassroom')}</span>
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">{t('schools.canvas')}</span>
                   </div>
                   <button className="text-xs bg-slate-600/50 hover:bg-slate-600 text-slate-300 px-3 py-1.5 rounded-lg transition-colors">
-                    Create Assignment
+                    {t('schools.createAssignment')}
                   </button>
                 </div>
               </div>

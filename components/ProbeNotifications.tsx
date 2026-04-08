@@ -396,7 +396,7 @@ export function ProbeNotifications({
           </div>
           {isAtProbeCap && (
             <span className="text-[10px] text-amber-400 animate-pulse">
-              Resolve probes to continue
+              {t('probes.resolveProbesToContinue')}
             </span>
           )}
         </div>
@@ -496,7 +496,7 @@ export function ProbeNotifications({
           ) : isGeneratingProbe && viewMode === "active" ? (
             <div className="flex flex-col items-center justify-center py-8 gap-3">
               <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
-              <p className="text-xs text-neutral-500">Generating probe...</p>
+              <p className="text-xs text-neutral-500">{t('probes.generatingProbe')}</p>
             </div>
           ) : (
             <p className="text-xs text-neutral-600 text-center py-4">
@@ -514,8 +514,8 @@ export function ProbeNotifications({
               ? sessionPlan?.steps?.find(s => s.id === probe.planStepId)
               : null;
             const stepContext = planStep 
-              ? `Step ${planStep.order}: ${planStep.description}`
-              : "General";
+              ? t('probes.stepContext', { order: planStep.order, description: planStep.description })
+              : t('probes.general');
             
             const requestType = probe.requestType || "question";
             const typeBadge = getTypeBadgeStyles(requestType);
@@ -587,7 +587,7 @@ export function ProbeNotifications({
                 {/* Task hint - only for task type probes */}
                 {requestType === "task" && viewMode === "active" && (
                   <p className="text-[10px] text-purple-400/70 mt-1.5 italic">
-                    You can use tools and AI to complete the task
+                    {t('probes.useToolsHint')}
                   </p>
                 )}
 
@@ -616,7 +616,7 @@ export function ProbeNotifications({
                     <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
                     </svg>
-                    Focused - AI will prioritize checking if this is resolved
+                    {t('probes.focusedHint')}
                   </div>
                 )}
               </div>
@@ -628,7 +628,7 @@ export function ProbeNotifications({
         {viewMode === "active" && filteredFeedback.length > 0 && (
           <>
             <div className="text-[10px] font-medium text-purple-400 uppercase tracking-wider pt-2">
-              AI Feedback
+              {t('probes.aiFeedback')}
             </div>
             {filteredFeedback.map((feedback) => (
               <div
@@ -649,7 +649,7 @@ export function ProbeNotifications({
             {isGeneratingProbe && viewMode === "active" && (
               <div className="flex items-center gap-2.5 p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/30 animate-pulse">
                 <div className="w-4 h-4 border-2 border-neutral-600 border-t-cyan-500 rounded-full animate-spin shrink-0" />
-                <span className="text-xs text-neutral-500">Generating probe...</span>
+                <span className="text-xs text-neutral-500">{t('probes.generatingProbe')}</span>
               </div>
             )}
           </>

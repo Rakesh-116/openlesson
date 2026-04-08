@@ -3,6 +3,7 @@
 import { useEffect, useCallback } from "react";
 import { ProbeCard } from "./ProbeCard";
 import type { Probe } from "@/lib/storage";
+import { useI18n } from "@/lib/i18n";
 
 interface ProbeSidebarProps {
   probes: Probe[];
@@ -23,6 +24,7 @@ export function ProbeSidebar({
   onMarkAllRead,
   newProbeId,
 }: ProbeSidebarProps) {
+  const { t } = useI18n();
   // Keyboard shortcut: ? to toggle
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -69,7 +71,7 @@ export function ProbeSidebar({
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-neutral-800">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-white">Probes</h3>
+              <h3 className="text-sm font-semibold text-white">{t('probes.title')}</h3>
               {probes.length > 0 && (
                 <span className="text-xs text-neutral-500">
                   ({probes.length})
@@ -82,7 +84,7 @@ export function ProbeSidebar({
                   onClick={onMarkAllRead}
                   className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
                 >
-                  Mark read
+                  {t('probes.markRead')}
                 </button>
               )}
               <button
@@ -98,9 +100,9 @@ export function ProbeSidebar({
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {probes.length === 0 ? (
               <div className="text-center py-8 text-neutral-500">
-                <p className="text-sm">No probes yet.</p>
+                <p className="text-sm">{t('probes.noProbesYet')}</p>
                 <p className="text-xs mt-1">
-                  Questions will appear here when reasoning gaps are detected.
+                  {t('probes.probesWillAppear')}
                 </p>
               </div>
             ) : (
@@ -121,7 +123,7 @@ export function ProbeSidebar({
           {/* Footer hint */}
           <div className="p-3 border-t border-neutral-800 text-center">
             <span className="text-xs text-neutral-600">
-              Press <kbd className="px-1 py-0.5 bg-neutral-800 rounded text-neutral-400">?</kbd> to toggle
+              {t('probes.pressToToggle')}
             </span>
           </div>
         </div>

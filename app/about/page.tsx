@@ -8,23 +8,8 @@ import { FAQ } from "@/components/FAQ";
 import { DemoBanner } from "@/components/DemoBanner";
 import { useI18n } from "@/lib/i18n";
 
-const VIDEOS = [
-  {
-    id: "PLACEHOLDER_VIDEO_1",
-    title: "Video Title 1",
-    description: "Brief description of this video.",
-  },
-  {
-    id: "PLACEHOLDER_VIDEO_2",
-    title: "Video Title 2",
-    description: "Brief description of this video.",
-  },
-  {
-    id: "PLACEHOLDER_VIDEO_3",
-    title: "Video Title 3",
-    description: "Brief description of this video.",
-  },
-];
+// Video IDs are config, titles/descriptions are translated below in the component
+const VIDEO_IDS = ["PLACEHOLDER_VIDEO_1", "PLACEHOLDER_VIDEO_2", "PLACEHOLDER_VIDEO_3"];
 
 export default function AboutPage() {
   const { t } = useI18n();
@@ -114,6 +99,12 @@ export default function AboutPage() {
       icon: "🤔",
     },
   ];
+
+  const VIDEOS = VIDEO_IDS.map((id, index) => ({
+    id,
+    title: t(`about.videoTitle${index + 1}`),
+    description: t(`about.videoDescription${index + 1}`),
+  }));
 
   const ABOUT_FAQ_ITEMS = [
     {
@@ -242,25 +233,18 @@ export default function AboutPage() {
           <div className="prose prose-invert max-w-none">
             <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6 space-y-4">
               <p className="text-slate-300 leading-relaxed">
-                For seven years, I&apos;ve solved hard problems live on camera—quantum mechanics, competition math, 
-                theoretical physics—with zero preparation. No scripts. Just real-time thinking, mistakes and all.
+                {t('about.storyParagraph1')}
               </p>
               <p className="text-slate-300 leading-relaxed">
-                I&apos;m Daniel Colomer, and through{" "}
-                <a href="https://www.youtube.com/@UncertainSystems" target="_blank" rel="noopener noreferrer" className="text-white underline underline-offset-2 hover:text-slate-300">Uncertain Systems</a>, 
-                I&apos;ve done hundreds of hours of streaming and 1-on-1 coaching. Along the way, I noticed something: 
-                the students who improved fastest weren&apos;t the ones I gave the best explanations to. 
-                They were the ones I asked the best <em>questions</em> of.
+                {t('about.storyParagraph2Part1')}{" "}
+                <a href="https://www.youtube.com/@UncertainSystems" target="_blank" rel="noopener noreferrer" className="text-white underline underline-offset-2 hover:text-slate-300">Uncertain Systems</a>
+                {t('about.storyParagraph2Part2')}
               </p>
               <p className="text-slate-300 leading-relaxed">
-                Guided questioning — asking questions that expose gaps in understanding — has been the gold standard for teaching 
-                for millennia. But it doesn&apos;t scale. A great tutor has to listen carefully, detect where reasoning 
-                breaks down, and ask precisely the right question at the right moment.
+                {t('about.storyParagraph3')}
               </p>
               <p className="text-slate-300 leading-relaxed">
-                That&apos;s what openLesson is: an AI that listens to you reason out loud, detects gaps in your understanding, 
-                and asks the questions that help you find answers yourself. It never tells you what to think — it helps you 
-                think better.
+                {t('about.storyParagraph4')}
               </p>
             </div>
           </div>
@@ -290,7 +274,7 @@ export default function AboutPage() {
                 <div className="aspect-video bg-slate-800">
                   {video.id.startsWith("PLACEHOLDER") ? (
                     <div className="w-full h-full flex items-center justify-center text-slate-600 text-sm">
-                      Video placeholder
+                      {t('about.videoPlaceholder')}
                     </div>
                   ) : (
                     <iframe

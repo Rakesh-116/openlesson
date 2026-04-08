@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/lib/i18n";
 
 export interface BandPowers {
   delta: number;
@@ -16,6 +17,7 @@ interface BrainStateBarProps {
 }
 
 export function BrainStateBar({ powers, isConnected }: BrainStateBarProps) {
+  const { t } = useI18n();
   const [showTooltip, setShowTooltip] = useState(false);
 
   if (!isConnected || !powers) return null;
@@ -60,23 +62,23 @@ export function BrainStateBar({ powers, isConnected }: BrainStateBarProps) {
         <div className="absolute bottom-full left-0 mb-2 bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-xs z-20 w-48">
           <div className="space-y-1">
             <div className="flex justify-between">
-              <span className="text-purple-400">θ Theta</span>
+              <span className="text-purple-400">{t('brainState.theta')}</span>
               <span className="text-neutral-300">{(powers.theta * 100).toFixed(0)}%</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-blue-400">α Alpha</span>
+              <span className="text-blue-400">{t('brainState.alpha')}</span>
               <span className="text-neutral-300">{(powers.alpha * 100).toFixed(0)}%</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-green-400">β Beta</span>
+              <span className="text-green-400">{t('brainState.beta')}</span>
               <span className="text-neutral-300">{(powers.beta * 100).toFixed(0)}%</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-yellow-400">γ Gamma</span>
+              <span className="text-yellow-400">{t('brainState.gamma')}</span>
               <span className="text-neutral-300">{(powers.gamma * 100).toFixed(0)}%</span>
             </div>
             <div className="pt-1 border-t border-neutral-700 flex justify-between">
-              <span className="text-neutral-400">Focus</span>
+              <span className="text-neutral-400">{t('brainState.focus')}</span>
               <span className="text-neutral-300">{focusScore.toFixed(2)}</span>
             </div>
           </div>

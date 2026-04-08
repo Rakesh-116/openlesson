@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useI18n } from "@/lib/i18n";
 
 interface PopOutBannerProps {
   isVisible: boolean;
@@ -9,6 +10,7 @@ interface PopOutBannerProps {
 }
 
 export function PopOutBanner({ isVisible, popOutWindowRef, onDismiss }: PopOutBannerProps) {
+  const { t } = useI18n();
   const bannerRef = useRef<HTMLDivElement>(null);
 
   // Update visibility via DOM instead of React state
@@ -43,13 +45,13 @@ export function PopOutBanner({ isVisible, popOutWindowRef, onDismiss }: PopOutBa
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
       </svg>
       <span className="font-medium text-sm">
-        Do not close this tab — monitoring is running in a separate window
+        {t('session.popOutBannerMessage')}
       </span>
       <button
         onClick={handleGoToMonitor}
         className="ml-2 px-3 py-1 bg-black/20 hover:bg-black/30 rounded text-sm font-medium transition-colors"
       >
-        Go to Monitor
+        {t('session.goToMonitor')}
       </button>
       <button
         onClick={handleDismiss}
@@ -59,7 +61,7 @@ export function PopOutBanner({ isVisible, popOutWindowRef, onDismiss }: PopOutBa
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
-        Dismiss
+        {t('session.dismiss')}
       </button>
     </div>
   );

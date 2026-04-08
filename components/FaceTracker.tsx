@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { FilesetResolver, FaceLandmarker } from "@mediapipe/tasks-vision";
+import { useI18n } from "../lib/i18n";
 
 if (typeof window !== "undefined") {
   const originalError = console.error;
@@ -91,6 +92,7 @@ interface FaceTrackerProps {
 }
 
 export function FaceTracker({ isEnabled, onDataPoint, onError }: FaceTrackerProps) {
+  const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -510,7 +512,7 @@ export function FaceTracker({ isEnabled, onDataPoint, onError }: FaceTrackerProp
         console.error("[FaceTracker] Init error:", err);
         if (!isMounted) return;
         const error = err as Error;
-        setWebcamError(error.message || "Failed to initialize face tracking");
+        setWebcamError(error.message || t('faceTracker.failedToInitialize'));
         if (onErrorRef.current) onErrorRef.current(error.message || "Failed to initialize");
         setIsLoading(false);
       }
@@ -549,7 +551,7 @@ export function FaceTracker({ isEnabled, onDataPoint, onError }: FaceTrackerProp
       <canvas ref={canvasRef} className="hidden" />
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
-          <p className="text-neutral-400 text-xs">Loading face detection model...</p>
+          <p className="text-neutral-400 text-xs">{t('faceTracker.loadingModel')}</p>
         </div>
       )}
       {webcamError && (
@@ -559,7 +561,7 @@ export function FaceTracker({ isEnabled, onDataPoint, onError }: FaceTrackerProp
       )}
       {!isWebcamOn && !isLoading && !webcamError && (
         <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
-          <p className="text-neutral-400 text-xs">Initializing webcam...</p>
+          <p className="text-neutral-400 text-xs">{t('faceTracker.initializingWebcam')}</p>
         </div>
       )}
     </div>

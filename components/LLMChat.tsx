@@ -152,7 +152,7 @@ export function LLMChat({ problem, messages: externalMessages, onMessagesChange,
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "Sorry, I encountered an error. Please try again.",
+        content: t('llmChat.errorMessage'),
       };
       updateMessages([...messages, userMsg, errorMessage]);
     } finally {
@@ -252,13 +252,13 @@ export function LLMChat({ problem, messages: externalMessages, onMessagesChange,
                 onClick={() => setShowClearConfirm(false)}
                 className="flex-1 px-3 py-2 text-sm bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleClear}
                 className="flex-1 px-3 py-2 text-sm bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
               >
-                Clear
+                {t('llmChat.clearChat')}
               </button>
             </div>
           </div>

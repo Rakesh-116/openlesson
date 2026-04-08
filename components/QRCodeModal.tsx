@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import QRCode from "qrcode";
+import { useI18n } from "@/lib/i18n";
 
 interface QRCodeModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface QRCodeModalProps {
 }
 
 export function QRCodeModal({ isOpen, onClose, sessionId }: QRCodeModalProps) {
+  const { t } = useI18n();
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [copied, setCopied] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -90,8 +92,8 @@ export function QRCodeModal({ isOpen, onClose, sessionId }: QRCodeModalProps) {
               </svg>
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white">Open on Smartphone</h2>
-              <p className="text-[10px] text-neutral-500">Scan to continue on mobile</p>
+              <h2 className="text-sm font-semibold text-white">{t('qrCode.openOnSmartphone')}</h2>
+              <p className="text-[10px] text-neutral-500">{t('qrCode.scanToContinue')}</p>
             </div>
           </div>
           <button
@@ -119,10 +121,10 @@ export function QRCodeModal({ isOpen, onClose, sessionId }: QRCodeModalProps) {
           {/* Instructions */}
           <div className="mt-4 text-center">
             <p className="text-xs text-neutral-400 mb-1">
-              Scan with your phone's camera
+              {t('qrCode.scanWithCamera')}
             </p>
             <p className="text-[10px] text-neutral-600">
-              The mobile session runs independently with its own microphone
+              {t('qrCode.mobileSessionIndependent')}
             </p>
           </div>
         </div>
@@ -131,7 +133,7 @@ export function QRCodeModal({ isOpen, onClose, sessionId }: QRCodeModalProps) {
         <div className="px-5 pb-5">
           <div className="flex items-center gap-2 p-2 bg-neutral-900 border border-neutral-800 rounded-lg">
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] text-neutral-500 mb-0.5">Session URL</p>
+              <p className="text-[10px] text-neutral-500 mb-0.5">{t('qrCode.sessionUrl')}</p>
               <p className="text-xs text-neutral-300 truncate font-mono">
                 {mobileUrl}
               </p>
@@ -149,14 +151,14 @@ export function QRCodeModal({ isOpen, onClose, sessionId }: QRCodeModalProps) {
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
-                  Copied
+                  {t('qrCode.copied')}
                 </span>
               ) : (
                 <span className="flex items-center gap-1">
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
-                  Copy
+                  {t('qrCode.copy')}
                 </span>
               )}
             </button>
@@ -170,7 +172,7 @@ export function QRCodeModal({ isOpen, onClose, sessionId }: QRCodeModalProps) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <p className="text-[10px] text-cyan-400/80 leading-relaxed">
-              The mobile view is optimized for monitoring on the go. Your session data syncs automatically between devices.
+              {t('qrCode.mobileViewTip')}
             </p>
           </div>
         </div>

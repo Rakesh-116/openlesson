@@ -82,15 +82,15 @@ export function MobilePlanTab({
               setAdvancing(false);
             }
           } else {
-            setAdvanceDialogReasoning(data.advanceReasoning || "The AI suggests staying on the current step.");
+            setAdvanceDialogReasoning(data.advanceReasoning || t('sessionPlan.aiSuggestsStayingDefault'));
             setShowAdvanceDialog(true);
           }
         } else {
-          setAdvanceDialogReasoning("Unable to analyze session. Please review if the student is ready to move forward.");
+          setAdvanceDialogReasoning(t('sessionPlan.unableToAnalyze'));
           setShowAdvanceDialog(true);
         }
       } catch {
-        setAdvanceDialogReasoning("Unable to analyze session. Please review if the student is ready to move forward.");
+        setAdvanceDialogReasoning(t('sessionPlan.unableToAnalyze'));
         setShowAdvanceDialog(true);
       } finally {
         setAnalyzingAdvance(false);
@@ -148,10 +148,10 @@ export function MobilePlanTab({
           </svg>
         </div>
         <p className="text-sm text-red-400 mb-1">
-          {isCorrupted ? "Plan is corrupted" : "Plan creation failed"}
+          {isCorrupted ? t('sessionPlan.planCorrupted') : t('sessionPlan.creationFailed')}
         </p>
         <p className="text-xs text-neutral-600 mb-4">
-          {isCorrupted ? "The plan has no steps" : error}
+          {isCorrupted ? t('sessionPlan.noSteps') : error}
         </p>
       </div>
     );
@@ -167,7 +167,7 @@ export function MobilePlanTab({
         </div>
         <p className="text-sm text-neutral-500">{t('sessionPlanViewer.noPlanYet')}</p>
         <p className="text-xs text-neutral-600 mt-1">
-          Plan will be created when session starts
+          {t('sessionPlan.planWillBeCreated')}
         </p>
       </div>
     );
@@ -185,10 +185,10 @@ export function MobilePlanTab({
   };
 
   const typeLabels: Record<string, string> = {
-    question: "Question",
-    task: "Task",
-    suggestion: "Suggestion",
-    checkpoint: "Checkpoint",
+    question: t('sessionPlan.question'),
+    task: t('sessionPlan.task'),
+    suggestion: t('sessionPlan.suggestion'),
+    checkpoint: t('sessionPlan.checkpoint'),
   };
 
   return (
@@ -224,10 +224,10 @@ export function MobilePlanTab({
               </svg>
               <div className="flex flex-col items-start">
                 <span className={`text-sm font-medium ${autoAdvance ? 'text-cyan-400' : 'text-amber-400'}`}>
-                  {autoAdvance ? 'Auto-advance' : 'Manual mode'}
+                  {autoAdvance ? t('sessionPlan.autoAdvance') : t('sessionPlan.manualMode')}
                 </span>
                 <span className="text-xs text-neutral-500">
-                  {autoAdvance ? 'AI controls advancement' : 'You control advancement'}
+                  {autoAdvance ? t('sessionPlan.aiControlsAdvancement') : t('sessionPlan.youControlAdvancement')}
                 </span>
               </div>
             </div>
@@ -273,7 +273,7 @@ export function MobilePlanTab({
                     </span>
                     {isActive && (
                       <span className="ml-auto px-2 py-0.5 text-[10px] font-medium bg-cyan-500/20 text-cyan-400 rounded-full">
-                        Current
+                        {t('sessionPlan.current')}
                       </span>
                     )}
                     {isCompleted && (
@@ -303,7 +303,7 @@ export function MobilePlanTab({
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
-                          Completing...
+                          {t('sessionPlan.completing')}
                         </>
                       ) : analyzingAdvance ? (
                         <>
@@ -311,14 +311,14 @@ export function MobilePlanTab({
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
-                          Checking...
+                          {t('sessionPlan.checking')}
                         </>
                       ) : (
                         <>
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
-                          Mark Complete
+                          {t('sessionPlan.markComplete')}
                         </>
                       )}
                     </button>
@@ -336,14 +336,14 @@ export function MobilePlanTab({
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
-                          Rolling back...
+                          {t('sessionPlan.rollingBack')}
                         </>
                       ) : (
                         <>
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4" />
                           </svg>
-                          Go back to this step
+                          {t('sessionPlan.goBackToStep')}
                         </>
                       )}
                     </button>
@@ -366,26 +366,26 @@ export function MobilePlanTab({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-white">AI Suggests Staying</h3>
+              <h3 className="text-lg font-semibold text-white">{t('sessionPlan.aiSuggestsStaying')}</h3>
             </div>
             <p className="text-sm text-neutral-400 mb-3 leading-relaxed">
               {advanceDialogReasoning}
             </p>
             <p className="text-xs text-neutral-500 mb-5">
-              You can still choose to advance if you think the student is ready.
+              {t('sessionPlan.canStillAdvance')}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowAdvanceDialog(false)}
                 className="flex-1 py-3 text-sm text-neutral-400 border border-neutral-700 hover:border-neutral-600 rounded-xl transition-colors"
               >
-                Stay on Step
+                {t('sessionPlan.stayOnStep')}
               </button>
               <button
                 onClick={handleForceAdvance}
                 className="flex-1 py-3 text-sm text-white bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded-xl transition-colors"
               >
-                Continue Anyway
+                {t('sessionPlan.continueAnyway')}
               </button>
             </div>
           </div>

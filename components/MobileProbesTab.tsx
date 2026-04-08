@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { type Probe, type SessionPlan, type RequestType } from "@/lib/storage";
+import { useI18n } from "@/lib/i18n";
 
 interface MobileProbesTabProps {
   probes: Probe[];
@@ -38,6 +39,7 @@ export function MobileProbesTab({
   archivingProbeId,
   isGeneratingProbe = false,
 }: MobileProbesTabProps) {
+  const { t } = useI18n();
   const [viewMode, setViewMode] = useState<"active" | "archived">("active");
   const [expandedProbeId, setExpandedProbeId] = useState<string | null>(null);
 
@@ -70,7 +72,7 @@ export function MobileProbesTab({
                 : "text-neutral-500 hover:text-neutral-400"
             }`}
           >
-            Active ({activeProbes.length})
+            {t('probes.activeCount', { count: activeProbes.length })}
           </button>
           <button
             onClick={() => setViewMode("archived")}
@@ -80,7 +82,7 @@ export function MobileProbesTab({
                 : "text-neutral-500 hover:text-neutral-400"
             }`}
           >
-            Archived ({archivedProbes.length})
+            {t('probes.archivedCount', { count: archivedProbes.length })}
           </button>
         </div>
       </div>
@@ -91,7 +93,7 @@ export function MobileProbesTab({
           isGeneratingProbe && viewMode === "active" ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
               <div className="w-7 h-7 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
-              <p className="text-neutral-500 text-sm">Generating probe...</p>
+              <p className="text-neutral-500 text-sm">{t('probes.generatingProbe')}</p>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -102,14 +104,14 @@ export function MobileProbesTab({
               </div>
               <p className="text-neutral-500 text-sm">
                 {viewMode === "active" 
-                  ? "No active probes yet" 
-                  : "No archived probes"
+                  ? t('probes.noActiveProbes') 
+                  : t('probes.noArchivedProbes')
                 }
               </p>
               <p className="text-neutral-600 text-xs mt-1">
                 {viewMode === "active" 
-                  ? "Start your session to receive guiding questions" 
-                  : "Completed probes will appear here"
+                  ? t('probes.startSessionHint') 
+                  : t('probes.completedProbesHint')
                 }
               </p>
             </div>
@@ -120,8 +122,8 @@ export function MobileProbesTab({
               ? sessionPlan?.steps?.find(s => s.id === probe.planStepId)
               : null;
             const stepContext = planStep 
-              ? `Step ${planStep.order}: ${planStep.description}`
-              : "General";
+              ? t('probes.stepContext', { order: planStep.order, description: planStep.description })
+              : t('probes.general');
             
             const requestType = probe.requestType || "question";
             const typeBadge = getTypeBadgeStyles(requestType);
@@ -155,7 +157,7 @@ export function MobileProbesTab({
                     </span>
                     {probe.focused && (
                       <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                        Focused
+                        {t('probes.focused')}
                       </span>
                     )}
                   </div>
@@ -186,7 +188,7 @@ export function MobileProbesTab({
                           : "bg-neutral-800 text-neutral-400 border border-neutral-700 hover:bg-neutral-700"
                       }`}
                     >
-                      {probe.focused ? "Unfocus" : "Focus"}
+                      {probe.focused ? t('probes.unfocus') : t('probes.focus')}
                     </button>
                     <button
                       onClick={() => onArchiveProbe?.(probe.id)}
@@ -199,14 +201,14 @@ export function MobileProbesTab({
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
-                          Archiving...
+                          {t('probes.archiving')}
                         </span>
                       ) : (
                         <span className="flex items-center justify-center gap-1.5">
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                           </svg>
-                          Mark Complete
+                          {t('probes.markComplete')}
                         </span>
                       )}
                     </button>
@@ -220,7 +222,7 @@ export function MobileProbesTab({
         {isGeneratingProbe && viewMode === "active" && displayedProbes.length > 0 && (
           <div className="flex items-center gap-2.5 p-3 rounded-xl bg-neutral-800/50 border border-neutral-700/30 animate-pulse">
             <div className="w-4 h-4 border-2 border-neutral-600 border-t-cyan-500 rounded-full animate-spin shrink-0" />
-            <span className="text-xs text-neutral-500">Generating probe...</span>
+            <span className="text-xs text-neutral-500">{t('probes.generatingProbe')}</span>
           </div>
         )}
       </div>

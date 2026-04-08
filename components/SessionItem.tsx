@@ -179,7 +179,7 @@ export function SessionItem({
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {!isExpanded && !isCompleted && !isLocked && isOwner && (
               <span className="text-[10px] text-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:inline">
-                {activeSession ? "Resume" : "Expand"}
+                {activeSession ? t('sessionItem.resume') : t('sessionItem.expand')}
               </span>
             )}
             <svg 
@@ -194,7 +194,7 @@ export function SessionItem({
         {/* Collapsed: next nodes pills */}
         {!isExpanded && nextNodes.length > 0 && (
           <div className="flex items-center gap-1.5 mt-1.5 ml-10 flex-wrap">
-            <span className="text-[10px] text-neutral-600">Next:</span>
+            <span className="text-[10px] text-neutral-600">{t('sessionItem.next')}</span>
             {nextNodes.map((n) => (
               <button
                 key={n.id}
@@ -222,7 +222,7 @@ export function SessionItem({
           {/* Sequence navigation — inline pills */}
           {nextNodes.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[10px] text-neutral-500 uppercase tracking-wide">Leads to:</span>
+              <span className="text-[10px] text-neutral-500 uppercase tracking-wide">{t('sessionItem.leadsTo')}</span>
               {nextNodes.map((n) => (
                 <button
                   key={n.id}
@@ -245,9 +245,9 @@ export function SessionItem({
                 <svg className={`w-3 h-3 transition-transform ${showPromptEditor ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
-                Custom instructions
-                {savingPrompt && <span className="text-neutral-600">saving...</span>}
-                {promptSaved && <span className="text-green-500">saved</span>}
+                {t('sessionItem.customInstructionsLabel')}
+                {savingPrompt && <span className="text-neutral-600">{t('sessionItem.saving')}</span>}
+                {promptSaved && <span className="text-green-500">{t('sessionItem.saved')}</span>}
               </button>
               {showPromptEditor && (
                 <textarea
@@ -270,7 +270,7 @@ export function SessionItem({
                 onClick={(e) => { e.stopPropagation(); setShowPreview(true); }}
                 className="px-3 py-2 bg-neutral-800/60 hover:bg-neutral-700/60 text-neutral-300 text-sm font-medium rounded-lg transition-colors border border-neutral-700/50"
               >
-                Preview
+                {t('sessionItem.preview')}
               </button>
               {isCompleted ? (
                 <button
@@ -278,12 +278,12 @@ export function SessionItem({
                   disabled={isStarting}
                   className="flex-1 px-4 py-2 bg-neutral-700 hover:bg-neutral-600 disabled:bg-neutral-800 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
-                  {isStarting ? "Starting..." : (
+                  {isStarting ? t('sessionItem.starting') : (
                     <>
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
-                      Run Again
+                      {t('sessionItem.runAgain')}
                     </>
                   )}
                 </button>
@@ -295,7 +295,7 @@ export function SessionItem({
                     activeSession ? "bg-green-600 hover:bg-green-500" : "bg-blue-600 hover:bg-blue-500"
                   }`}
                 >
-                  {isStarting ? "Starting..." : activeSession ? "Resume Lesson" : "Start Lesson"}
+                  {isStarting ? t('sessionItem.starting') : activeSession ? t('sessionItem.resumeLesson') : t('sessionItem.startLesson')}
                 </button>
               )}
             </div>

@@ -92,7 +92,7 @@ export function CommunityPlans({ user }: CommunityPlansProps) {
             type="submit"
             className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-medium rounded-lg transition-colors"
           >
-            Search
+            {t('common.search')}
           </button>
         </div>
       </form>
@@ -103,7 +103,7 @@ export function CommunityPlans({ user }: CommunityPlansProps) {
         </div>
       ) : plans.length === 0 ? (
         <div className="text-center py-8 text-neutral-500 text-sm">
-          No public plans yet. Be the first to share yours!
+          {t('communityPlans.noPlansYet')}
         </div>
       ) : (
         <div className="space-y-3">
@@ -118,11 +118,11 @@ export function CommunityPlans({ user }: CommunityPlansProps) {
                   {plan.root_topic}
                 </h4>
                 <span className="text-xs text-neutral-500">
-                  {plan.remix_count === 0 ? "0 forks" : plan.remix_count === 1 ? "1 fork" : `${plan.remix_count} forks`}
+                  {plan.remix_count === 0 ? t('communityPlans.zeroForks') : plan.remix_count === 1 ? t('communityPlans.oneFork') : `${plan.remix_count} ${t('communityPlans.forks')}`}
                 </span>
               </div>
               <p className="text-xs text-neutral-500 mt-1">
-                by @{plan.author_username || "anonymous"}
+                by @{plan.author_username || t('communityPlans.anonymous')}
               </p>
             </Link>
           ))}
@@ -136,17 +136,17 @@ export function CommunityPlans({ user }: CommunityPlansProps) {
             disabled={page === 0}
             className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Previous
+            {t('dashboard.previous')}
           </button>
           <span className="text-xs text-neutral-500">
-            Page {page + 1} of {totalPages}
+            {t('communityPlans.pageOf', { current: String(page + 1), total: String(totalPages) })}
           </span>
           <button
             onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
             disabled={page >= totalPages - 1}
             className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Next
+            {t('dashboard.next')}
           </button>
         </div>
       )}

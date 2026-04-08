@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useI18n } from "@/lib/i18n";
 
 export type LogLevel = "error" | "warning" | "info";
 
@@ -31,6 +32,7 @@ interface LogsToolProps {
 }
 
 export function LogsTool({ logs, transferHealth, onClear }: LogsToolProps) {
+  const { t } = useI18n();
   const [filter, setFilter] = useState<LogLevel | "all">("all");
   const [autoScroll, setAutoScroll] = useState(true);
   const [healthAutoRefresh, setHealthAutoRefresh] = useState(true);
@@ -105,14 +107,14 @@ export function LogsTool({ logs, transferHealth, onClear }: LogsToolProps) {
               onChange={(e) => setAutoScroll(e.target.checked)}
               className="w-3 h-3 rounded border-neutral-700 bg-neutral-800"
             />
-            Auto-scroll
+            {t('logs.autoScroll')}
           </label>
           {onClear && (
             <button
               onClick={onClear}
               className="text-[10px] text-neutral-500 hover:text-neutral-300"
             >
-              Clear
+              {t('logs.clear')}
             </button>
           )}
         </div>
@@ -125,7 +127,7 @@ export function LogsTool({ logs, transferHealth, onClear }: LogsToolProps) {
       >
         {filteredLogs.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <p className="text-neutral-500 text-xs">No logs to display</p>
+            <p className="text-neutral-500 text-xs">{t('logs.noLogs')}</p>
           </div>
         ) : (
           filteredLogs.map((log) => (
@@ -157,7 +159,7 @@ export function LogsTool({ logs, transferHealth, onClear }: LogsToolProps) {
               <svg className="w-3.5 h-3.5 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
-              <span className="text-xs font-medium text-neutral-300">Data Transfer Health</span>
+              <span className="text-xs font-medium text-neutral-300">{t('logs.dataTransferHealth')}</span>
             </div>
             <label className="flex items-center gap-1.5 text-[10px] text-neutral-500">
               <input
@@ -174,18 +176,18 @@ export function LogsTool({ logs, transferHealth, onClear }: LogsToolProps) {
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-neutral-500 text-[10px] uppercase tracking-wider">
-                  <th className="text-left font-medium pb-2">Type</th>
-                  <th className="text-center font-medium pb-2">Sent</th>
-                  <th className="text-center font-medium pb-2">Saved</th>
-                  <th className="text-center font-medium pb-2">Failed</th>
-                  <th className="text-center font-medium pb-2">Status</th>
+                  <th className="text-left font-medium pb-2">{t('logs.type')}</th>
+                  <th className="text-center font-medium pb-2">{t('logs.sent')}</th>
+                  <th className="text-center font-medium pb-2">{t('logs.saved')}</th>
+                  <th className="text-center font-medium pb-2">{t('logs.failed')}</th>
+                  <th className="text-center font-medium pb-2">{t('logs.status')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-800/50">
                 {[
-                  { key: "audio", label: "Audio", data: transferHealth.audio },
-                  { key: "eeg", label: "EEG", data: transferHealth.eeg },
-                  { key: "facial", label: "Facial", data: transferHealth.facial },
+                  { key: "audio", label: t('logs.audio'), data: transferHealth.audio },
+                  { key: "eeg", label: t('logs.eeg'), data: transferHealth.eeg },
+                  { key: "facial", label: t('logs.facial'), data: transferHealth.facial },
                 ].map(({ key, label, data }) => {
                   const status = getHealthStatus(data);
                   return (
@@ -199,7 +201,7 @@ export function LogsTool({ logs, transferHealth, onClear }: LogsToolProps) {
                       <td className="py-2 text-center">
                         <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] ${status.color} bg-neutral-800`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
-                          {data.sent === 0 ? "Idle" : data.failed === 0 ? "OK" : "Issues"}
+                          {data.sent === 0 ? t('logs.idle') : data.failed === 0 ? t('logs.ok') : t('logs.issues')}
                         </span>
                       </td>
                     </tr>

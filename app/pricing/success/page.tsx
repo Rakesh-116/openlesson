@@ -4,9 +4,11 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
+import { useI18n } from "@/lib/i18n";
 
 export default function PricingSuccessPage() {
   const router = useRouter();
+  const { t } = useI18n();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -26,16 +28,16 @@ export default function PricingSuccessPage() {
           </svg>
         </div>
         <h1 className="text-2xl font-semibold text-white mb-2">
-          You&apos;re all set
+          {t('pricing.allSet')}
         </h1>
         <p className="text-sm text-neutral-500 mb-8 max-w-md">
-          Your subscription is active. Redirecting to your dashboard...
+          {t('pricing.subscriptionActive')}
         </p>
         <Link
           href="/dashboard"
           className="px-4 py-2 text-sm text-white bg-white/10 hover:bg-white/15 rounded-lg transition-colors"
         >
-          Go to Dashboard
+          {t('pricing.goToDashboard')}
         </Link>
       </div>
     </main>

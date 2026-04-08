@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/lib/i18n";
 
 export function MobileBlockScreen() {
+  const { t } = useI18n();
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0a] p-6 text-center">
       {/* Logo */}
@@ -32,17 +34,17 @@ export function MobileBlockScreen() {
 
       {/* Message */}
       <h1 className="text-2xl font-semibold text-white mb-3">
-        Desktop Only
+        {t('mobileBlock.desktopOnly')}
       </h1>
       <p className="text-neutral-400 max-w-md mb-6">
-        The openLesson learning experience is designed for desktop devices with audio input capabilities.
+        {t('mobileBlock.desktopDescription')}
       </p>
 
       {/* Coming soon badge */}
       <div className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-800/50 border border-neutral-700 rounded-full mb-8">
         <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
         <span className="text-sm text-neutral-400">
-          Mobile version coming soon
+          {t('mobileBlock.comingSoon')}
         </span>
       </div>
 
@@ -51,7 +53,7 @@ export function MobileBlockScreen() {
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
         </svg>
-        <span>Chrome recommended for best experience</span>
+        <span>{t('mobileBlock.chromeRecommended')}</span>
       </div>
 
       {/* Back button */}
@@ -72,7 +74,7 @@ export function MobileBlockScreen() {
             d="M10 19l-7-7m0 0l7-7m-7 7h18"
           />
         </svg>
-        <span>Return to Dashboard</span>
+        <span>{t('mobileBlock.returnToDashboard')}</span>
       </Link>
     </div>
   );

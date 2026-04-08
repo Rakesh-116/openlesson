@@ -35,7 +35,7 @@ export function ProbeCard({ probe, problem, isNew = false }: ProbeCardProps) {
             <p className="text-white leading-relaxed flex-1">{probe.text}</p>
             {probe.starred && (
               <span className="shrink-0 mt-1 px-1.5 py-0.5 text-[10px] rounded bg-amber-500/15 text-amber-400 border border-amber-500/20 font-medium">
-                Starred
+                {t('probes.starred')}
               </span>
             )}
           </div>

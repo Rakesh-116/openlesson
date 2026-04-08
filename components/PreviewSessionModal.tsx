@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/lib/i18n";
 
 interface SessionStep {
   id: string;
@@ -26,15 +27,19 @@ interface PreviewSessionModalProps {
   onStartSession?: () => void;
 }
 
-const typeConfig: Record<string, { icon: string; label: string; color: string }> = {
-  question: { icon: "M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z", label: "Question", color: "text-blue-400 bg-blue-500/10" },
-  task: { icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", label: "Task", color: "text-emerald-400 bg-emerald-500/10" },
-  suggestion: { icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z", label: "Suggestion", color: "text-amber-400 bg-amber-500/10" },
-  checkpoint: { icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z", label: "Checkpoint", color: "text-violet-400 bg-violet-500/10" },
-  feedback: { icon: "M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z", label: "Feedback", color: "text-cyan-400 bg-cyan-500/10" },
-};
+function useTypeConfig() {
+  const { t } = useI18n();
+  return {
+    question: { icon: "M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z", label: t('sessionPlan.question'), color: "text-blue-400 bg-blue-500/10" },
+    task: { icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", label: t('sessionPlan.task'), color: "text-emerald-400 bg-emerald-500/10" },
+    suggestion: { icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z", label: t('sessionPlan.suggestion'), color: "text-amber-400 bg-amber-500/10" },
+    checkpoint: { icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z", label: t('sessionPlan.checkpoint'), color: "text-violet-400 bg-violet-500/10" },
+    feedback: { icon: "M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z", label: t('sessionPlan.feedback'), color: "text-cyan-400 bg-cyan-500/10" },
+  } as Record<string, { icon: string; label: string; color: string }>;
+}
 
 function ExpandableSection({ icon, label, labelColor, text }: { icon: React.ReactNode; label: string; labelColor: string; text: string }) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const isLong = text.length > 120;
 
@@ -51,13 +56,15 @@ function ExpandableSection({ icon, label, labelColor, text }: { icon: React.Reac
         {text}
       </p>
       {isLong && !expanded && (
-        <span className="text-[10px] text-neutral-600 mt-1 inline-block">Tap to expand</span>
+        <span className="text-[10px] text-neutral-600 mt-1 inline-block">{t('previewSession.tapToExpand')}</span>
       )}
     </button>
   );
 }
 
 function StepCard({ step, index }: { step: SessionStep; index: number }) {
+  const { t } = useI18n();
+  const typeConfig = useTypeConfig();
   const config = typeConfig[step.type] || typeConfig.question;
 
   return (
@@ -72,7 +79,7 @@ function StepCard({ step, index }: { step: SessionStep; index: number }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-[10px] font-medium text-neutral-500 uppercase tracking-wider">Step {index + 1}</span>
+            <span className="text-[10px] font-medium text-neutral-500 uppercase tracking-wider">{t('previewSession.stepN', { n: index + 1 })}</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${config.color}`}>{config.label}</span>
           </div>
           <p className="text-sm text-neutral-300 leading-relaxed">{step.description}</p>
@@ -90,6 +97,7 @@ export function PreviewSessionModal({
   onClose,
   onStartSession,
 }: PreviewSessionModalProps) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [preview, setPreview] = useState<PreviewData | null>(null);
@@ -157,8 +165,8 @@ export function PreviewSessionModal({
               <div className="relative">
                 <div className="w-10 h-10 rounded-full border-2 border-neutral-800 border-t-blue-500 animate-spin" />
               </div>
-              <p className="text-sm text-neutral-500">Planning your session...</p>
-              <p className="text-[11px] text-neutral-600">This may take a few seconds</p>
+              <p className="text-sm text-neutral-500">{t('previewSession.planningSession')}</p>
+              <p className="text-[11px] text-neutral-600">{t('previewSession.mayTakeFewSeconds')}</p>
             </div>
           )}
 
@@ -171,7 +179,7 @@ export function PreviewSessionModal({
               </div>
               <p className="text-red-400 text-sm mb-1">{error}</p>
               <button onClick={onClose} className="text-xs text-neutral-500 hover:text-white transition-colors">
-                Close
+                {t('previewSession.close')}
               </button>
             </div>
           )}
@@ -182,13 +190,13 @@ export function PreviewSessionModal({
               <div className="space-y-2">
                 <ExpandableSection
                   icon={<svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" /></svg>}
-                  label="Goal"
+                   label={t('previewSession.goal')}
                   labelColor="text-emerald-400"
                   text={preview.goal}
                 />
                 <ExpandableSection
                   icon={<svg className="w-3.5 h-3.5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>}
-                  label="Strategy"
+                   label={t('previewSession.strategy')}
                   labelColor="text-blue-400"
                   text={preview.strategy}
                 />
@@ -196,7 +204,7 @@ export function PreviewSessionModal({
 
               {/* Steps header */}
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-neutral-400">{preview.steps.length} steps planned</span>
+                <span className="text-xs font-medium text-neutral-400">{t('previewSession.stepsPlanned', { count: preview.steps.length })}</span>
               </div>
 
               {/* Steps list — expandable cards */}
@@ -216,14 +224,14 @@ export function PreviewSessionModal({
               onClick={onClose}
               className="flex-1 px-4 py-2.5 text-sm text-neutral-400 hover:text-white bg-neutral-800/50 hover:bg-neutral-800 rounded-xl transition-colors font-medium"
             >
-              Close
+              {t('previewSession.close')}
             </button>
             {preview && onStartSession && (
               <button
                 onClick={onStartSession}
                 className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors"
               >
-                Start Session
+                {t('previewSession.startSession')}
               </button>
             )}
           </div>

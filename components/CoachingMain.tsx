@@ -4,22 +4,10 @@ import Link from "next/link";
 import { FAQ } from "@/components/FAQ";
 import { useI18n } from "@/lib/i18n";
 
-const VIDEOS = [
-  {
-    id: "BC7HCkjtOME",
-    title: "Humanity's Last Exam (Part 1)",
-    description: "Tackling the world's hardest exam live — real-time problem solving with no preparation.",
-  },
-  {
-    id: "I5nBTsHNnlI",
-    title: "Gaining Insight is like a brain orgasm",
-    description: "On the thinking process, what insight feels like, and how to chase it deliberately.",
-  },
-  {
-    id: "SlvrIxbqMqA",
-    title: "Humanity's Last Exam (Part 2)",
-    description: "Continuing to work through the world's hardest exam — live reasoning through advanced problems.",
-  },
+const VIDEO_IDS = [
+  { id: "BC7HCkjtOME", titleKey: "coaching.videoTitle1", descKey: "coaching.videoDesc1" },
+  { id: "I5nBTsHNnlI", titleKey: "coaching.videoTitle2", descKey: "coaching.videoDesc2" },
+  { id: "SlvrIxbqMqA", titleKey: "coaching.videoTitle3", descKey: "coaching.videoDesc3" },
 ];
 
 const APPROACH = [
@@ -183,7 +171,7 @@ export function CoachingMain() {
           {t('coaching.whatYoullGet')}
         </h2>
         <p className="text-slate-500 text-center text-sm mb-8 max-w-lg mx-auto">
-          After our session, you'll have the tools to tackle any unfamiliar problem.
+          {t('coaching.whatYoullGetSubtitle')}
         </p>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -221,7 +209,7 @@ export function CoachingMain() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {VIDEOS.map((video) => (
+          {VIDEO_IDS.map((video) => (
             <div
               key={video.id}
               className="rounded-xl border border-slate-800 bg-slate-900/50 overflow-hidden group hover:border-slate-700 transition-colors"
@@ -229,15 +217,15 @@ export function CoachingMain() {
               <div className="aspect-video">
                 <iframe
                   src={`https://www.youtube.com/embed/${video.id}`}
-                  title={video.title}
+                  title={t(video.titleKey)}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                   className="w-full h-full"
                 />
               </div>
               <div className="p-4">
-                <h3 className="text-sm font-medium text-slate-200 mb-1 group-hover:text-white transition-colors">{video.title}</h3>
-                <p className="text-xs text-slate-600 leading-relaxed">{video.description}</p>
+                <h3 className="text-sm font-medium text-slate-200 mb-1 group-hover:text-white transition-colors">{t(video.titleKey)}</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">{t(video.descKey)}</p>
               </div>
             </div>
           ))}
@@ -251,7 +239,7 @@ export function CoachingMain() {
             className="inline-flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors"
           >
             <YoutubeIcon />
-            Watch all sessions on YouTube
+            {t('coaching.watchOnYouTube')}
             <span className="text-slate-700">&rarr;</span>
           </a>
         </div>

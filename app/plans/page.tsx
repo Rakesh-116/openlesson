@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
+import { useI18n } from "@/lib/i18n";
 
 interface LearningPlan {
   id: string;
@@ -16,6 +17,7 @@ interface LearningPlan {
 
 export default function PlansPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [plans, setPlans] = useState<LearningPlan[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -64,7 +66,7 @@ export default function PlansPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-        <div className="text-neutral-400">Loading...</div>
+        <div className="text-neutral-400">{t('common.loading')}</div>
       </div>
     );
   }
@@ -73,7 +75,7 @@ export default function PlansPage() {
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       <Navbar 
         breadcrumbs={[
-          { label: "Learning Plans" }
+          { label: t('plans.title') }
         ]}
         showNav={false}
       />
@@ -81,9 +83,9 @@ export default function PlansPage() {
       <main className="max-w-4xl mx-auto p-6">
         {plans.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-neutral-500 mb-4">No learning plans yet.</p>
+            <p className="text-neutral-500 mb-4">{t('plans.noPlansYet')}</p>
             <Link href="/" className="text-blue-400 hover:underline">
-              Create your first plan
+              {t('plans.createFirstPlan')}
             </Link>
           </div>
         ) : (

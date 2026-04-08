@@ -77,7 +77,7 @@ export function ActiveProbe({
             <ThinkingDots />
           </div>
           <p className="text-neutral-400 text-sm italic">
-            {t('probes.formulatingQuestion') || "Your tutor is formulating an opening question..."}
+            {t('probes.formulatingQuestion')}
           </p>
         </div>
       </div>
@@ -92,7 +92,7 @@ export function ActiveProbe({
             <ListenIcon />
           </div>
           <p className="text-neutral-500 text-sm">
-            {t('probes.listening') || "Your tutor is listening..."}
+            {t('probes.listening')}
           </p>
         </div>
       </div>
@@ -146,7 +146,7 @@ export function ActiveProbe({
                     ? "text-amber-400 hover:text-amber-300"
                     : "text-neutral-600 hover:text-amber-400 hover:bg-neutral-800"
                 }`}
-                title={probe.starred ? (t('probes.unstarQuestion') || "Unstar this question") : (t('probes.starQuestion') || "Star this question")}
+                title={probe.starred ? t('probes.unstarQuestion') : t('probes.starQuestion')}
               >
                 <StarIcon filled={!!probe.starred} />
               </button>
@@ -159,7 +159,7 @@ export function ActiveProbe({
                     className={`p-1 rounded transition-all disabled:opacity-25 disabled:cursor-default ${
                       hasPrev ? "text-neutral-200 hover:text-white hover:bg-neutral-700" : "text-neutral-600"
                     }`}
-                    title={t('probes.previousQuestion') || "Previous question"}
+                    title={t('probes.previousQuestion')}
                   >
                     <ChevronLeftIcon />
                   </button>
@@ -174,7 +174,7 @@ export function ActiveProbe({
                     className={`p-1 rounded transition-all disabled:opacity-25 disabled:cursor-default ${
                       hasNext ? "text-neutral-200 hover:text-white hover:bg-neutral-700" : "text-neutral-600"
                     }`}
-                    title={t('probes.nextQuestion') || "Next question"}
+                    title={t('probes.nextQuestion')}
                   >
                     <ChevronRightIcon />
                   </button>

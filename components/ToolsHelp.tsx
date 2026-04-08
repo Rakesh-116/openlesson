@@ -8,20 +8,20 @@ export function ToolsHelp() {
         <div>
           <h3 className="text-lg font-medium text-white mb-3">{t('tools.sessionWorkspace')}</h3>
           <p className="text-sm text-neutral-400 mb-4">
-            {t('tools.workspaceDesc') || 'The workspace is split into three areas.'}
+            {t('tools.workspaceDesc')}
           </p>
           <div className="space-y-3">
             <div className="p-3 rounded-lg bg-neutral-900/50 border border-neutral-800">
               <div className="text-sm font-medium text-purple-400 mb-1">{t('tools.leftSidebar')}</div>
-              <p className="text-xs text-neutral-500">{t('tools.leftSidebarDesc') || 'Tool selector.'}</p>
+              <p className="text-xs text-neutral-500">{t('tools.leftSidebarDesc')}</p>
             </div>
             <div className="p-3 rounded-lg bg-neutral-900/50 border border-neutral-800">
               <div className="text-sm font-medium text-cyan-400 mb-1">{t('tools.centerPanel')}</div>
-              <p className="text-xs text-neutral-500">{t('tools.centerPanelDesc') || 'Active tool workspace.'}</p>
+              <p className="text-xs text-neutral-500">{t('tools.centerPanelDesc')}</p>
             </div>
             <div className="p-3 rounded-lg bg-neutral-900/50 border border-neutral-800">
               <div className="text-sm font-medium text-blue-400 mb-1">{t('tools.rightPanel')}</div>
-              <p className="text-xs text-neutral-500">{t('tools.rightPanelDesc') || 'Student monitoring.'}</p>
+              <p className="text-xs text-neutral-500">{t('tools.rightPanelDesc')}</p>
             </div>
           </div>
         </div>

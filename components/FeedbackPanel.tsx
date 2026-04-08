@@ -1,54 +1,60 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n";
+
 interface FeedbackPanelProps {
   objectives: string[];
   objectiveStatuses?: ("red" | "yellow" | "green" | "blue")[];
 }
 
-const statusConfig = {
+const statusStyles = {
   blue: {
     bg: "bg-blue-500/10",
     border: "border-blue-500/30",
     text: "text-blue-400",
     dot: "bg-blue-500",
-    label: "Not started",
   },
   red: {
     bg: "bg-red-500/10",
     border: "border-red-500/30",
     text: "text-red-400",
     dot: "bg-red-500",
-    label: "Struggling",
   },
   yellow: {
     bg: "bg-yellow-500/10",
     border: "border-yellow-500/30",
     text: "text-yellow-400",
     dot: "bg-yellow-500",
-    label: "In Progress",
   },
   green: {
     bg: "bg-green-500/10",
     border: "border-green-500/30",
     text: "text-green-400",
     dot: "bg-green-500",
-    label: "On Track",
   },
 };
 
 export function FeedbackPanel({ objectives, objectiveStatuses }: FeedbackPanelProps) {
+  const { t } = useI18n();
+
+  const statusLabels = {
+    blue: t('feedback.notStarted'),
+    red: t('feedback.struggling'),
+    yellow: t('feedback.inProgress'),
+    green: t('feedback.onTrack'),
+  };
   return (
     <div className="w-64 shrink-0 flex flex-col gap-4 p-4 bg-neutral-900/30 border-l border-neutral-800 overflow-y-auto">
       {/* Objectives Section */}
       <div>
         <div className="text-[10px] uppercase tracking-wider font-medium text-neutral-500 mb-3">
-          Session Objectives
+          {t('feedback.sessionObjectives')}
         </div>
         <div className="flex flex-col gap-2">
           {objectives.length > 0 ? (
             objectives.map((objective, index) => {
               const status = objectiveStatuses?.[index] || "blue";
-              const statusConf = statusConfig[status];
+              const statusConf = statusStyles[status];
               
               return (
                 <div
@@ -58,7 +64,7 @@ export function FeedbackPanel({ objectives, objectiveStatuses }: FeedbackPanelPr
                   <div className={`w-2 h-2 rounded-full mt-1 ${statusConf.dot}`} />
                   <div className="flex-1">
                     <span className="text-[10px] font-mono text-neutral-500 block mb-0.5">
-                      Objective {index + 1}
+                      {t('feedback.objective', { num: String(index + 1) })}
                     </span>
                     <span className={`text-xs ${statusConf.text} leading-relaxed`}>
                       {objective}
@@ -69,7 +75,7 @@ export function FeedbackPanel({ objectives, objectiveStatuses }: FeedbackPanelPr
             })
           ) : (
             <div className="text-xs text-neutral-600 italic p-2">
-              Loading objectives...
+              {t('feedback.loadingObjectives')}
             </div>
           )}
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/lib/i18n";
 
 interface PersonalAnalytics {
   total_sessions: number;
@@ -43,6 +44,7 @@ interface PlanAnalyticsProps {
 }
 
 export function PlanAnalytics({ planId, isOwner }: PlanAnalyticsProps) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [personal, setPersonal] = useState<PersonalAnalytics | null>(null);
   const [org, setOrg] = useState<OrgAnalytics | null>(null);
@@ -68,7 +70,7 @@ export function PlanAnalytics({ planId, isOwner }: PlanAnalyticsProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-neutral-500">Loading analytics...</div>
+        <div className="text-neutral-500">{t('planAnalytics.loading')}</div>
       </div>
     );
   }
@@ -76,7 +78,7 @@ export function PlanAnalytics({ planId, isOwner }: PlanAnalyticsProps) {
   if (!isOwner) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-neutral-500">Analytics are only visible to the plan owner.</div>
+        <div className="text-neutral-500">{t('planAnalytics.ownerOnly')}</div>
       </div>
     );
   }
@@ -95,7 +97,7 @@ export function PlanAnalytics({ planId, isOwner }: PlanAnalyticsProps) {
                   : "text-neutral-400 hover:text-neutral-300"
               }`}
             >
-              My Progress
+              {t('planAnalytics.myProgress')}
             </button>
             <button
               onClick={() => setActiveSection("org")}
@@ -105,7 +107,7 @@ export function PlanAnalytics({ planId, isOwner }: PlanAnalyticsProps) {
                   : "text-neutral-400 hover:text-neutral-300"
               }`}
             >
-              Organization
+              {t('planAnalytics.organization')}
             </button>
           </div>
         )}
@@ -114,26 +116,26 @@ export function PlanAnalytics({ planId, isOwner }: PlanAnalyticsProps) {
           <>
             {/* Stats grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard label="Sessions" value={personal.total_sessions} accent="blue" />
-              <StatCard label="Completed" value={personal.completed_sessions} accent="green" />
+              <StatCard label={t('planAnalytics.sessions')} value={personal.total_sessions} accent="blue" />
+              <StatCard label={t('planAnalytics.completed')} value={personal.completed_sessions} accent="green" />
               <StatCard
-                label="Nodes Done"
+                label={t('planAnalytics.nodesDone')}
                 value={`${personal.completed_nodes}/${personal.total_nodes}`}
                 accent="green"
               />
               <StatCard
-                label="Avg Duration"
+                label={t('planAnalytics.avgDuration')}
                 value={`${personal.avg_duration_minutes}m`}
                 accent="violet"
               />
               <StatCard
-                label="Total Time"
+                label={t('planAnalytics.totalTime')}
                 value={`${personal.total_duration_minutes}m`}
                 accent="violet"
               />
-              <StatCard label="Avg Gap Score" value={personal.avg_gap_score} accent="amber" />
+              <StatCard label={t('planAnalytics.avgGapScore')} value={personal.avg_gap_score} accent="amber" />
               <StatCard
-                label="Completion"
+                label={t('planAnalytics.completion')}
                 value={
                   personal.total_nodes > 0
                     ? `${Math.round((personal.completed_nodes / personal.total_nodes) * 100)}%`
@@ -146,7 +148,7 @@ export function PlanAnalytics({ planId, isOwner }: PlanAnalyticsProps) {
             {/* Session history */}
             {personal.sessions.length > 0 && (
               <div>
-                <h3 className="text-sm font-medium text-neutral-300 mb-3">Session History</h3>
+                <h3 className="text-sm font-medium text-neutral-300 mb-3">{t('planAnalytics.sessionHistory')}</h3>
                 <div className="space-y-2">
                   {personal.sessions.map((s) => (
                     <div
@@ -179,7 +181,7 @@ export function PlanAnalytics({ planId, isOwner }: PlanAnalyticsProps) {
 
             {personal.total_sessions === 0 && (
               <div className="text-center py-12 text-neutral-500">
-                No sessions taken on this plan yet. Start a session from any node to see your progress here.
+                {t('planAnalytics.noSessionsYet')}
               </div>
             )}
           </>
@@ -189,26 +191,26 @@ export function PlanAnalytics({ planId, isOwner }: PlanAnalyticsProps) {
           <>
             {/* Org stats grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard label="Total Sessions" value={org.total_sessions} accent="blue" />
-              <StatCard label="Completed" value={org.completed_sessions} accent="green" />
-              <StatCard label="Active Members" value={org.unique_users} accent="violet" />
-              <StatCard label="Completion Rate" value={`${org.completion_rate}%`} accent="emerald" />
-              <StatCard label="Avg Duration" value={`${org.avg_duration_minutes}m`} accent="violet" />
-              <StatCard label="Avg Gap Score" value={org.avg_gap_score} accent="amber" />
+              <StatCard label={t('planAnalytics.totalSessions')} value={org.total_sessions} accent="blue" />
+              <StatCard label={t('planAnalytics.completed')} value={org.completed_sessions} accent="green" />
+              <StatCard label={t('planAnalytics.activeMembers')} value={org.unique_users} accent="violet" />
+              <StatCard label={t('planAnalytics.completionRate')} value={`${org.completion_rate}%`} accent="emerald" />
+              <StatCard label={t('planAnalytics.avgDuration')} value={`${org.avg_duration_minutes}m`} accent="violet" />
+              <StatCard label={t('planAnalytics.avgGapScore')} value={org.avg_gap_score} accent="amber" />
             </div>
 
             {/* Member breakdown */}
             {org.members.length > 0 && (
               <div>
-                <h3 className="text-sm font-medium text-neutral-300 mb-3">Member Activity</h3>
+                <h3 className="text-sm font-medium text-neutral-300 mb-3">{t('planAnalytics.memberActivity')}</h3>
                 <div className="border border-neutral-800 rounded-lg overflow-hidden">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-neutral-900/50">
-                        <th className="text-left px-4 py-2 text-neutral-400 font-medium">Member</th>
-                        <th className="text-right px-4 py-2 text-neutral-400 font-medium">Sessions</th>
-                        <th className="text-right px-4 py-2 text-neutral-400 font-medium">Completed</th>
-                        <th className="text-right px-4 py-2 text-neutral-400 font-medium">Avg Duration</th>
+                        <th className="text-left px-4 py-2 text-neutral-400 font-medium">{t('planAnalytics.member')}</th>
+                        <th className="text-right px-4 py-2 text-neutral-400 font-medium">{t('planAnalytics.sessions')}</th>
+                        <th className="text-right px-4 py-2 text-neutral-400 font-medium">{t('planAnalytics.completed')}</th>
+                        <th className="text-right px-4 py-2 text-neutral-400 font-medium">{t('planAnalytics.avgDuration')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -228,7 +230,7 @@ export function PlanAnalytics({ planId, isOwner }: PlanAnalyticsProps) {
 
             {org.total_sessions === 0 && (
               <div className="text-center py-12 text-neutral-500">
-                No organization members have taken sessions on this plan yet.
+                {t('planAnalytics.noOrgSessionsYet')}
               </div>
             )}
           </>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n";
 
 interface Organization {
   id: string;
@@ -32,6 +33,7 @@ interface Invite {
 }
 
 export default function OrganizationPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const supabase = createClient();
   
@@ -67,7 +69,7 @@ export default function OrganizationPage() {
       const data = await res.json();
       
       if (!res.ok) {
-        setError(data.error || "Failed to load organization");
+        setError(data.error || t('organization.loadError'));
         setLoading(false);
         return;
       }
@@ -78,7 +80,7 @@ export default function OrganizationPage() {
       setInvites(data.invites || []);
     } catch (err) {
       console.error("Load organization error:", err);
-      setError("Failed to load organization");
+      setError(t('organization.loadError'));
     } finally {
       setLoading(false);
     }
@@ -96,7 +98,7 @@ export default function OrganizationPage() {
       const data = await res.json();
       
       if (!res.ok) {
-        alert(data.error || "Failed to generate invites");
+        alert(data.error || t('organization.generateError'));
       } else {
         setShowInviteModal(false);
         setInviteCount(1);
@@ -104,14 +106,14 @@ export default function OrganizationPage() {
       }
     } catch (err) {
       console.error("Generate invites error:", err);
-      alert("Failed to generate invites");
+      alert(t('organization.generateError'));
     } finally {
       setGeneratingInvites(false);
     }
   };
 
   const handleDeleteInvite = async (inviteId: string) => {
-    if (!confirm("Are you sure you want to revoke this invite?")) return;
+    if (!confirm(t('organization.revokeConfirm'))) return;
     
     try {
       const res = await fetch("/api/organization/invites", {
@@ -122,21 +124,21 @@ export default function OrganizationPage() {
       
       if (!res.ok) {
         const data = await res.json();
-        alert(data.error || "Failed to revoke invite");
+        alert(data.error || t('organization.revokeError'));
       } else {
         loadOrganization();
       }
     } catch (err) {
       console.error("Delete invite error:", err);
-      alert("Failed to revoke invite");
+      alert(t('organization.revokeError'));
     }
   };
 
   const handleRemoveMember = async (memberId: string, memberName: string) => {
     const isSelf = memberId === currentUserId;
     const message = isSelf 
-      ? "Are you sure you want to leave this organization?"
-      : `Remove ${memberName} from this organization?`;
+      ? t('organization.leaveConfirm')
+      : t('organization.removeMemberConfirm', { memberName });
     
     if (!confirm(message)) return;
     
@@ -151,7 +153,7 @@ export default function OrganizationPage() {
       const data = await res.json();
       
       if (!res.ok) {
-        alert(data.error || "Failed to remove member");
+        alert(data.error || t('organization.removeMemberError'));
       } else {
         if (isSelf) {
           // User left the org, refresh the page
@@ -163,7 +165,7 @@ export default function OrganizationPage() {
       }
     } catch (err) {
       console.error("Remove member error:", err);
-      alert("Failed to remove member");
+      alert(t('organization.removeMemberError'));
     } finally {
       setRemovingMember(null);
     }
@@ -172,7 +174,7 @@ export default function OrganizationPage() {
   const copyInviteLink = (token: string) => {
     const url = `${window.location.origin}/invite/${token}`;
     navigator.clipboard.writeText(url);
-    alert("Invite link copied to clipboard!");
+    alert(t('organization.inviteCopied'));
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -197,7 +199,7 @@ export default function OrganizationPage() {
       <div className="min-h-screen bg-[#0a0a0a]">
         <Navbar />
         <div className="max-w-5xl mx-auto p-6">
-          <div className="text-neutral-400">Loading...</div>
+          <div className="text-neutral-400">{t('common.loading')}</div>
         </div>
       </div>
     );
@@ -226,15 +228,15 @@ export default function OrganizationPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">No Organization</h1>
+            <h1 className="text-2xl font-bold text-white mb-2">{t('organization.noOrganization')}</h1>
             <p className="text-neutral-400 mb-6">
-              You&apos;re not part of any organization yet. Ask your organization admin for an invite link to join.
+              {t('organization.noOrganizationDesc')}
             </p>
             <Link
               href="/dashboard"
               className="inline-block px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-colors"
             >
-              Go to Dashboard
+              {t('organization.goToDashboard')}
             </Link>
           </div>
         </div>
@@ -252,7 +254,7 @@ export default function OrganizationPage() {
         {/* Header */}
         <div className="mb-6">
           <Link href="/dashboard" className="text-neutral-400 hover:text-white text-sm">
-            &larr; Back to Dashboard
+            &larr; {t('organization.backToDashboard')}
           </Link>
           <h1 className="text-2xl font-bold text-white mt-2">{organization.name}</h1>
           <div className="flex items-center gap-3 mt-1">
@@ -261,7 +263,7 @@ export default function OrganizationPage() {
             </code>
             {isOrgAdmin && (
               <span className="px-2 py-1 text-xs rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">
-                Org Admin
+                {t('organization.orgAdmin')}
               </span>
             )}
           </div>
@@ -272,17 +274,17 @@ export default function OrganizationPage() {
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4">
               <div className="text-2xl font-bold text-white">{members.length}</div>
-              <div className="text-neutral-400 text-sm">Members</div>
+              <div className="text-neutral-400 text-sm">{t('organization.members')}</div>
             </div>
             <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4">
               <div className="text-2xl font-bold text-white">
                 {members.filter(m => m.is_org_admin).length}
               </div>
-              <div className="text-neutral-400 text-sm">Admins</div>
+              <div className="text-neutral-400 text-sm">{t('organization.admins')}</div>
             </div>
             <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4">
               <div className="text-2xl font-bold text-yellow-400">{unusedInvites.length}</div>
-              <div className="text-neutral-400 text-sm">Pending Invites</div>
+              <div className="text-neutral-400 text-sm">{t('organization.pendingInvites')}</div>
             </div>
           </div>
         )}
@@ -291,25 +293,25 @@ export default function OrganizationPage() {
         {isOrgAdmin && (
           <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg mb-6">
             <div className="p-4 border-b border-neutral-800">
-              <h2 className="text-lg font-semibold text-white">Members</h2>
+              <h2 className="text-lg font-semibold text-white">{t('organization.members')}</h2>
             </div>
             <table className="w-full">
               <thead>
                 <tr className="border-b border-neutral-800">
-                  <th className="text-left p-4 text-neutral-400 text-sm font-medium">User</th>
-                  <th className="text-left p-4 text-neutral-400 text-sm font-medium">Plan</th>
-                  <th className="text-left p-4 text-neutral-400 text-sm font-medium">Role</th>
-                  <th className="text-right p-4 text-neutral-400 text-sm font-medium">Actions</th>
+                   <th className="text-left p-4 text-neutral-400 text-sm font-medium">{t('organization.user')}</th>
+                   <th className="text-left p-4 text-neutral-400 text-sm font-medium">{t('organization.plan')}</th>
+                   <th className="text-left p-4 text-neutral-400 text-sm font-medium">{t('organization.role')}</th>
+                   <th className="text-right p-4 text-neutral-400 text-sm font-medium">{t('organization.actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {members.map((member) => (
                   <tr key={member.id} className="border-b border-neutral-800/50 hover:bg-neutral-800/20">
                     <td className="p-4">
-                      <div className="text-neutral-200">{member.username || member.email || "Unknown"}</div>
+                      <div className="text-neutral-200">{member.username || member.email || t('organization.unknown')}</div>
                       <div className="text-xs text-neutral-500">{member.email}</div>
                       {member.id === currentUserId && (
-                        <span className="text-xs text-blue-400">(you)</span>
+                        <span className="text-xs text-blue-400">{t('organization.you')}</span>
                       )}
                     </td>
                     <td className="p-4">
@@ -318,10 +320,10 @@ export default function OrganizationPage() {
                     <td className="p-4">
                       {member.is_org_admin ? (
                         <span className="px-2 py-1 text-xs rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">
-                          Admin
+                          {t('organization.admin')}
                         </span>
                       ) : (
-                        <span className="text-neutral-500 text-sm">Member</span>
+                        <span className="text-neutral-500 text-sm">{t('organization.member')}</span>
                       )}
                     </td>
                     <td className="p-4 text-right">
@@ -330,7 +332,7 @@ export default function OrganizationPage() {
                         disabled={removingMember === member.id}
                         className="px-3 py-1 text-xs bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded transition-colors disabled:opacity-50"
                       >
-                        {member.id === currentUserId ? "Leave" : "Remove"}
+                        {member.id === currentUserId ? t('organization.leave') : t('organization.remove')}
                       </button>
                     </td>
                   </tr>
@@ -344,18 +346,18 @@ export default function OrganizationPage() {
         {isOrgAdmin && (
           <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg">
             <div className="p-4 border-b border-neutral-800 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Invite Links</h2>
+              <h2 className="text-lg font-semibold text-white">{t('organization.inviteLinks')}</h2>
               <button
                 onClick={() => setShowInviteModal(true)}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
               >
-                Generate Invites
+                {t('organization.generateInvites')}
               </button>
             </div>
             
             {invites.length === 0 ? (
               <div className="p-8 text-center text-neutral-400">
-                No invites generated yet. Click &quot;Generate Invites&quot; to create invite links.
+                {t('organization.noInvitesYet')}
               </div>
             ) : (
               <div className="divide-y divide-neutral-800/50">
@@ -367,7 +369,7 @@ export default function OrganizationPage() {
                         {invite.token}
                       </code>
                       <div className="text-xs text-neutral-500 mt-1">
-                        Created {formatDate(invite.created_at)}
+                        {t('organization.created', { date: formatDate(invite.created_at) })}
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -375,13 +377,13 @@ export default function OrganizationPage() {
                         onClick={() => copyInviteLink(invite.token)}
                         className="px-3 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 text-white rounded transition-colors"
                       >
-                        Copy Link
+                        {t('organization.copyLink')}
                       </button>
                       <button
                         onClick={() => handleDeleteInvite(invite.id)}
                         className="px-3 py-1 text-xs bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded transition-colors"
                       >
-                        Revoke
+                        {t('organization.revoke')}
                       </button>
                     </div>
                   </div>
@@ -395,11 +397,11 @@ export default function OrganizationPage() {
                         {invite.token}
                       </code>
                       <div className="text-xs text-neutral-500 mt-1">
-                        Used on {formatDate(invite.used_at)}
+                        {t('organization.usedOn', { date: formatDate(invite.used_at) })}
                       </div>
                     </div>
                     <span className="px-2 py-1 text-xs bg-neutral-800 text-neutral-500 rounded">
-                      Used
+                      {t('organization.used')}
                     </span>
                   </div>
                 ))}
@@ -412,14 +414,14 @@ export default function OrganizationPage() {
         {!isOrgAdmin && (
           <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-6">
             <p className="text-neutral-400 mb-4">
-              You are a member of this organization. Contact your organization admin if you need to invite new members or manage settings.
+              {t('organization.leaveOrgMessage')}
             </p>
             <button
               onClick={() => handleRemoveMember(currentUserId!, "yourself")}
               disabled={removingMember === currentUserId}
               className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors disabled:opacity-50"
             >
-              Leave Organization
+              {t('organization.leaveOrganization')}
             </button>
           </div>
         )}
@@ -428,9 +430,9 @@ export default function OrganizationPage() {
         {showInviteModal && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
             <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 max-w-md w-full mx-4">
-              <h2 className="text-xl font-bold text-white mb-4">Generate Invite Links</h2>
+              <h2 className="text-xl font-bold text-white mb-4">{t('organization.generateInviteModal')}</h2>
               <div className="mb-6">
-                <label className="block text-sm text-neutral-400 mb-2">Number of invites</label>
+                <label className="block text-sm text-neutral-400 mb-2">{t('organization.numberOfInvites')}</label>
                 <input
                   type="number"
                   min={1}
@@ -439,7 +441,7 @@ export default function OrganizationPage() {
                   onChange={(e) => setInviteCount(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
                   className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-neutral-600"
                 />
-                <p className="text-xs text-neutral-500 mt-1">Each invite can only be used once (max 50)</p>
+                <p className="text-xs text-neutral-500 mt-1">{t('organization.inviteHelper')}</p>
               </div>
               <div className="flex gap-3">
                 <button
@@ -449,14 +451,14 @@ export default function OrganizationPage() {
                   }}
                   className="flex-1 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-colors"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={handleGenerateInvites}
                   disabled={generatingInvites}
                   className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors"
                 >
-                  {generatingInvites ? "Generating..." : "Generate"}
+                  {generatingInvites ? t('organization.generating') : t('organization.generate')}
                 </button>
               </div>
             </div>

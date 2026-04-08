@@ -127,7 +127,7 @@ export function LeadCapture({
 
       setSubmitted(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      setError(err instanceof Error ? err.message : t("leadCapture.genericError"));
     } finally {
       setIsSubmitting(false);
     }

@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n";
+
 interface Testimonial {
   quote: string;
   name: string;
@@ -14,13 +16,15 @@ interface TestimonialsProps {
 
 export function Testimonials({ 
   testimonials, 
-  title = "What Learners Say" 
+  title,
 }: TestimonialsProps) {
+  const { t } = useI18n();
+  const displayTitle = title ?? t('testimonials.title');
   return (
     <div className="w-full max-w-4xl mx-auto px-4">
-      {title && (
+      {displayTitle && (
         <h2 className="text-xl sm:text-2xl font-semibold text-white text-center mb-8">
-          {title}
+          {displayTitle}
         </h2>
       )}
       
@@ -70,6 +74,8 @@ export function Testimonials({
 }
 
 // Placeholder testimonials for initial implementation
+// NOTE: These placeholders use raw English strings. Callers should build
+// localised testimonials via t('testimonials.quote1') etc. when possible.
 export const PLACEHOLDER_TESTIMONIALS: Testimonial[] = [
   {
     quote: "Finally, an AI that doesn't just give me answers. It helped me realize I didn't actually understand recursion — I was just memorizing patterns.",
@@ -87,3 +93,27 @@ export const PLACEHOLDER_TESTIMONIALS: Testimonial[] = [
     context: "Homeschool parent of 3",
   },
 ];
+
+/**
+ * Build localised placeholder testimonials using `t()`.
+ * Use this instead of PLACEHOLDER_TESTIMONIALS inside components.
+ */
+export function getLocalizedTestimonials(t: (key: string) => string): Testimonial[] {
+  return [
+    {
+      quote: t('testimonials.quote1'),
+      name: t('testimonials.name1'),
+      context: t('testimonials.context1'),
+    },
+    {
+      quote: t('testimonials.quote2'),
+      name: t('testimonials.name2'),
+      context: t('testimonials.context2'),
+    },
+    {
+      quote: t('testimonials.quote3'),
+      name: t('testimonials.name3'),
+      context: t('testimonials.context3'),
+    },
+  ];
+}

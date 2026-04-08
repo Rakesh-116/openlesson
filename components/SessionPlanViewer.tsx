@@ -77,15 +77,15 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
               setAdvancing(false);
             }
           } else {
-            setAdvanceDialogReasoning(data.advanceReasoning || "The AI suggests staying on the current step.");
+            setAdvanceDialogReasoning(data.advanceReasoning || t('sessionPlan.aiSuggestsStayingDefault'));
             setShowAdvanceDialog(true);
           }
         } else {
-          setAdvanceDialogReasoning("Unable to analyze session. Please review if the student is ready to move forward.");
+          setAdvanceDialogReasoning(t('sessionPlan.unableToAnalyze'));
           setShowAdvanceDialog(true);
         }
       } catch {
-        setAdvanceDialogReasoning("Unable to analyze session. Please review if the student is ready to move forward.");
+        setAdvanceDialogReasoning(t('sessionPlan.unableToAnalyze'));
         setShowAdvanceDialog(true);
       } finally {
         setAnalyzingAdvance(false);
@@ -153,10 +153,10 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
           </svg>
         </div>
         <p className="text-sm text-red-400">
-          {isCorrupted ? "Plan is corrupted" : "Plan creation failed"}
+          {isCorrupted ? t('sessionPlan.planCorrupted') : t('sessionPlan.creationFailed')}
         </p>
         <p className="text-xs text-neutral-600 mt-1">
-          {isCorrupted ? "The plan has no steps" : error}
+          {isCorrupted ? t('sessionPlan.noSteps') : error}
         </p>
       </div>
     );
@@ -182,7 +182,7 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
         </div>
         <p className="text-sm text-neutral-500">{t('sessionPlanViewer.noPlanYet')}</p>
         <p className="text-xs text-neutral-600 mt-1">
-          Plan will be created shortly...
+          {t('sessionPlan.planWillBeCreated')}
         </p>
       </div>
     );
@@ -216,10 +216,10 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
   };
 
   const typeLabels: Record<string, string> = {
-    question: "Question",
-    task: "Task",
-    suggestion: "Suggestion",
-    checkpoint: "Checkpoint",
+    question: t('sessionPlan.question'),
+    task: t('sessionPlan.task'),
+    suggestion: t('sessionPlan.suggestion'),
+    checkpoint: t('sessionPlan.checkpoint'),
   };
 
   const statusColors: Record<string, string> = {
@@ -264,10 +264,10 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
               </svg>
               <div className="flex flex-col items-start">
                 <span className={`text-xs font-medium ${autoAdvance ? 'text-cyan-400' : 'text-amber-400'}`}>
-                  {autoAdvance ? 'Auto-advance' : 'Manual mode'}
+                  {autoAdvance ? t('sessionPlan.autoAdvance') : t('sessionPlan.manualMode')}
                 </span>
                 <span className="text-[10px] text-neutral-500">
-                  {autoAdvance ? 'AI controls advancement' : 'You control advancement'}
+                  {autoAdvance ? t('sessionPlan.aiControlsAdvancement') : t('sessionPlan.youControlAdvancement')}
                 </span>
               </div>
             </div>
@@ -325,7 +325,7 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
                   </span>
                   {isActive && (
                     <span className="shrink-0 px-2 py-0.5 text-[10px] font-medium bg-cyan-500/20 text-cyan-400 rounded-full">
-                      Current
+                      {t('sessionPlan.current')}
                     </span>
                   )}
                   {isCompleted && (
@@ -414,7 +414,7 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
-                              Complete
+                              {t('sessionPlan.complete')}
                             </>
                           )}
                         </button>
@@ -427,7 +427,7 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
                         <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                         </svg>
-                        Resources
+                        {t('sessionPlan.resources')}
                       </button>
                       <button
                         onClick={() => onOpenPractice?.(step.description)}
@@ -437,7 +437,7 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
                         <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                         </svg>
-                        Practice
+                        {t('sessionPlan.practice')}
                       </button>
                       <button
                         onClick={() => onAskAssistant?.(step.description)}
@@ -447,7 +447,7 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
                         <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                         </svg>
-                        Ask
+                        {t('sessionPlan.ask')}
                       </button>
                     </div>
                   )}
@@ -464,14 +464,14 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
-                          Rolling back...
+                          {t('sessionPlan.rollingBack')}
                         </>
                       ) : (
                         <>
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4" />
                           </svg>
-                          Go back to this step
+                          {t('sessionPlan.goBackToStep')}
                         </>
                       )}
                     </button>
@@ -481,7 +481,7 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
                 {/* Status badge */}
                 {isActive && (
                   <span className="shrink-0 px-2 py-0.5 text-[10px] font-medium bg-cyan-500/20 text-cyan-400 rounded-full">
-                    Current
+                    {t('sessionPlan.current')}
                   </span>
                 )}
                 {isCompleted && (
@@ -505,26 +505,26 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-              <h3 className="text-base font-semibold text-white">AI Suggests Staying</h3>
+              <h3 className="text-base font-semibold text-white">{t('sessionPlan.aiSuggestsStaying')}</h3>
             </div>
             <p className="text-sm text-neutral-400 mb-4 leading-relaxed">
               {advanceDialogReasoning}
             </p>
             <p className="text-xs text-neutral-500 mb-4">
-              You can still choose to advance if you think the student is ready.
+              {t('sessionPlan.canStillAdvance')}
             </p>
             <div className="flex gap-2.5">
               <button
                 onClick={() => setShowAdvanceDialog(false)}
                 className="flex-1 py-2.5 text-sm text-neutral-400 border border-neutral-700 hover:border-neutral-600 rounded-lg transition-colors"
               >
-                Stay on Step
+                {t('sessionPlan.stayOnStep')}
               </button>
               <button
                 onClick={handleForceAdvance}
                 className="flex-1 py-2.5 text-sm text-white bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded-lg transition-colors"
               >
-                Continue Anyway
+                {t('sessionPlan.continueAnyway')}
               </button>
             </div>
           </div>

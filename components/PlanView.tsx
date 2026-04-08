@@ -323,17 +323,17 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
   }
 
   const tabConfig = [
-    { key: "graph" as const, label: "Plan Builder", icon: (
+    { key: "graph" as const, label: t('planView.planBuilder'), icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6z" />
       </svg>
     )},
-    { key: "notes" as const, label: "Notes", icon: (
+    { key: "notes" as const, label: t('planView.notes'), icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
       </svg>
     )},
-    { key: "analytics" as const, label: "Analytics", icon: (
+    { key: "analytics" as const, label: t('planView.analytics'), icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
       </svg>
@@ -366,7 +366,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
             onClick={handleRegenerateCover}
             disabled={generatingCover}
             className="absolute top-3 right-3 p-2 rounded-lg bg-black/40 backdrop-blur-sm border border-white/10 text-white/60 hover:text-white hover:bg-black/60 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
-            title={plan.cover_image_url ? "Regenerate cover image" : "Generate cover image"}
+            title={plan.cover_image_url ? t('planView.regenerateCoverImage') : t('planView.generateCoverImage')}
           >
             {generatingCover ? (
               <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -431,13 +431,13 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                     }}
                     className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors"
                   >
-                    Save
+                    {t('common.save')}
                   </button>
                   <button
                     onClick={() => { setEditTitle(plan.root_topic); setIsEditingTitle(false); }}
                     className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white text-sm rounded-lg transition-colors"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                 </div>
               ) : (
@@ -552,10 +552,10 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
               autoFocus
             />
             <button onClick={saveDescription} disabled={savingDescription} className="text-blue-400 hover:text-blue-300 text-xs font-medium">
-              {savingDescription ? "..." : "Save"}
+              {savingDescription ? "..." : t('common.save')}
             </button>
             <button onClick={() => { setEditDescription(plan.description || ""); setIsEditingDescription(false); }} className="text-neutral-500 hover:text-neutral-300 text-xs">
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
         ) : plan.description ? (
@@ -622,7 +622,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                     <textarea
                       value={notesContent}
                       onChange={(e) => setNotesContent(e.target.value)}
-                      placeholder="Write notes about this plan... (Markdown supported)"
+                      placeholder={t('planView.notesPlaceholder')}
                       className="w-full h-[60vh] px-4 py-3 bg-neutral-900/50 border border-neutral-800 rounded-xl text-white text-sm font-mono focus:outline-none focus:border-blue-500/50 resize-none"
                       autoFocus
                     />
@@ -632,13 +632,13 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                         disabled={savingNotes}
                         className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 text-white text-sm rounded-lg transition-colors"
                       >
-                        {savingNotes ? "Saving..." : "Save"}
+                        {savingNotes ? t('common.saving') : t('common.save')}
                       </button>
                       <button
                         onClick={() => { setNotesContent(plan.notes || ""); setIsEditingNotes(false); }}
                         className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-sm rounded-lg transition-colors"
                       >
-                        Cancel
+                        {t('common.cancel')}
                       </button>
                     </div>
                   </div>
@@ -650,7 +650,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                         onClick={() => setIsEditingNotes(true)}
                       >
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{notesContent}</ReactMarkdown>
-                        <p className="text-neutral-600 text-xs mt-4 italic">Click to edit</p>
+                        <p className="text-neutral-600 text-xs mt-4 italic">{t('planView.clickToEdit')}</p>
                       </div>
                     ) : (
                       <button
@@ -660,7 +660,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                         <svg className="w-8 h-8 text-neutral-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                         </svg>
-                        <span className="text-sm">Add notes to this plan...</span>
+                        <span className="text-sm">{t('planView.addNotes')}</span>
                       </button>
                     )}
                   </div>
@@ -675,7 +675,7 @@ export function PlanView({ initialPlan, initialNodes }: PlanViewProps) {
                     <svg className="w-8 h-8 text-neutral-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                     </svg>
-                    <span className="text-sm">No notes for this plan yet.</span>
+                    <span className="text-sm">{t('planView.noNotes')}</span>
                   </div>
                 )
               )}

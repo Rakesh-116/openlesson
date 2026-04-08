@@ -5,7 +5,7 @@ import { ChevronDown, Globe } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 export function LanguageSwitcher() {
-  const { locale, setLocale, supportedLocales } = useI18n();
+  const { locale, setLocale, supportedLocales, t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -24,7 +24,7 @@ export function LanguageSwitcher() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-1 px-3 py-2 text-sm text-white/80 hover:text-white hover:bg-white/10 rounded-md transition-colors"
-        aria-label="Select language"
+        aria-label={t('language.select')}
       >
         <Globe className="w-4 h-4" />
         <span className="hidden sm:inline">{languageNames[locale]}</span>

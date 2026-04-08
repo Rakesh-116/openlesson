@@ -100,7 +100,7 @@ export function DataInputTool({
                 : "text-neutral-400 hover:text-neutral-200"
             }`}
           >
-            {tab}
+            {t(`dataInput.tab_${tab}`)}
           </button>
         ))}
       </div>
@@ -126,7 +126,7 @@ export function DataInputTool({
               </div>
             )}
             <div className="text-xs text-neutral-500">
-              {isRecording ? "Microphone is actively capturing audio" : "Microphone is not active"}
+              {isRecording ? t('dataInput.micActive') : t('dataInput.micInactive')}
             </div>
           </div>
         )}
@@ -144,7 +144,7 @@ export function DataInputTool({
                     : "bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30"
                 }`}
               >
-                {museStatus === "connecting" ? t('common.connecting') || "Connecting..." : isMuseConnected ? t('common.disconnect') || "Disconnect" : t('common.connect') || "Connect"}
+                {museStatus === "connecting" ? t('common.connecting') : isMuseConnected ? t('common.disconnect') : t('common.connect')}
               </button>
             </div>
 
@@ -224,7 +224,7 @@ export function DataInputTool({
             </div>
 
             <p className="text-xs text-neutral-600">
-              Data captured every 500ms, stored every 60s
+              {t('dataInput.dataCaptureInterval')}
             </p>
           </div>
         )}
@@ -242,7 +242,7 @@ export function DataInputTool({
                     : "bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30"
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                {isWebcamEnabled ? "Disable Webcam" : "Enable Webcam"}
+                {isWebcamEnabled ? t('dataInput.disableWebcam') : t('dataInput.enableWebcam')}
               </button>
             </div>
 
@@ -310,7 +310,7 @@ export function DataInputTool({
             )}
 
             <p className="text-xs text-neutral-600">
-              Facial data captured every 500ms, stored every 60s. No video is sent to the server.
+              {t('dataInput.facialDataCaptureInterval')}
             </p>
           </div>
         )}
@@ -328,19 +328,19 @@ export function DataInputTool({
                     : "bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30"
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                {isScreenCapturing ? "Stop Capturing" : "Start Capturing"}
+                {isScreenCapturing ? t('dataInput.stopCapturing') : t('dataInput.startCapturing')}
               </button>
             </div>
 
             <div className="flex items-center gap-4 p-4 rounded-lg bg-neutral-950 border border-neutral-800">
               <div className={`w-3 h-3 rounded-full ${isScreenCapturing ? "bg-red-500 animate-pulse" : "bg-neutral-600"}`} />
               <span className="text-xs text-neutral-400">
-                {isScreenCapturing ? `Capturing... (${screenshotCount} screenshots)` : "Screen capture is off"}
+                {isScreenCapturing ? t('dataInput.capturingScreenshots', { count: String(screenshotCount) }) : t('dataInput.screenCaptureOff')}
               </span>
             </div>
 
             <p className="text-xs text-neutral-600">
-              Screenshots are captured every 5 seconds and stored for session analysis.
+              {t('dataInput.screenshotInterval')}
             </p>
           </div>
         )}

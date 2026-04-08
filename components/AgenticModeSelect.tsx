@@ -7,10 +7,10 @@ import { useI18n } from "@/lib/i18n";
 
 const ENDPOINTS = [
   {
-    name: "Generate Plan",
+    name: "agenticMode.endpointGeneratePlan",
     method: "POST",
     path: "/api/agent/plan",
-    description: "Generate a learning plan for a given topic",
+    description: "agenticMode.endpointGeneratePlanDesc",
     params: [
       { name: "topic", type: "string", required: true, example: "Machine Learning" },
       { name: "days", type: "number", required: false, example: "30" },
@@ -28,10 +28,10 @@ const ENDPOINTS = [
   -d '{"topic": "Machine Learning", "days": 30}'`,
   },
   {
-    name: "Start Session",
+    name: "agenticMode.endpointStartSession",
     method: "POST",
     path: "/api/agent/session/start",
-    description: "Start a new tutoring session",
+    description: "agenticMode.endpointStartSessionDesc",
     params: [
       { name: "problem", type: "string", required: true, example: "Explain how backpropagation works" },
       { name: "plan_node_id", type: "string", required: false, example: "uuid" },
@@ -47,10 +47,10 @@ const ENDPOINTS = [
   -d '{"problem": "Explain how backpropagation works", "plan_node_id": "uuid-from-plan"}'`,
   },
   {
-    name: "Analyze Audio",
+    name: "agenticMode.endpointAnalyzeAudio",
     method: "POST",
     path: "/api/agent/session/analyze",
-    description: "Submit audio chunk for analysis (audio-only)",
+    description: "agenticMode.endpointAnalyzeAudioDesc",
     params: [
       { name: "session_id", type: "string", required: true, example: "uuid" },
       { name: "audio_base64", type: "string", required: true, example: "base64-encoded-audio" },
@@ -69,10 +69,10 @@ const ENDPOINTS = [
   -d '{"session_id": "uuid", "audio_base64": "BASE64_AUDIO", "audio_format": "webm"}'`,
   },
   {
-    name: "End Session",
+    name: "agenticMode.endpointEndSession",
     method: "POST",
     path: "/api/agent/session/end",
-    description: "End a session and generate a summary report",
+    description: "agenticMode.endpointEndSessionDesc",
     params: [
       { name: "session_id", type: "string", required: true, example: "uuid" },
     ],
@@ -89,10 +89,10 @@ const ENDPOINTS = [
   -d '{"session_id": "uuid"}'`,
   },
   {
-    name: "Get Report",
+    name: "agenticMode.endpointGetReport",
     method: "GET",
     path: "/api/agent/session/summary?session_id=xxx",
-    description: "Retrieve the summary report of a completed session",
+    description: "agenticMode.endpointGetReportDesc",
     params: [
       { name: "session_id", type: "string", required: true, example: "uuid" },
     ],
@@ -298,7 +298,7 @@ export function AgenticModeSelect() {
                       {endpoint.path}
                     </span>
                   </div>
-                  <p className="text-sm text-slate-400 mt-1">{endpoint.description}</p>
+                  <p className="text-sm text-slate-400 mt-1">{t(endpoint.description)}</p>
                 </div>
               </div>
 
@@ -368,7 +368,7 @@ export function AgenticModeSelect() {
             onClick={copyCurl}
             className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
           >
-            {copiedCurl ? "✓ Copied" : t('agenticMode.copyCurl')}
+            {copiedCurl ? t('agenticMode.copiedCurl') : t('agenticMode.copyCurl')}
           </button>
         </div>
         

@@ -49,16 +49,17 @@ interface ChatPanelProps {
 
 // Compact onboarding card instead of a wall of markdown
 function OnboardingCard() {
+  const { t } = useI18n();
   const hints = [
-    { icon: "M12 4v16m8-8H4", label: "Add sessions", example: '"Add a session on derivatives"' },
-    { icon: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16", label: "Remove sessions", example: '"Remove the intro session"' },
-    { icon: "M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4", label: "Reorder", example: '"Move testing before deployment"' },
-    { icon: "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z", label: "Modify", example: '"Make session 3 focus on React hooks"' },
+    { icon: "M12 4v16m8-8H4", label: t('learningPlanChat.addSessions'), example: t('chatPanel.exampleAdd') },
+    { icon: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16", label: t('chatPanel.removeSessions'), example: t('chatPanel.exampleRemove') },
+    { icon: "M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4", label: t('chatPanel.reorder'), example: t('chatPanel.exampleReorder') },
+    { icon: "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z", label: t('chatPanel.modify'), example: t('chatPanel.exampleModify') },
   ];
 
   return (
     <div className="rounded-xl border border-neutral-800/60 bg-neutral-800/30 p-3.5 mb-3">
-      <p className="text-xs font-medium text-neutral-400 mb-2.5">Tell me how to change your plan:</p>
+      <p className="text-xs font-medium text-neutral-400 mb-2.5">{t('chatPanel.tellMeHow')}</p>
       <div className="grid grid-cols-2 gap-2">
         {hints.map((h) => (
           <div key={h.label} className="flex items-start gap-2 p-2 rounded-lg bg-neutral-900/40">
@@ -113,7 +114,7 @@ export function ChatPanel({ planId, model, onModelChange, onRefresh, onNodesUpda
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input.trim() || (uploadedImages.length > 0 ? `[Sent ${uploadedImages.length} image(s)]` : ""),
+      content: input.trim() || (uploadedImages.length > 0 ? t('chatPanel.sentImages', { count: String(uploadedImages.length) }) : ""),
       timestamp: new Date(),
       images: uploadedImages.length > 0 ? [...uploadedImages] : undefined,
     };
@@ -146,7 +147,7 @@ export function ChatPanel({ planId, model, onModelChange, onRefresh, onNodesUpda
       if (data.explanation) {
         let responseContent = data.explanation;
         if (data.currentPlan) {
-          responseContent += `\n\n**Current Plan:**\n${data.currentPlan}`;
+          responseContent += `\n\n**${t('chatPanel.currentPlan')}:**\n${data.currentPlan}`;
         }
 
         setMessages((prev) => [...prev, {
@@ -174,7 +175,7 @@ export function ChatPanel({ planId, model, onModelChange, onRefresh, onNodesUpda
       setMessages((prev) => [...prev, {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "Sorry, I encountered an error. Please try again.",
+        content: t('chatPanel.errorMessage'),
         timestamp: new Date(),
       }]);
     } finally {
@@ -280,19 +281,19 @@ export function ChatPanel({ planId, model, onModelChange, onRefresh, onNodesUpda
       {/* Input area */}
       {!currentUserId ? (
         <div className="pt-3 border-t border-neutral-800/50">
-          <p className="text-xs text-neutral-500 text-center mb-2">Sign up to customize this plan</p>
+          <p className="text-xs text-neutral-500 text-center mb-2">{t('chatPanel.signUpToCustomize')}</p>
           <a href="/register" className="block w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors text-center">
-            Sign Up
+            {t('chatPanel.signUpCta')}
           </a>
         </div>
       ) : !isOwner ? (
         <div className="pt-3 border-t border-neutral-800/50">
-          <p className="text-xs text-neutral-500 text-center mb-2">Fork this plan to customize it</p>
+          <p className="text-xs text-neutral-500 text-center mb-2">{t('chatPanel.forkToCustomize')}</p>
           <button
             onClick={() => { window.dispatchEvent(new CustomEvent("openRemixModal")); }}
             className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors"
           >
-            Fork / Remix
+            {t('planView.forkRemix')}
           </button>
         </div>
       ) : (
@@ -331,7 +332,7 @@ export function ChatPanel({ planId, model, onModelChange, onRefresh, onNodesUpda
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              placeholder="Change the plan..."
+              placeholder={t('chatPanel.placeholder')}
               className="flex-1 bg-transparent text-white placeholder-neutral-500 text-sm resize-none focus:outline-none py-1.5 min-h-[28px] max-h-[120px]"
               rows={1}
               disabled={isLoading}

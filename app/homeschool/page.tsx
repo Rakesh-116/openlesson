@@ -51,7 +51,7 @@ export default function HomeschoolPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-bold text-emerald-400">85%</p>
-                      <p className="text-[10px] text-slate-500">Math</p>
+                      <p className="text-[10px] text-slate-500">{t('homeschool.categoryMath')}</p>
                     </div>
                   </div>
                   <div className="bg-slate-700/50 rounded-xl p-3 flex items-center gap-3">
@@ -64,7 +64,7 @@ export default function HomeschoolPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-bold text-amber-400">72%</p>
-                      <p className="text-[10px] text-slate-500">Science</p>
+                      <p className="text-[10px] text-slate-500">{t('homeschool.categoryScience')}</p>
                     </div>
                   </div>
                 </div>
@@ -72,9 +72,9 @@ export default function HomeschoolPage() {
                   <p className="text-xs text-slate-400 mb-2">{t('homeschool.recentSessions')}</p>
                   <div className="space-y-2">
                     {[
-                      { child: "Emma", topic: "Photosynthesis", result: t('homeschool.strongLabel'), time: `2${t('homeschool.hoursAgo')}` },
-                      { child: "Lucas", topic: "World War II", result: t('homeschool.gapsLabel'), time: "Yesterday" },
-                      { child: "Emma", topic: "Multiplication", result: t('homeschool.reviewLabel'), time: `2 ${t('homeschool.daysAgo')}` },
+                      { child: "Emma", topic: t('homeschool.mockupTopic1'), result: t('homeschool.strongLabel'), time: `2${t('homeschool.hoursAgo')}` },
+                      { child: "Lucas", topic: t('homeschool.mockupTopic2'), result: t('homeschool.gapsLabel'), time: t('homeschool.yesterday') },
+                      { child: "Emma", topic: t('homeschool.mockupTopic3'), result: t('homeschool.reviewLabel'), time: `2 ${t('homeschool.daysAgo')}` },
                     ].map(({ child, topic, result, time }) => (
                       <div key={`${child}-${topic}`} className="flex items-center justify-between py-1.5 border-b border-slate-700 last:border-0">
                         <div className="flex items-center gap-2">

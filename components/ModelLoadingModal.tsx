@@ -1,6 +1,7 @@
 "use client";
 
 import { InitProgress } from "@/lib/local-inference";
+import { useI18n } from "@/lib/i18n";
 
 export type PrepStage = "plan" | "model" | "done";
 
@@ -37,6 +38,7 @@ export default function SessionPrepModal({
   localInferenceEnabled,
   onCancel,
 }: SessionPrepModalProps) {
+  const { t } = useI18n();
   const error = planError || modelError;
   const isPlanDone = stage !== "plan";
   const isModelDone = stage === "done";
@@ -58,14 +60,14 @@ export default function SessionPrepModal({
 
   const statusText =
     stage === "plan"
-      ? "Preparing session plan..."
+      ? t('modelLoading.preparingPlan')
       : stage === "model"
         ? modelProgress?.status === "loading-processor"
-          ? "Loading AI processor..."
+          ? t('modelLoading.loadingProcessor')
           : modelProgress?.status === "loading-model"
-            ? "Downloading Gemma 4 model..."
-            : "Initializing local model..."
-        : "Ready!";
+            ? t('modelLoading.downloadingModel')
+            : t('modelLoading.initializingModel')
+        : t('modelLoading.ready');
 
   const sizeText =
     stage === "model" && modelProgress?.loaded && modelProgress?.total
@@ -87,9 +89,9 @@ export default function SessionPrepModal({
             </svg>
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-neutral-100">Preparing Session</h3>
+            <h3 className="text-lg font-semibold text-neutral-100">{t('modelLoading.preparingSession')}</h3>
             <p className="text-xs text-neutral-400">
-              {localInferenceEnabled ? 'Plan + Gemma 4 E2B (WebGPU)' : 'Creating session plan'}
+              {localInferenceEnabled ? t('modelLoading.planPlusModel') : t('modelLoading.creatingSessionPlan')}
             </p>
           </div>
         </div>
@@ -103,7 +105,7 @@ export default function SessionPrepModal({
               onClick={onCancel}
               className="w-full py-2.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 text-neutral-300 text-sm font-medium rounded-lg transition-colors"
             >
-              {localInferenceEnabled ? 'Cancel & use API mode' : 'Cancel'}
+              {localInferenceEnabled ? t('modelLoading.cancelUseApi') : t('modelLoading.cancel')}
             </button>
           </div>
         ) : (
@@ -124,7 +126,7 @@ export default function SessionPrepModal({
                   ) : '1'}
                 </div>
                 <span className={`text-sm ${isPlanDone ? 'text-neutral-500' : 'text-neutral-200'}`}>
-                  Session plan {isPlanDone ? 'ready' : ''}
+                  {isPlanDone ? t('modelLoading.sessionPlanReady') : t('modelLoading.sessionPlan')}
                 </span>
                 {stage === "plan" && planLoading && (
                   <div className="w-4 h-4 border-2 border-neutral-600 border-t-cyan-500 rounded-full animate-spin ml-auto" />
@@ -150,7 +152,7 @@ export default function SessionPrepModal({
                   <span className={`text-sm ${
                     isModelDone ? 'text-neutral-500' : stage === "model" ? 'text-neutral-200' : 'text-neutral-600'
                   }`}>
-                    Local model {isModelDone ? 'loaded' : ''}
+                    {isModelDone ? t('modelLoading.localModelLoaded') : t('modelLoading.localModel')}
                   </span>
                   {stage === "model" && !modelProgress && (
                     <div className="w-4 h-4 border-2 border-neutral-600 border-t-purple-500 rounded-full animate-spin ml-auto" />
@@ -185,7 +187,7 @@ export default function SessionPrepModal({
 
             {localInferenceEnabled && (
               <p className="text-xs text-neutral-500 mt-3 mb-3">
-                First load downloads ~2.5 GB. Cached for future sessions.
+                {t('modelLoading.firstLoadNote')}
               </p>
             )}
 
@@ -193,7 +195,7 @@ export default function SessionPrepModal({
               onClick={onCancel}
               className="w-full py-2 mt-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 text-neutral-400 text-xs font-medium rounded-lg transition-colors"
             >
-              {localInferenceEnabled ? 'Cancel & use API mode' : 'Cancel'}
+              {localInferenceEnabled ? t('modelLoading.cancelUseApi') : t('modelLoading.cancel')}
             </button>
           </>
         )}

@@ -14,14 +14,14 @@ interface ObserverControlsProps {
   muteRemaining?: number;
 }
 
-const MODE_ICONS: Record<ObserverMode, { icon: React.ReactNode; title: string }> = {
+const MODE_ICONS: Record<ObserverMode, { icon: React.ReactNode; titleKey: string }> = {
   off: {
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
       </svg>
     ),
-    title: "Off",
+    titleKey: "observer.off",
   },
   passive: {
     icon: (
@@ -30,7 +30,7 @@ const MODE_ICONS: Record<ObserverMode, { icon: React.ReactNode; title: string }>
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
       </svg>
     ),
-    title: "Passive",
+    titleKey: "observer.passive",
   },
   active: {
     icon: (
@@ -38,18 +38,18 @@ const MODE_ICONS: Record<ObserverMode, { icon: React.ReactNode; title: string }>
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
       </svg>
     ),
-    title: "Active",
+    titleKey: "observer.active",
   },
 };
 
-const FREQ_ICONS: Record<Frequency, { icon: React.ReactNode; title: string }> = {
+const FREQ_ICONS: Record<Frequency, { icon: React.ReactNode; titleKey: string }> = {
   rare: {
     icon: (
       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
       </svg>
     ),
-    title: "Rare",
+    titleKey: "observer.rare",
   },
   balanced: {
     icon: (
@@ -57,7 +57,7 @@ const FREQ_ICONS: Record<Frequency, { icon: React.ReactNode; title: string }> = 
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
       </svg>
     ),
-    title: "Balanced",
+    titleKey: "observer.balanced",
   },
   frequent: {
     icon: (
@@ -65,7 +65,7 @@ const FREQ_ICONS: Record<Frequency, { icon: React.ReactNode; title: string }> = 
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4h16M4 8h16M4 12h16M4 16h16M4 20h16" />
       </svg>
     ),
-    title: "Frequent",
+    titleKey: "observer.frequent",
   },
 };
 
@@ -118,7 +118,7 @@ export function ObserverControls({
             <button
               key={m}
               onClick={() => onModeChange(m)}
-              title={MODE_ICONS[m].title}
+              title={t(MODE_ICONS[m].titleKey)}
               className={`p-2 flex-1 sm:flex-none flex items-center justify-center rounded-md transition-colors ${
                 mode === m
                   ? "bg-neutral-700 text-white"
@@ -138,7 +138,7 @@ export function ObserverControls({
             <button
               key={f}
               onClick={() => onFrequencyChange(f)}
-              title={FREQ_ICONS[f].title}
+              title={t(FREQ_ICONS[f].titleKey)}
               className={`p-2 flex-1 sm:flex-none flex items-center justify-center rounded-md transition-colors ${
                 frequency === f
                   ? "bg-neutral-700 text-white"
@@ -156,7 +156,7 @@ export function ObserverControls({
         <button
           onClick={() => onMute(10 * 60 * 1000)}
           disabled={isMuted}
-          title={isMuted && muteCountdown ? `Muted ${muteCountdown}` : "Mute 10 min"}
+          title={isMuted && muteCountdown ? `${t('common.muted')} ${muteCountdown}` : t('observer.mute10min')}
           className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${
             isMuted
               ? "bg-amber-900/30 text-amber-400"
@@ -172,9 +172,9 @@ export function ObserverControls({
 
       {/* Legend -- hidden on mobile, icons are self-explanatory */}
       <div className="hidden sm:flex items-center gap-3 text-[10px] text-neutral-600 px-1">
-        <span>Off · Passive · <span className="text-neutral-400">Active</span></span>
+        <span>{t('observer.off')} · {t('observer.passive')} · <span className="text-neutral-400">{t('observer.active')}</span></span>
         <span className="text-neutral-700">|</span>
-        <span>Rare · <span className="text-neutral-400">Normal</span> · Frequent</span>
+        <span>{t('observer.rare')} · <span className="text-neutral-400">{t('observer.balanced')}</span> · {t('observer.frequent')}</span>
         <span className="text-neutral-700">|</span>
         <span>{isMuted ? t('common.muted') : t('common.muteTutor')}</span>
       </div>

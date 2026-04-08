@@ -99,7 +99,7 @@ function PartnerTabContent() {
       {referrerInfo && (
         <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
           <p className="text-sm text-emerald-400">
-            🎉 You were invited by <strong>@{referrerInfo.username}</strong> ({referrerInfo.tier} partner)
+            {t('dashboard.partnerInvitedBy', { username: referrerInfo.username, tier: referrerInfo.tier })}
           </p>
         </div>
       )}
@@ -113,7 +113,7 @@ function PartnerTabContent() {
           href="/dashboard/partner"
           className="text-sm text-emerald-400 hover:text-emerald-300"
         >
-          Full partner page →
+          {t('dashboard.fullPartnerPage')}
         </Link>
       </div>
 
@@ -127,7 +127,7 @@ function PartnerTabContent() {
             {partnerData.partner.tier.charAt(0).toUpperCase() + partnerData.partner.tier.slice(1)}
           </div>
           <div className="text-xs text-neutral-500 mt-2">
-            {(partnerData.partner.stakeAmount / 1_000_000).toFixed(0)}M staked
+            {(partnerData.partner.stakeAmount / 1_000_000).toFixed(0)}{t('dashboard.staked')}
           </div>
         </div>
 
@@ -152,7 +152,7 @@ function PartnerTabContent() {
         <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
           <div className="flex items-center gap-2 text-neutral-400 mb-2">
             <DollarSign className="w-4 h-4" />
-            <span className="text-sm">Lifetime</span>
+            <span className="text-sm">{t('dashboard.lifetime')}</span>
           </div>
           <div className="text-2xl font-bold text-white">
             ${partnerData.stats.lifetimeEarnings.toFixed(2)}
@@ -163,7 +163,7 @@ function PartnerTabContent() {
       <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
         <div className="flex items-center gap-2 text-neutral-400 mb-4">
           <Link2 className="w-4 h-4" />
-          <span className="text-sm font-medium">Your Invite Link</span>
+          <span className="text-sm font-medium">{t('dashboard.yourInviteLink')}</span>
         </div>
         <div className="flex gap-2">
           <input
@@ -177,7 +177,7 @@ function PartnerTabContent() {
             className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 flex items-center gap-2"
           >
             {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            {copied ? "Copied!" : "Copy"}
+            {copied ? t('common.copied') : t('common.copy')}
           </button>
         </div>
       </div>
@@ -186,13 +186,13 @@ function PartnerTabContent() {
         <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
           <div className="flex items-center gap-2 text-yellow-400">
             <AlertTriangle className="w-4 h-4" />
-            <span className="font-medium">Connect Stripe to receive payouts</span>
+            <span className="font-medium">{t('dashboard.connectStripe')}</span>
           </div>
           <Link
             href="/dashboard/partner"
             className="text-sm text-yellow-300 hover:text-yellow-200 mt-2 inline-flex items-center gap-1"
           >
-            Go to partner settings <ExternalLink className="w-3 h-3" />
+            {t('dashboard.goToPartnerSettings')} <ExternalLink className="w-3 h-3" />
           </Link>
         </div>
       )}
@@ -461,7 +461,7 @@ export default function DashboardPage() {
   };
 
   const handleDeleteSession = async (id: string) => {
-    if (!confirm("Delete this session? This cannot be undone.")) return;
+    if (!confirm(t('dashboard.deleteSessionConfirm'))) return;
     await deleteSession(id);
     setSessions((prev) => prev.filter((s) => s.id !== id));
   };
@@ -550,7 +550,7 @@ export default function DashboardPage() {
   const handleCreateApiKey = async () => {
     // Check if user is Pro or admin
     if (user?.plan !== "pro" && !user?.isAdmin) {
-      alert("API Keys are only available on the Pro plan. Upgrade to Pro to create API keys.");
+      alert(t('dashboard.apiKeysProOnly'));
       return;
     }
     if (!newKeyName.trim()) return;
@@ -587,7 +587,7 @@ export default function DashboardPage() {
   };
 
   const handleDeleteApiKey = async (id: string) => {
-    if (!confirm("Delete this API key? This cannot be undone.")) return;
+    if (!confirm(t('dashboard.deleteApiKeyConfirm'))) return;
     try {
       await fetch(`/api/agent/keys/${id}`, { method: "DELETE" });
       setApiKeys((prev) => prev.filter((k) => k.id !== id));
@@ -667,7 +667,7 @@ export default function DashboardPage() {
                 href="/dashboard/partner"
                 className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-500"
               >
-                {t('dashboard.learnMore') || 'Learn More'}
+                {t('dashboard.learnMore')}
               </Link>
             </div>
           </div>
@@ -678,11 +678,11 @@ export default function DashboardPage() {
       <div className="border-b border-neutral-800/60">
         <div className="max-w-5xl mx-auto flex gap-1 px-4 sm:px-6">
           {[
-            { id: "sessions", label: "Sessions" },
-            { id: "plans", label: "Plans" },
-            { id: "usage", label: t('dashboard.usage') || 'Usage' },
-            ...(user?.isAdmin ? [{ id: "config", label: t('dashboard.config') || 'Configuration' }] : []),
-            ...(isPartner ? [{ id: "partner", label: t('dashboard.partner') || 'Partner' }] : []),
+            { id: "sessions", label: t('dashboard.sessions') },
+            { id: "plans", label: t('dashboard.plans') },
+            { id: "usage", label: t('dashboard.usage') },
+            ...(user?.isAdmin ? [{ id: "config", label: t('dashboard.config') }] : []),
+            ...(isPartner ? [{ id: "partner", label: t('dashboard.partner') }] : []),
           ].map((tab) => (
             <button
               key={tab.id}
@@ -768,7 +768,7 @@ export default function DashboardPage() {
                                 : "bg-neutral-700 text-neutral-400"
                             }`}
                           >
-                            {session.status === "active" ? "Active" : session.status === "paused" ? "Paused" : "Completed"}
+                            {session.status === "active" ? t('dashboard.active') : session.status === "paused" ? t('dashboard.paused') : t('dashboard.completed')}
                           </span>
                           {session.planTitle && (
                             <span className="ml-2 inline-flex px-1.5 py-0.5 rounded text-[10px] bg-purple-900/30 text-purple-400">
@@ -785,7 +785,7 @@ export default function DashboardPage() {
                             router.push(`/session/analytics?id=${session.id}`);
                           }}
                           className="p-1.5 text-neutral-600 hover:text-blue-400 transition-colors"
-                          title="Session Analytics"
+                          title={t('dashboard.sessionAnalytics')}
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -873,7 +873,7 @@ export default function DashboardPage() {
                     <Link href={`/plan/${plan.id}`} className="flex-1">
                       <p className="text-sm font-medium text-neutral-200">{plan.title || plan.root_topic}</p>
                       <p className="text-xs text-neutral-500 mt-0.5">
-                        {plan.root_topic !== plan.title && plan.title ? `${plan.root_topic} · ` : ""}Created {formatDate(plan.created_at)}
+                        {plan.root_topic !== plan.title && plan.title ? `${plan.root_topic} · ` : ""}{t('dashboard.createdOn', { date: formatDate(plan.created_at) })}
                       </p>
                     </Link>
                     <div className="flex items-center gap-2">
@@ -904,7 +904,7 @@ export default function DashboardPage() {
                             : "bg-neutral-800 border-neutral-700 text-neutral-500 hover:text-neutral-400"
                         }`}
                       >
-                        {(plan as any).is_public ? "Public" : "Private"}
+                        {(plan as any).is_public ? t('dashboard.public') : t('dashboard.private')}
                       </button>
                     </div>
                   </div>
@@ -953,15 +953,15 @@ export default function DashboardPage() {
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
                   <div className="flex items-center justify-between mb-4">
-                    <div className="text-sm text-neutral-400">Current Plan</div>
+                    <div className="text-sm text-neutral-400">{t('dashboard.currentPlan')}</div>
                     {usageData.plan === "pro" && (
-                      <span className="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full">Pro</span>
+                      <span className="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full">{t('dashboard.pro')}</span>
                     )}
                     {usageData.plan === "regular" && (
-                      <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">Regular</span>
+                      <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">{t('dashboard.regular')}</span>
                     )}
                     {usageData.plan === "free" && (
-                      <span className="px-2 py-1 bg-neutral-700 text-neutral-300 text-xs rounded-full">Free</span>
+                      <span className="px-2 py-1 bg-neutral-700 text-neutral-300 text-xs rounded-full">{t('dashboard.free')}</span>
                     )}
                   </div>
                   <div className="text-3xl font-bold text-white mb-1 capitalize">{usageData.plan}</div>
@@ -1019,29 +1019,29 @@ export default function DashboardPage() {
                     }}
                     className="w-full py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 transition-colors text-sm font-medium"
                   >
-                    Buy Extra Lesson ($1.99)
+                    {t('dashboard.buyExtraLesson')}
                   </button>
                 </div>
 
                 <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
-                  <div className="text-sm text-neutral-400 mb-4">Billing Period</div>
+                  <div className="text-sm text-neutral-400 mb-4">{t('dashboard.billingPeriod')}</div>
                   {usageData.subscriptionStatus === "active" && usageData.periodEnd ? (
                     <>
                       <div className="text-lg font-medium text-white mb-1">
-                        Resets {new Date(usageData.periodEnd).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        {t('dashboard.resetsOn', { date: new Date(usageData.periodEnd).toLocaleDateString("en-US", { month: "short", day: "numeric" }) })}
                       </div>
                       <div className="text-sm text-neutral-500">
-                        {usageData.plan === "regular" && "5 sessions + any extras will be available"}
-                        {usageData.plan === "pro" && "Unlimited sessions continue"}
+                        {usageData.plan === "regular" && t('dashboard.regularResetDesc')}
+                        {usageData.plan === "pro" && t('dashboard.unlimitedContinue')}
                       </div>
                     </>
                   ) : (
                     <>
                       <div className="text-lg font-medium text-white mb-1">
-                        {usageData.plan === "free" ? "No subscription" : "Inactive"}
+                        {usageData.plan === "free" ? t('dashboard.noSubscription') : t('dashboard.inactive')}
                       </div>
                       <div className="text-sm text-neutral-500">
-                        {usageData.plan === "free" ? "1 free session available" : "Your subscription is not active"}
+                        {usageData.plan === "free" ? t('dashboard.freeSessionAvailable') : t('dashboard.subscriptionNotActive')}
                       </div>
                     </>
                   )}
@@ -1050,7 +1050,7 @@ export default function DashboardPage() {
                       href="/pricing"
                       className="mt-4 block w-full py-2 text-center border border-emerald-600 text-emerald-400 rounded-lg hover:bg-emerald-600/10 transition-colors text-sm font-medium"
                     >
-                      Upgrade to Pro
+                      {t('dashboard.upgradeToPro')}
                     </Link>
                   )}
                 </div>
@@ -1062,25 +1062,25 @@ export default function DashboardPage() {
             {/* API Access Section (merged from Agentic Usage) */}
             <div className="border-t border-neutral-800/60 pt-6">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-lg font-semibold">API Access</h2>
+                <h2 className="text-lg font-semibold">{t('dashboard.apiAccess')}</h2>
                 <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400">
-                  Experimental
+                  {t('dashboard.experimental')}
                 </span>
               </div>
               <p className="text-xs text-neutral-500 mb-4">
-                The Agent API is experimental and does not yet support the full tutoring harness (probes, gap tracking, session plans). We&apos;re actively working on full parity.
+                {t('dashboard.apiExperimentalDesc')}
               </p>
               {user?.plan !== "pro" && !user?.isAdmin && (
                 <div className="mb-4 p-4 rounded-lg border border-yellow-500/30 bg-yellow-500/5">
                   <p className="text-sm text-yellow-400">
-                    API Keys are available on the Pro plan.{" "}
+                    {t('dashboard.apiKeysAvailableOnPro')}{" "}
                     <button
                       onClick={() => window.location.href = "/pricing"}
                       className="underline hover:text-yellow-300"
                     >
-                      Upgrade to Pro
+                      {t('dashboard.upgradeToPro')}
                     </button>{" "}
-                    to create API keys.
+                    {t('dashboard.toCreateApiKeys')}
                   </p>
                 </div>
               )}
@@ -1089,7 +1089,7 @@ export default function DashboardPage() {
                   type="text"
                   value={newKeyName}
                   onChange={(e) => setNewKeyName(e.target.value)}
-                  placeholder="Enter key name"
+                  placeholder={t('dashboard.enterKeyName')}
                   className="flex-1 px-3 py-1.5 text-sm bg-neutral-900 border border-neutral-700 rounded-lg focus:outline-none focus:border-blue-600"
                 />
                 <button
@@ -1097,7 +1097,7 @@ export default function DashboardPage() {
                   disabled={creatingKey}
                   className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-lg transition-colors"
                 >
-                  {creatingKey ? "Creating..." : "Create New Key"}
+                  {creatingKey ? t('dashboard.creating') : t('dashboard.createNewKey')}
                 </button>
               </div>
 
@@ -1105,7 +1105,7 @@ export default function DashboardPage() {
                 <div className="mb-4 p-4 rounded-lg border border-green-500/30 bg-green-500/5">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-sm text-green-400">
-                      Your new API key (copy now - won&apos;t be shown again):
+                      {t('dashboard.yourNewApiKey')}
                     </p>
                     <button
                       onClick={() => {
@@ -1115,7 +1115,7 @@ export default function DashboardPage() {
                       }}
                       className="text-xs px-2 py-1 bg-green-600 hover:bg-green-500 rounded transition-colors"
                     >
-                      {keyCopied ? "Copied!" : "Copy"}
+                      {keyCopied ? t('common.copied') : t('common.copy')}
                     </button>
                   </div>
                   <code className="block text-xs text-neutral-300 bg-neutral-900 p-2 rounded font-mono break-all">
@@ -1126,7 +1126,7 @@ export default function DashboardPage() {
 
               {apiKeys.length === 0 ? (
                 <div className="text-center py-8 text-neutral-500 border border-neutral-800 rounded-lg">
-                  <p className="text-sm">No API keys yet.</p>
+                  <p className="text-sm">{t('dashboard.noApiKeysYet')}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -1137,13 +1137,13 @@ export default function DashboardPage() {
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-neutral-200">
-                          {key.label || "Unnamed Key"}
+                          {key.label || t('dashboard.unnamedKey')}
                         </p>
                         <p className="text-xs text-neutral-500 mt-0.5 font-mono">
                           sk_{key.key_prefix}...
                         </p>
                         <p className="text-xs text-neutral-600 mt-1">
-                          {key.usage_count} requests · Created {formatDate(key.created_at)}
+                          {key.usage_count} {t('dashboard.requests')} · {t('dashboard.createdOn', { date: formatDate(key.created_at) })}
                         </p>
                       </div>
                       <button
@@ -1161,17 +1161,17 @@ export default function DashboardPage() {
 
               <div className="mt-6 p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
                 <p className="text-sm text-neutral-400 mb-3">
-                  Use your API key to access tutoring programmatically.
+                  {t('dashboard.apiKeyDescription')}
                 </p>
                 <div className="bg-neutral-950 rounded-lg p-4 font-mono text-xs text-neutral-300 overflow-x-auto">
-                  <p className="text-neutral-500 mb-2">// Example request</p>
+                  <p className="text-neutral-500 mb-2">// {t('dashboard.exampleRequest')}</p>
                   <p>curl -X POST https://openlesson.academy/api/agent/session/analyze \</p>
                   <p className="pl-4">-H &quot;Authorization: Bearer YOUR_API_KEY&quot; \</p>
                   <p className="pl-4">-H &quot;Content-Type: application/json&quot; \</p>
                   <p className="pl-4">-d &apos;{`{"problem": "your problem", "audio": "base64..."}`}&apos;</p>
                 </div>
                 <p className="text-xs text-neutral-600 mt-3">
-                  Each API key is rate-limited to 100 requests per minute.
+                  {t('dashboard.rateLimitInfo')}
                 </p>
               </div>
             </div>
@@ -1183,7 +1183,7 @@ export default function DashboardPage() {
           <div className="space-y-8">
             {/* AI Provider Status */}
             <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5">
-              <h2 className="text-lg font-semibold mb-3">AI Provider</h2>
+              <h2 className="text-lg font-semibold mb-3">{t('dashboard.aiProvider')}</h2>
               {providerInfo ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
@@ -1200,20 +1200,20 @@ export default function DashboardPage() {
                       {providerInfo.label}
                     </span>
                     <span className="text-xs text-neutral-500">
-                      Default model: <code className="text-neutral-400">{providerInfo.defaultModel}</code>
+                      {t('dashboard.defaultModel')} <code className="text-neutral-400">{providerInfo.defaultModel}</code>
                     </span>
                   </div>
                   <div className="flex gap-4 text-xs">
                     <span className={providerInfo.hasOpenRouterKey ? "text-emerald-500" : "text-red-500"}>
-                      {providerInfo.hasOpenRouterKey ? "OpenRouter key configured" : "OpenRouter key missing"}
+                      {providerInfo.hasOpenRouterKey ? t('dashboard.openRouterConfigured') : t('dashboard.openRouterMissing')}
                     </span>
                     <span className={providerInfo.hasXAIKey ? "text-emerald-500" : "text-neutral-600"}>
-                      {providerInfo.hasXAIKey ? "xAI key configured" : "xAI key not set"}
+                      {providerInfo.hasXAIKey ? t('dashboard.xAiConfigured') : t('dashboard.xAiNotSet')}
                     </span>
                   </div>
                   <p className="text-[11px] text-neutral-600">
-                    To switch providers, set <code className="text-neutral-500">AI_PROVIDER=xai</code> or <code className="text-neutral-500">AI_PROVIDER=openrouter</code> in your <code className="text-neutral-500">.env.local</code> and restart the server.
-                    {providerInfo.provider === "xai" && " Non-Grok models (Gemini, Claude, GPT) automatically fall back to OpenRouter."}
+                    {t('dashboard.switchProviderInfo')}
+                    {providerInfo.provider === "xai" && ` ${t('dashboard.nonGrokFallback')}`}
                   </p>
                 </div>
               ) : (
@@ -1224,20 +1224,20 @@ export default function DashboardPage() {
             {/* Model Selection - LOCKED */}
             <div>
               <div className="flex items-center gap-3 mb-4">
-                <h2 className="text-lg font-semibold">Model Selection</h2>
+                <h2 className="text-lg font-semibold">{t('dashboard.modelSelection')}</h2>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
-                  Editable coming soon
+                  {t('dashboard.editableComingSoon')}
                 </span>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 {[
-                  { label: "Tutor Model", desc: "The model that observes and guides your lesson" },
-                  { label: "Asking Model", desc: "The model that answers direct questions from you" },
-                  { label: "Planner Model", desc: "The model that helps plan and organize your learning sessions" },
-                  { label: "Coder Model", desc: "The model used in the Coding tool sandbox to help write JavaScript code" },
+                  { label: t('dashboard.tutorModel'), desc: t('dashboard.tutorModelDesc') },
+                  { label: t('dashboard.askingModel'), desc: t('dashboard.askingModelDesc') },
+                  { label: t('dashboard.plannerModel'), desc: t('dashboard.plannerModelDesc') },
+                  { label: t('dashboard.coderModel'), desc: t('dashboard.coderModelDesc') },
                 ].map((slot) => (
                   <div key={slot.label} className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
                     <label className="block text-sm font-medium text-neutral-300 mb-1">
@@ -1256,10 +1256,10 @@ export default function DashboardPage() {
 
                 <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-900/50">
                   <label className="block text-sm font-medium text-neutral-300 mb-1">
-                    Audio/Vision Model
+                    {t('dashboard.audioVisionModel')}
                   </label>
                   <p className="text-xs text-neutral-500 mb-3">
-                    The model used for audio transcription and image analysis (always via OpenRouter)
+                    {t('dashboard.audioVisionDesc')}
                   </p>
                   <div className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300">
                     Gemini 2.5 Flash <span className="text-neutral-500">(google/gemini-2.5-flash)</span>
@@ -1272,12 +1272,12 @@ export default function DashboardPage() {
             {/* Prompt Customization - LOCKED */}
             <div>
               <div className="flex items-center gap-3 mb-4">
-                <h2 className="text-lg font-semibold">Prompt Modifications</h2>
+                <h2 className="text-lg font-semibold">{t('dashboard.promptModifications')}</h2>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
-                  Editable coming soon
+                  {t('dashboard.editableComingSoon')}
                 </span>
               </div>
 

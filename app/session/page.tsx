@@ -3,15 +3,17 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { SessionView } from "@/components/SessionView";
+import { useI18n } from "@/lib/i18n";
 
 function SessionContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("id");
+  const { t } = useI18n();
 
   if (!sessionId) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a]">
-        <p className="text-neutral-500 text-sm">No session ID provided.</p>
+        <p className="text-neutral-500 text-sm">{t('results.noSessionId')}</p>
       </div>
     );
   }

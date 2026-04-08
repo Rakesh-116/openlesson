@@ -1,176 +1,156 @@
+"use client";
+
 import Link from "next/link";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
-
-export const metadata = {
-  title: "Privacy Policy - openLesson",
-  description: "Privacy Policy for openLesson - How we collect, use, and protect your data",
-};
+import { useI18n } from "@/lib/i18n";
 
 export default function PrivacyPage() {
+  const { t } = useI18n();
+
   return (
     <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
       <Navbar 
-        breadcrumbs={[{ label: "Privacy Policy" }]}
+        breadcrumbs={[{ label: t('privacy.title') }]}
         showNav={false}
       />
 
       <div className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-12">
-        <h1 className="text-2xl font-bold text-white mb-2">Privacy Policy</h1>
-        <p className="text-xs text-neutral-600 mb-8">Last updated: February 2026</p>
+        <h1 className="text-2xl font-bold text-white mb-2">{t('privacy.title')}</h1>
+        <p className="text-xs text-neutral-600 mb-8">{t('privacy.lastUpdated')}</p>
 
         <div className="space-y-8 text-sm text-neutral-400 leading-relaxed">
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">1. Introduction</h2>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('privacy.introHeading')}</h2>
             <p>
-              Uncertain Systems (&quot;openLesson&quot;, &quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) is committed to protecting
-              your privacy. This Privacy Policy explains how we collect, use, disclose, and
-              safeguard your information when you use openLesson and our services.
+              {t('privacy.introBody')}
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">2. Information We Collect</h2>
-            <h3 className="text-sm font-medium text-neutral-300 mb-2">Personal Information</h3>
-            <p className="mb-3">We may collect personal information that you voluntarily provide to us when you:</p>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('privacy.infoCollectHeading')}</h2>
+            <h3 className="text-sm font-medium text-neutral-300 mb-2">{t('privacy.personalInfoSubheading')}</h3>
+            <p className="mb-3">{t('privacy.personalInfoIntro')}</p>
             <ul className="list-disc pl-5 space-y-1 mb-4">
-              <li>Register for an account</li>
-              <li>Start a tutoring session</li>
-              <li>Upload think-aloud transcripts</li>
-              <li>Connect a Muse EEG headband</li>
-              <li>Subscribe to a paid plan</li>
-              <li>Contact us for support</li>
+              <li>{t('privacy.personalInfoItem1')}</li>
+              <li>{t('privacy.personalInfoItem2')}</li>
+              <li>{t('privacy.personalInfoItem3')}</li>
+              <li>{t('privacy.personalInfoItem4')}</li>
+              <li>{t('privacy.personalInfoItem5')}</li>
+              <li>{t('privacy.personalInfoItem6')}</li>
             </ul>
             <p className="mb-3">
-              This information may include: email address, username, audio recordings during sessions,
-              EEG brainwave data, uploaded transcripts, and session metadata.
+              {t('privacy.personalInfoTypes')}
             </p>
 
-            <h3 className="text-sm font-medium text-neutral-300 mb-2">Automatically Collected Information</h3>
+            <h3 className="text-sm font-medium text-neutral-300 mb-2">{t('privacy.autoCollectedSubheading')}</h3>
             <p>
-              When you visit our website, we automatically collect certain information about
-              your device, including browser type, IP address, and time zone. We do not use
-              analytics or advertising trackers.
+              {t('privacy.autoCollectedBody')}
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">3. How We Use Your Information</h2>
-            <p className="mb-3">We use the information we collect to:</p>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('privacy.howWeUseHeading')}</h2>
+            <p className="mb-3">{t('privacy.howWeUseIntro')}</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>Provide the tutoring experience (audio analysis, probe generation, reports)</li>
-              <li>Store and replay your session history</li>
-              <li>Personalize probes using your uploaded think-aloud transcripts</li>
-              <li>Record and summarize EEG data during sessions</li>
-              <li>Process payments and manage subscriptions</li>
-              <li>Respond to your inquiries and support requests</li>
-              <li>Improve our platform and AI tutoring quality</li>
+              <li>{t('privacy.howWeUseItem1')}</li>
+              <li>{t('privacy.howWeUseItem2')}</li>
+              <li>{t('privacy.howWeUseItem3')}</li>
+              <li>{t('privacy.howWeUseItem4')}</li>
+              <li>{t('privacy.howWeUseItem5')}</li>
+              <li>{t('privacy.howWeUseItem6')}</li>
+              <li>{t('privacy.howWeUseItem7')}</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">4. Third-Party Services</h2>
-            <p className="mb-3">We share data with the following third-party services, strictly to operate openLesson:</p>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('privacy.thirdPartyHeading')}</h2>
+            <p className="mb-3">{t('privacy.thirdPartyIntro')}</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li><strong className="text-neutral-300">Supabase</strong> — authentication, database, and file storage (audio, EEG, transcripts)</li>
-              <li><strong className="text-neutral-300">OpenRouter</strong> — AI model inference for audio analysis, probe generation, and reports</li>
-              <li><strong className="text-neutral-300">ElevenLabs</strong> — text-to-speech for reading probes aloud</li>
-              <li><strong className="text-neutral-300">Stripe</strong> — payment processing (we never see or store your card details)</li>
-              <li><strong className="text-neutral-300">Vercel</strong> — website hosting</li>
+              <li><strong className="text-neutral-300">Supabase</strong> — {t('privacy.thirdPartySupabase')}</li>
+              <li><strong className="text-neutral-300">OpenRouter</strong> — {t('privacy.thirdPartyOpenRouter')}</li>
+              <li><strong className="text-neutral-300">ElevenLabs</strong> — {t('privacy.thirdPartyElevenLabs')}</li>
+              <li><strong className="text-neutral-300">Stripe</strong> — {t('privacy.thirdPartyStripe')}</li>
+              <li><strong className="text-neutral-300">Vercel</strong> — {t('privacy.thirdPartyVercel')}</li>
             </ul>
-            <p className="mt-3">We do not sell your personal information to third parties.</p>
+            <p className="mt-3">{t('privacy.noSellData')}</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">5. Data Security</h2>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('privacy.dataSecurityHeading')}</h2>
             <p>
-              We implement appropriate technical and organizational security measures to protect
-              your personal information. Audio recordings and EEG data are stored in private,
-              per-user storage buckets. However, no electronic transmission over the Internet
-              or information storage technology can be guaranteed to be 100% secure.
+              {t('privacy.dataSecurityBody')}
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">6. Your Rights (GDPR)</h2>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('privacy.gdprHeading')}</h2>
             <p className="mb-3">
-              If you are a resident of the European Economic Area (EEA), you have certain data
-              protection rights:
+              {t('privacy.gdprIntro')}
             </p>
             <ul className="list-disc pl-5 space-y-1">
-              <li><strong className="text-neutral-300">Access:</strong> Request access to your personal data</li>
-              <li><strong className="text-neutral-300">Rectification:</strong> Request correction of inaccurate data</li>
-              <li><strong className="text-neutral-300">Erasure:</strong> Request deletion of your personal data</li>
-              <li><strong className="text-neutral-300">Restriction:</strong> Request restriction of processing</li>
-              <li><strong className="text-neutral-300">Portability:</strong> Request transfer of your data</li>
-              <li><strong className="text-neutral-300">Objection:</strong> Object to processing of your data</li>
-              <li><strong className="text-neutral-300">Withdraw Consent:</strong> Withdraw consent at any time</li>
+              <li><strong className="text-neutral-300">{t('privacy.gdprAccess')}:</strong> {t('privacy.gdprAccessDesc')}</li>
+              <li><strong className="text-neutral-300">{t('privacy.gdprRectification')}:</strong> {t('privacy.gdprRectificationDesc')}</li>
+              <li><strong className="text-neutral-300">{t('privacy.gdprErasure')}:</strong> {t('privacy.gdprErasureDesc')}</li>
+              <li><strong className="text-neutral-300">{t('privacy.gdprRestriction')}:</strong> {t('privacy.gdprRestrictionDesc')}</li>
+              <li><strong className="text-neutral-300">{t('privacy.gdprPortability')}:</strong> {t('privacy.gdprPortabilityDesc')}</li>
+              <li><strong className="text-neutral-300">{t('privacy.gdprObjection')}:</strong> {t('privacy.gdprObjectionDesc')}</li>
+              <li><strong className="text-neutral-300">{t('privacy.gdprWithdraw')}:</strong> {t('privacy.gdprWithdrawDesc')}</li>
             </ul>
-            <p className="mt-3">To exercise these rights, please contact us at daniel@uncertain.systems.</p>
+            <p className="mt-3">{t('privacy.gdprContact')}</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">7. Anonymized Data for AI Training</h2>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('privacy.anonymizedDataHeading')}</h2>
             <p className="mb-3">
-              With your explicit consent, we collect <strong className="text-neutral-300">anonymized</strong> think-aloud
-              data from tutoring sessions to build AI training, fine-tuning, and context engineering datasets. This
-              data is used to improve the quality of tutoring and advance research in AI-assisted education.
+              {t('privacy.anonymizedDataIntro')}
             </p>
-            <h3 className="text-sm font-medium text-neutral-300 mb-2">What we collect</h3>
-            <p className="mb-3">Depending on your preferences (configurable in your Dashboard), this may include:</p>
+            <h3 className="text-sm font-medium text-neutral-300 mb-2">{t('privacy.whatWeCollectSubheading')}</h3>
+            <p className="mb-3">{t('privacy.whatWeCollectIntro')}</p>
             <ul className="list-disc pl-5 space-y-1 mb-4">
-              <li><strong className="text-neutral-300">Transcripts only:</strong> Anonymized text transcripts of your think-aloud sessions, including reasoning patterns and probe interactions</li>
-              <li><strong className="text-neutral-300">Transcripts + Audio:</strong> In addition to transcripts, anonymized audio recordings that capture speech patterns (pauses, hesitation, tone shifts) — voice fingerprints are never stored or included</li>
+              <li><strong className="text-neutral-300">{t('privacy.transcriptsOnlyLabel')}:</strong> {t('privacy.transcriptsOnlyDesc')}</li>
+              <li><strong className="text-neutral-300">{t('privacy.transcriptsAudioLabel')}:</strong> {t('privacy.transcriptsAudioDesc')}</li>
             </ul>
-            <h3 className="text-sm font-medium text-neutral-300 mb-2">How we anonymize</h3>
+            <h3 className="text-sm font-medium text-neutral-300 mb-2">{t('privacy.howWeAnonymizeSubheading')}</h3>
             <ul className="list-disc pl-5 space-y-1 mb-4">
-              <li>All names, emails, and personally identifiable information are removed</li>
-              <li>Session metadata (timestamps, user IDs) is stripped or cryptographically hashed</li>
-              <li>Data cannot be traced back to individual users</li>
+              <li>{t('privacy.anonymizeItem1')}</li>
+              <li>{t('privacy.anonymizeItem2')}</li>
+              <li>{t('privacy.anonymizeItem3')}</li>
             </ul>
-            <h3 className="text-sm font-medium text-neutral-300 mb-2">Your control</h3>
+            <h3 className="text-sm font-medium text-neutral-300 mb-2">{t('privacy.yourControlSubheading')}</h3>
             <p>
-              Data sharing is <strong className="text-neutral-300">opt-in</strong> and disabled by default. You can
-              change your preferences at any time from the &quot;Data &amp; Privacy&quot; tab in your Dashboard.
-              Changes apply to future sessions only — previously shared data remains in existing datasets. You
-              may request removal of all your contributed data by contacting us.
+              {t('privacy.yourControlBody')}
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">8. Data Retention</h2>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('privacy.dataRetentionHeading')}</h2>
             <p>
-              We retain your personal information only for as long as necessary to fulfill the
-              purposes for which it was collected. You can delete any session from your dashboard
-              at any time — all associated data (audio, EEG, probes, reports) is permanently removed.
-              Account deletion can be requested via email.
+              {t('privacy.dataRetentionBody')}
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">9. Children&apos;s Privacy</h2>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('privacy.childrenHeading')}</h2>
             <p>
-              Our services are not directed to children under 16. We do not knowingly collect
-              personal information from children. If you believe we have collected information
-              from a child, please contact us immediately.
+              {t('privacy.childrenBody')}
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">10. Changes to This Policy</h2>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('privacy.changesHeading')}</h2>
             <p>
-              We may update this Privacy Policy from time to time. We will notify you of any
-              changes by posting the new Privacy Policy on this page with an updated revision date.
+              {t('privacy.changesBody')}
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">11. Contact Us</h2>
-            <p className="mb-3">If you have questions about this Privacy Policy, please contact us at:</p>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('privacy.contactHeading')}</h2>
+            <p className="mb-3">{t('privacy.contactIntro')}</p>
             <div className="p-4 rounded-lg bg-neutral-900/50 border border-neutral-800 space-y-1">
-              <p><strong className="text-neutral-300">Email:</strong> daniel@uncertain.systems</p>
-              <p><strong className="text-neutral-300">Company:</strong> Uncertain Systems (Daniel Colomer)</p>
-              <p><strong className="text-neutral-300">Location:</strong> Hamburg, Germany</p>
+              <p><strong className="text-neutral-300">{t('privacy.emailLabel')}:</strong> daniel@uncertain.systems</p>
+              <p><strong className="text-neutral-300">{t('privacy.companyLabel')}:</strong> Uncertain Systems (Daniel Colomer)</p>
+              <p><strong className="text-neutral-300">{t('privacy.locationLabel')}:</strong> Hamburg, Germany</p>
             </div>
           </section>
         </div>

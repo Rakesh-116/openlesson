@@ -98,7 +98,7 @@ export function SessionList({ nodes, onSelect, onDelete, onFork, highlightedNode
       <div className="flex items-center justify-between mb-3 px-1">
         <h2 className="text-sm font-semibold text-white">{t('sessionList.sessions')}</h2>
         <span className="text-[11px] text-neutral-500">
-          {completedSessions.length}/{nodes.length} done
+          {t('sessionList.progressDone', { completed: completedSessions.length, total: nodes.length })}
         </span>
       </div>
 

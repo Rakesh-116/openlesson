@@ -652,7 +652,7 @@ function AnalyticsContent() {
                         onClick={() => setScreenshotLoadCount((c) => c + 10)}
                         className="px-4 py-2 text-xs text-neutral-400 hover:text-white border border-neutral-700 hover:border-neutral-500 rounded-lg transition-colors"
                       >
-                        Load more ({filteredScreenshots.length - screenshotLoadCount} remaining)
+                        {t('analytics.loadMore', { n: String(filteredScreenshots.length - screenshotLoadCount) })}
                       </button>
                     </div>
                   )}
@@ -719,7 +719,7 @@ function AnalyticsContent() {
               ) : filteredFacialChunks.length === 0 ? (
                 <div className="flex items-center gap-2 py-8 justify-center">
                   <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full" />
-                  <span className="text-xs text-neutral-500">Loading facial data...</span>
+                  <span className="text-xs text-neutral-500">{t('analytics.loadingFacialData')}</span>
                 </div>
               ) : (
                 <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
@@ -759,7 +759,7 @@ function AnalyticsContent() {
                   </table>
                   {facialData.length > 50 && (
                     <p className="text-[10px] text-neutral-600 mt-2">
-                      Showing data from first 50 of {facialData.length} chunks
+                      {t('analytics.showingFirstChunks', { total: String(facialData.length) })}
                     </p>
                   )}
                 </div>

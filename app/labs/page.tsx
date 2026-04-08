@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useI18n } from "@/lib/i18n";
 
 interface LabTool {
   id: string;
@@ -10,30 +11,33 @@ interface LabTool {
   icon: string;
   href: string;
   badge?: string;
+  badgeType?: "new" | "coming-soon";
   requiresHardware?: string;
 }
 
-const labTools: LabTool[] = [
-  {
-    id: "mastery",
-    name: "Mastery Check",
-    description: "Test your knowledge on any topic while Muse measures your cognitive state in real-time.",
-    icon: "🧠",
-    href: "/labs/mastery",
-    badge: "New",
-    requiresHardware: "Muse S Athena",
-  },
-];
-
 export default function LabsPage() {
   const [hoveredTool, setHoveredTool] = useState<string | null>(null);
+  const { t } = useI18n();
+
+  const labTools: LabTool[] = [
+    {
+      id: "mastery",
+      name: t('labs.masteryCheck'),
+      description: t('labs.masteryCheckDesc'),
+      icon: "🧠",
+      href: "/labs/mastery",
+      badge: t('labs.badgeNew'),
+      badgeType: "new",
+      requiresHardware: t('labs.requiresMuseAthena'),
+    },
+  ];
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-12">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">OpenLesson Labs</h1>
+        <h1 className="text-3xl font-bold text-white mb-2">{t('labs.title')}</h1>
         <p className="text-slate-400">
-          Experimental tools for neurotechnology and cognitive enhancement
+          {t('labs.subtitle')}
         </p>
       </div>
 
@@ -43,7 +47,7 @@ export default function LabsPage() {
             key={tool.id}
             href={tool.href}
             className={`block p-6 rounded-xl border transition-all duration-200 ${
-              tool.badge === "Coming Soon"
+              tool.badgeType === "coming-soon"
                 ? "border-slate-800 bg-slate-900/30 opacity-60 hover:opacity-80"
                 : "border-slate-700 bg-slate-800/30 hover:border-blue-500/50 hover:bg-slate-800/50"
             }`}
@@ -59,7 +63,7 @@ export default function LabsPage() {
                     {tool.badge && (
                       <span
                         className={`px-2 py-0.5 text-xs rounded-full ${
-                          tool.badge === "New"
+                          tool.badgeType === "new"
                             ? "bg-blue-500/20 text-blue-400"
                             : "bg-slate-700 text-slate-400"
                         }`}
@@ -71,12 +75,12 @@ export default function LabsPage() {
                   <p className="text-sm text-slate-400">{tool.description}</p>
                   {tool.requiresHardware && (
                     <p className="text-xs text-slate-500 mt-2">
-                      Requires: {tool.requiresHardware}
+                      {t('labs.requires')}: {tool.requiresHardware}
                     </p>
                   )}
                 </div>
               </div>
-              {tool.badge !== "Coming Soon" && (
+              {tool.badgeType !== "coming-soon" && (
                 <svg
                   className={`w-5 h-5 text-slate-500 transition-transform ${
                     hoveredTool === tool.id ? "translate-x-1 text-blue-400" : ""
@@ -95,8 +99,7 @@ export default function LabsPage() {
 
       <div className="mt-8 p-4 bg-slate-900/50 border border-slate-800 rounded-lg">
         <p className="text-xs text-slate-500">
-          Labs features are experimental. Hardware connectivity requires Web Bluetooth support.
-          Data is processed in real-time and not stored.
+          {t('labs.disclaimer')}
         </p>
       </div>
     </div>

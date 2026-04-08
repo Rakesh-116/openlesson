@@ -30,11 +30,11 @@ export function RemixModal({ plan, onClose, onComplete }: RemixModalProps) {
 
   const handleRemix = async () => {
     if (!title.trim()) {
-      setError("Please give your plan a title");
+      setError(t('remixModal.titleRequired'));
       return;
     }
     if (!prompt.trim()) {
-      setError("Please describe how you want to adapt this plan");
+      setError(t('remixModal.descriptionRequired'));
       return;
     }
 
@@ -52,11 +52,11 @@ export function RemixModal({ plan, onClose, onComplete }: RemixModalProps) {
       if (data.success) {
         onComplete(data.planId);
       } else {
-        setError(data.error || "Failed to remix plan");
+        setError(data.error || t('remixModal.failedToRemix'));
       }
     } catch (err) {
       console.error("Error remixing plan:", err);
-      setError("Failed to remix plan");
+      setError(t('remixModal.failedToRemix'));
     } finally {
       setLoading(false);
     }
@@ -66,7 +66,7 @@ export function RemixModal({ plan, onClose, onComplete }: RemixModalProps) {
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white">Remix &quot;{plan.root_topic}&quot;</h3>
+          <h3 className="text-lg font-semibold text-white">{t('remixModal.remixTitle', { topic: plan.root_topic })}</h3>
           <button
             onClick={onClose}
             className="text-neutral-500 hover:text-white transition-colors"

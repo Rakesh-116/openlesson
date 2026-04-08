@@ -192,7 +192,7 @@ export function RecordingIndicator({ isRecording }: { isRecording: boolean }) {
         }`}
       />
       <span className="text-sm text-neutral-400">
-        {isRecording ? t('session.recording') || 'Recording...' : t('session.notRecording') || 'Not recording'}
+        {isRecording ? t('common.recording') : t('common.notRecording')}
       </span>
     </div>
   );

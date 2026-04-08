@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
+import { useI18n } from "@/lib/i18n";
 
 interface WhiteboardCanvasProps {
   onCanvasChange?: (dataUrl: string) => void;
@@ -21,6 +22,7 @@ interface PastedObject {
 type DragMode = "move" | "resize" | null;
 
 export function WhiteboardCanvas({ onCanvasChange, initialData }: WhiteboardCanvasProps) {
+  const { t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [brushColor, setBrushColor] = useState("#ffffff");
@@ -673,7 +675,7 @@ export function WhiteboardCanvas({ onCanvasChange, initialData }: WhiteboardCanv
           className={`p-2 rounded-lg transition-colors ${
             tool === "draw" ? "bg-blue-600 text-white" : "bg-neutral-800 text-neutral-400 hover:text-white"
           }`}
-          title="Draw"
+          title={t('whiteboard.draw')}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -684,7 +686,7 @@ export function WhiteboardCanvas({ onCanvasChange, initialData }: WhiteboardCanv
           className={`p-2 rounded-lg transition-colors ${
             tool === "eraser" ? "bg-blue-600 text-white" : "bg-neutral-800 text-neutral-400 hover:text-white"
           }`}
-          title="Eraser"
+          title={t('whiteboard.eraser')}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12.5L12 20l-7.5-7.5m0 0l7.5-7.5m-7.5 7.5h18" />
@@ -721,14 +723,14 @@ export function WhiteboardCanvas({ onCanvasChange, initialData }: WhiteboardCanv
 
         {pastedObject && (
           <span className="text-[10px] text-neutral-500 hidden sm:inline">
-            Enter to place, Esc to cancel
+            {t('whiteboard.enterToPlaceEscCancel')}
           </span>
         )}
 
         <button
           onClick={captureFromCamera}
           className="lg:hidden p-2 rounded-lg bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
-          title="Take Photo"
+          title={t('whiteboard.takePhoto')}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -739,7 +741,7 @@ export function WhiteboardCanvas({ onCanvasChange, initialData }: WhiteboardCanv
         <button
           onClick={() => fileInputRef.current?.click()}
           className="hidden lg:inline-flex p-2 rounded-lg bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
-          title="Upload Image"
+          title={t('whiteboard.uploadImage')}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -758,7 +760,7 @@ export function WhiteboardCanvas({ onCanvasChange, initialData }: WhiteboardCanv
           onClick={clearCanvas}
           className="px-2 py-1 text-xs text-neutral-400 hover:text-white bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors"
         >
-          Clear
+          {t('whiteboard.clear')}
         </button>
       </div>
 
@@ -831,22 +833,22 @@ export function WhiteboardCanvas({ onCanvasChange, initialData }: WhiteboardCanv
               <button
                 onClick={(e) => { e.stopPropagation(); commitPaste(); }}
                 className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-md transition-colors shadow-lg"
-                title="Place on canvas (Enter)"
+                title={t('whiteboard.placeOnCanvas')}
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-                Place
+                {t('whiteboard.place')}
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); cancelPaste(); }}
                 className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-neutral-300 bg-neutral-800 hover:bg-neutral-700 rounded-md transition-colors shadow-lg"
-                title="Cancel (Esc)"
+                title={t('whiteboard.cancel')}
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Cancel
+                {t('whiteboard.cancelLabel')}
               </button>
             </div>
           </>

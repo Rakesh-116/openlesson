@@ -71,7 +71,7 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
   ];
 
   const navLinks = [
-    { href: "/labs", label: "Labs" },
+    { href: "/labs", label: t('nav.labs') },
     { href: "/pricing", label: t('nav.pricing') },
     { href: "/coaching", label: t('nav.coaching') },
     { href: "/about", label: t('nav.about') },
@@ -188,7 +188,7 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
         <div className="md:hidden mt-4 pb-4 border-t border-slate-800 pt-4">
           <nav className="flex flex-col gap-4">
             <div className="mb-2">
-              <span className="text-xs text-slate-600 uppercase tracking-wider">Solutions</span>
+              <span className="text-xs text-slate-600 uppercase tracking-wider">{t('nav.solutions')}</span>
             </div>
             {solutionsItems.map((item) => (
               <Link 
@@ -220,7 +220,7 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
                 }}
                 className="text-sm text-slate-400 hover:text-white transition-colors text-left"
               >
-                Sign out
+                {t('nav.signOut')}
               </button>
             ) : isLoggedIn === false && (
               <Link 
@@ -228,7 +228,7 @@ export function Navbar({ breadcrumbs = [], showNav = true }: NavbarProps) {
                 onClick={() => setMobileMenuOpen(false)}
                 className="text-sm text-slate-400 hover:text-white transition-colors"
               >
-                Sign In
+                {t('nav.signIn')}
               </Link>
             )}
           </nav>

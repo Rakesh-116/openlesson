@@ -33,13 +33,14 @@ interface RecentSession {
 
 function RecentPlanCards({ plans }: { plans: RecentPlan[] }) {
   const router = useRouter();
+  const { t } = useI18n();
   if (plans.length === 0) return null;
 
   return (
     <div className="w-full max-w-3xl mx-auto mt-6">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-slate-500">Recent plans</h3>
-        <Link href="/dashboard?tab=plans" className="text-xs text-slate-500 hover:text-white transition-colors">Show all &rarr;</Link>
+        <h3 className="text-sm font-medium text-slate-500">{t('home.recentPlans')}</h3>
+        <Link href="/dashboard?tab=plans" className="text-xs text-slate-500 hover:text-white transition-colors">{t('home.showAll')}</Link>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {plans.map((plan) => (
@@ -77,13 +78,14 @@ function RecentPlanCards({ plans }: { plans: RecentPlan[] }) {
 }
 
 function RecentSessionCards({ sessions }: { sessions: RecentSession[] }) {
+  const { t } = useI18n();
   if (sessions.length === 0) return null;
 
   return (
     <div className="w-full max-w-3xl mx-auto mt-6">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-slate-500">Recent sessions</h3>
-        <Link href="/dashboard?tab=sessions" className="text-xs text-slate-500 hover:text-white transition-colors">Show all &rarr;</Link>
+        <h3 className="text-sm font-medium text-slate-500">{t('home.recentSessions')}</h3>
+        <Link href="/dashboard?tab=sessions" className="text-xs text-slate-500 hover:text-white transition-colors">{t('home.showAll')}</Link>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {sessions.map((session) => (
@@ -106,7 +108,7 @@ function RecentSessionCards({ sessions }: { sessions: RecentSession[] }) {
                     ? "bg-blue-900/30 text-blue-400"
                     : "bg-slate-800 text-slate-500"
               }`}>
-                {session.status === "ended_by_tutor" ? "completed" : session.status}
+                {session.status === "ended_by_tutor" ? t('home.statusCompleted') : session.status}
               </span>
             </div>
           </Link>

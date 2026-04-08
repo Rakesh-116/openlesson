@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n";
 
 interface InviteDetails {
   id: string;
@@ -21,6 +22,7 @@ export default function InvitePage() {
   const params = useParams();
   const token = params.token as string;
   const supabase = createClient();
+  const { t } = useI18n();
   
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
@@ -106,7 +108,7 @@ export default function InvitePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-        <div className="text-neutral-400">Loading...</div>
+        <div className="text-neutral-400">{t('common.loading')}</div>
       </div>
     );
   }
@@ -121,15 +123,15 @@ export default function InvitePage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Welcome to {invite.organization.name}!</h1>
+          <h1 className="text-2xl font-bold text-white mb-2">{t('invite.welcomeTo', { org: invite.organization.name })}</h1>
           <p className="text-neutral-400 mb-6">
-            You&apos;ve successfully joined the organization.
+            {t('invite.successfullyJoined')}
           </p>
           <Link
             href="/dashboard"
             className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
-            Go to Dashboard
+            {t('invite.goToDashboard')}
           </Link>
         </div>
       </div>
@@ -146,15 +148,15 @@ export default function InvitePage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Invalid Invite</h1>
+          <h1 className="text-2xl font-bold text-white mb-2">{t('invite.invalidInvite')}</h1>
           <p className="text-neutral-400 mb-6">
-            {error || "This invite link is invalid or has expired."}
+            {error || t('invite.invalidOrExpired')}
           </p>
           <Link
             href="/"
             className="inline-block px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-colors"
           >
-            Go Home
+            {t('invite.goHome')}
           </Link>
         </div>
       </div>
@@ -171,15 +173,15 @@ export default function InvitePage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Invite Already Used</h1>
+          <h1 className="text-2xl font-bold text-white mb-2">{t('invite.alreadyUsed')}</h1>
           <p className="text-neutral-400 mb-6">
-            This invite link has already been used by another user.
+            {t('invite.alreadyUsedDesc')}
           </p>
           <Link
             href="/"
             className="inline-block px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-colors"
           >
-            Go Home
+            {t('invite.goHome')}
           </Link>
         </div>
       </div>
@@ -196,22 +198,22 @@ export default function InvitePage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Already in an Organization</h1>
+          <h1 className="text-2xl font-bold text-white mb-2">{t('invite.alreadyInOrg')}</h1>
           <p className="text-neutral-400 mb-6">
-            You already belong to an organization. Please leave your current organization before joining a new one.
+            {t('invite.alreadyInOrgDesc')}
           </p>
           <div className="flex gap-3 justify-center">
             <Link
               href="/organization"
               className="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-colors"
             >
-              Manage Organization
+              {t('invite.manageOrganization')}
             </Link>
             <Link
               href="/dashboard"
               className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
             >
-              Go to Dashboard
+              {t('invite.goToDashboard')}
             </Link>
           </div>
         </div>
@@ -230,16 +232,16 @@ export default function InvitePage() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">
-            Join {invite.organization?.name || "Organization"}
+            {t('invite.joinOrg', { org: invite.organization?.name || t('invite.organizationFallback') })}
           </h1>
           <p className="text-neutral-400">
-            You&apos;ve been invited to join this organization.
+            {t('invite.invitedToJoin')}
           </p>
         </div>
 
         {invite.organization && (
           <div className="bg-neutral-800/50 rounded-lg p-4 mb-6">
-            <div className="text-sm text-neutral-400 mb-1">Organization</div>
+            <div className="text-sm text-neutral-400 mb-1">{t('invite.organizationLabel')}</div>
             <div className="text-lg text-white font-medium">{invite.organization.name}</div>
             <code className="text-xs text-neutral-500">{invite.organization.slug}</code>
           </div>
@@ -248,7 +250,7 @@ export default function InvitePage() {
         {user ? (
           <div className="space-y-4">
             <div className="bg-neutral-800/50 rounded-lg p-4">
-              <div className="text-sm text-neutral-400 mb-1">Joining as</div>
+              <div className="text-sm text-neutral-400 mb-1">{t('invite.joiningAs')}</div>
               <div className="text-white">{user.email}</div>
             </div>
             <button
@@ -256,26 +258,26 @@ export default function InvitePage() {
               disabled={accepting}
               className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
             >
-              {accepting ? "Joining..." : "Accept Invite"}
+              {accepting ? t('invite.joining') : t('invite.acceptInvite')}
             </button>
           </div>
         ) : (
           <div className="space-y-4">
             <p className="text-neutral-400 text-sm text-center">
-              Please log in or create an account to accept this invite.
+              {t('invite.loginToAccept')}
             </p>
             <div className="flex gap-3">
               <Link
                 href={`/login?returnUrl=/invite/${token}`}
                 className="flex-1 py-3 bg-neutral-800 hover:bg-neutral-700 text-white text-center font-medium rounded-lg transition-colors"
               >
-                Log In
+                {t('invite.logIn')}
               </Link>
               <Link
                 href={`/register?returnUrl=/invite/${token}`}
                 className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white text-center font-medium rounded-lg transition-colors"
               >
-                Sign Up
+                {t('invite.signUp')}
               </Link>
             </div>
           </div>

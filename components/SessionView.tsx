@@ -1326,7 +1326,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       setMicStatus("ready");
     } catch (err) {
       setMicStatus("denied");
-      setError("Microphone access denied. Please allow microphone permission in your browser settings and try again.");
+      setError(t('session.micDenied'));
     }
   };
 
@@ -1386,7 +1386,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       }, 1000);
 
     } catch (err) {
-      setError("Could not access microphone. Please grant permission and try again.");
+      setError(t('session.micError'));
     }
   };
 
@@ -1596,7 +1596,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       }
 
     } catch (err) {
-      setError("Could not access microphone. Please grant permission and try again.");
+      setError(t('session.micError'));
     }
   };
 
@@ -2303,7 +2303,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   <>
                     <div className="mb-4">
                       <label className="block text-xs text-neutral-400 mb-2">
-                        Tutor language
+                        {t('session.tutorLanguage')}
                       </label>
                       <select
                         value={tutoringLanguage}
@@ -2338,13 +2338,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         <div className="flex flex-col">
                           <span className="text-sm font-medium leading-tight">
                             <span className={autoAdvance ? 'text-cyan-400' : 'text-amber-400'}>
-                              {autoAdvance ? 'Auto-advance ON' : 'Manual mode'}
+                              {autoAdvance ? t('session.autoAdvanceOn') : t('session.manualMode')}
                             </span>
                           </span>
                           <span className="text-xs text-neutral-500 leading-tight mt-0.5">
                             {autoAdvance 
-                              ? 'AI decides when to move forward automatically' 
-                              : 'You click to advance — AI analyzes but you decide'}
+                              ? t('session.aiDecidesMoveForward') 
+                              : t('session.youClickToAdvance')}
                           </span>
                         </div>
                       </label>
@@ -2372,13 +2372,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         <div className="flex flex-col">
                           <span className="text-sm font-medium leading-tight">
                             <span className={localInferenceEnabled ? 'text-purple-400' : 'text-neutral-400'}>
-                              {localInferenceEnabled ? 'Browser Inference ON' : 'Browser Inference'}
+                              {localInferenceEnabled ? t('session.browserInferenceOn') : t('session.browserInference')}
                             </span>
                           </span>
                           <span className="text-xs text-neutral-500 leading-tight mt-0.5">
                             {!webGPUAvailable 
-                              ? 'WebGPU not available in this browser'
-                              : 'A less capable tutor but a faster, more real-time experience'}
+                              ? t('session.webGPUNotAvailable')
+                              : t('session.browserInferenceDesc')}
                           </span>
                         </div>
                       </label>
@@ -2549,7 +2549,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                           : 'bg-cyan-500 hover:bg-cyan-400 text-neutral-900 disabled:bg-neutral-700 disabled:text-neutral-500'
                       }`}
                     >
-                      {isButtonDisabled ? 'Preparing...' : 'Confirm Settings'}
+                      {isButtonDisabled ? t('session.preparing') : t('session.confirmSettings')}
                     </button>
 
                     {/* Inline loading progress (replaces the separate prep modal) */}
@@ -2568,7 +2568,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                               ) : '1'}
                             </div>
                             <span className={`text-xs ${prepStage !== "plan" ? 'text-neutral-500' : 'text-neutral-300'}`}>
-                              {prepStage === "plan" ? 'Preparing session plan...' : 'Session plan ready'}
+                              {prepStage === "plan" ? t('session.preparingPlan') : t('session.planReady')}
                             </span>
                             {prepStage === "plan" && (
                               <div className="w-3.5 h-3.5 border-2 border-neutral-600 border-t-cyan-500 rounded-full animate-spin ml-auto" />
@@ -2591,7 +2591,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                               <span className={`text-xs ${
                                 prepStage === "done" ? 'text-neutral-500' : prepStage === "model" ? 'text-neutral-300' : 'text-neutral-600'
                               }`}>
-                                {prepStage === "done" ? 'Local model loaded' : prepStage === "model" ? 'Loading local model...' : 'Load local model'}
+                                {prepStage === "done" ? t('session.localModelLoaded') : prepStage === "model" ? t('session.loadingLocalModel') : t('session.loadLocalModel')}
                               </span>
                               {prepStage === "model" && !modelLoadProgress && (
                                 <div className="w-3.5 h-3.5 border-2 border-neutral-600 border-t-purple-500 rounded-full animate-spin ml-auto" />
@@ -2613,7 +2613,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                               <span className="text-[10px] text-neutral-500">
                                 {modelLoadProgress.loaded && modelLoadProgress.total
                                   ? `${(modelLoadProgress.loaded / 1024 / 1024).toFixed(0)} / ${(modelLoadProgress.total / 1024 / 1024).toFixed(0)} MB`
-                                  : 'Downloading...'}
+                                  : t('session.downloading')}
                               </span>
                               <span className="text-[10px] text-neutral-500">{modelLoadProgress.progress}%</span>
                             </div>
@@ -2640,7 +2640,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                             }}
                             className="w-full mt-2 py-1.5 text-xs text-neutral-400 hover:text-neutral-300 transition-colors"
                           >
-                            Continue without browser inference
+                            {t('session.continueWithoutBrowserInference')}
                           </button>
                         )}
                       </div>

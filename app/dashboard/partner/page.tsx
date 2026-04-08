@@ -73,11 +73,11 @@ export default function PartnerPage() {
         setWalletConnected(true);
       } catch (err) {
         console.error("Failed to connect wallet:", err);
-        setError("Failed to connect wallet");
+        setError(t('partner.failedToConnectWallet'));
       }
     } else {
       // Show manual input if no wallet found
-      setError("No wallet found. Please install Phantom or enter your wallet address manually.");
+      setError(t('partner.noWalletFound'));
     }
   };
 
@@ -103,10 +103,10 @@ export default function PartnerPage() {
         setStakeStep("done");
         loadPartnerData();
       } else {
-        setError(data.error || "Failed to become partner");
+        setError(data.error || t('partner.failedToBecomePartner'));
       }
     } catch (err) {
-      setError("An error occurred");
+      setError(t('common.error'));
     } finally {
       setStaking(false);
     }
@@ -196,7 +196,7 @@ export default function PartnerPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-        <div className="text-neutral-400">Loading...</div>
+        <div className="text-neutral-400">{t('common.loading')}</div>
       </div>
     );
   }
@@ -206,8 +206,8 @@ export default function PartnerPage() {
       <div className="min-h-screen bg-[#0a0a0a]">
         <Navbar />
         <div className="max-w-4xl mx-auto px-6 py-12">
-          <h1 className="text-3xl font-bold text-white mb-4">{t('partner.program') || 'Partner Program'}</h1>
-          <p className="text-neutral-400 mb-8">{t('partner.becomePartner') || "Become an openLesson partner and earn revenue from your referrals."}</p>
+          <h1 className="text-3xl font-bold text-white mb-4">{t('partner.program')}</h1>
+          <p className="text-neutral-400 mb-8">{t('partner.becomePartnerDesc')}</p>
           
           {stakeStep === "done" ? (
             <div className="text-center py-12">
@@ -215,33 +215,32 @@ export default function PartnerPage() {
                 <Check className="w-8 h-8 text-emerald-400" />
               </div>
               <h2 className="text-2xl font-bold text-white mb-2">{t('partner.nowPartner') || "You're now a partner!"}</h2>
-              <p className="text-neutral-400 mb-2">{t('partner.accountCreated') || "Your partner account has been created."}</p>
-              <p className="text-sm text-emerald-400 mb-6">{t('partner.planUpgraded') || "Your plan has been automatically upgraded based on your stake tier."}</p>
+              <p className="text-neutral-400 mb-2">{t('partner.accountCreated')}</p>
+              <p className="text-sm text-emerald-400 mb-6">{t('partner.planUpgraded')}</p>
               <button
                 onClick={() => router.push("/dashboard")}
                 className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500"
               >
-                Go to Dashboard
+                {t('partner.goToDashboard')}
               </button>
             </div>
           ) : stakeStep === "verify" ? (
             <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-6">
-              <h2 className="text-xl font-semibold text-white mb-4">Confirm Stake</h2>
+              <h2 className="text-xl font-semibold text-white mb-4">{t('partner.confirmStake')}</h2>
               
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 mb-6">
                 <div className="flex items-center gap-2 text-amber-400 mb-2">
                   <AlertTriangle className="w-5 h-5" />
-                  <span className="font-medium">Action Required</span>
+                  <span className="font-medium">{t('partner.actionRequired')}</span>
                 </div>
                 <p className="text-sm text-neutral-300">
-                  Send exactly <strong>{(PARTNER_TIERS[selectedTier!].stakeAmount / 1_000_000)}M $UNSYS</strong> tokens to:
+                  {t('partner.sendExactly', { amount: String(PARTNER_TIERS[selectedTier!].stakeAmount / 1_000_000) })}
                 </p>
                 <code className="block mt-3 p-3 bg-neutral-800 rounded-lg text-emerald-400 text-sm break-all">
                   {STAKING_WALLET}
                 </code>
                 <p className="text-xs text-neutral-500 mt-3">
-                  Staking is currently a manual token transfer. Smart contract staking coming soon.
-                  Your plan will be automatically upgraded once the transfer is verified.
+                  {t('partner.stakingManualNote')}
                 </p>
               </div>
 
@@ -250,14 +249,14 @@ export default function PartnerPage() {
                   onClick={() => setStakeStep("select")}
                   className="flex-1 px-4 py-3 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700"
                 >
-                  Back
+                  {t('common.back')}
                 </button>
                 <button
                   onClick={handleStake}
                   disabled={staking}
                   className="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  {staking ? "Processing..." : "I've Sent the Tokens"}
+                  {staking ? t('partner.processing') : t('partner.sentTokens')}
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -289,7 +288,7 @@ export default function PartnerPage() {
                       <div className="text-lg font-semibold text-white mb-2 capitalize">{tier}</div>
                       <div className="text-2xl font-bold text-white mb-4">{(info.stakeAmount / 1_000_000)}M $UNSYS</div>
                       <div className="text-sm text-neutral-400">
-                        Earn <span className="text-emerald-400">{info.revenueShare * 100}%</span> revenue share
+                        {t('partner.earnRevenueShare', { percent: String(info.revenueShare * 100) })}
                       </div>
                     </button>
                   );
@@ -297,7 +296,7 @@ export default function PartnerPage() {
               </div>
 
               <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-6">
-                <h3 className="font-semibold text-white mb-4">Connect Your Wallet</h3>
+                <h3 className="font-semibold text-white mb-4">{t('partner.connectWallet')}</h3>
                 
                 <div className="flex gap-3 mb-4">
                   <button
@@ -305,7 +304,7 @@ export default function PartnerPage() {
                     className="flex-1 px-4 py-3 bg-[#635BFF] text-white rounded-lg hover:bg-[#5851E1] flex items-center justify-center gap-2"
                   >
                     <Wallet className="w-4 h-4" />
-                    Connect Phantom
+                    {t('partner.connectPhantom')}
                   </button>
                 </div>
 
@@ -314,7 +313,7 @@ export default function PartnerPage() {
                     <div className="w-full border-t border-neutral-800"></div>
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-neutral-900 px-2 text-neutral-500">Or enter manually</span>
+                    <span className="bg-neutral-900 px-2 text-neutral-500">{t('partner.orEnterManually')}</span>
                   </div>
                 </div>
 
@@ -325,7 +324,7 @@ export default function PartnerPage() {
                     setWalletAddress(e.target.value);
                     setWalletConnected(!!e.target.value);
                   }}
-                  placeholder="Your Solana wallet address"
+                  placeholder={t('partner.walletPlaceholder')}
                   className="w-full mt-4 bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white placeholder-neutral-500"
                 />
 
@@ -336,11 +335,11 @@ export default function PartnerPage() {
                 <button
                   onClick={() => {
                     if (!selectedTier) {
-                      setError("Please select a tier first");
+                      setError(t('partner.selectTierFirst'));
                       return;
                     }
                     if (!walletAddress) {
-                      setError("Please connect or enter your wallet address");
+                      setError(t('partner.enterWalletAddress'));
                       return;
                     }
                     setStakeStep("verify");
@@ -349,20 +348,20 @@ export default function PartnerPage() {
                   disabled={!selectedTier || !walletAddress}
                   className="w-full mt-6 px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Continue to Stake
+                  {t('partner.continueToStake')}
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
 
               <div className="mt-8 p-4 bg-neutral-900 rounded-lg border border-neutral-800">
-                <h3 className="font-semibold text-white mb-2">{t('partner.howItWorks') || 'How it works'}</h3>
+                <h3 className="font-semibold text-white mb-2">{t('partner.howItWorks')}</h3>
                 <ol className="text-sm text-neutral-400 space-y-1 list-decimal list-inside">
-                  <li>{t('partner.step1') || 'Select a tier and connect your wallet'}</li>
-                  <li>{t('partner.step2') || 'Send $UNSYS tokens to the staking address'}</li>
-                  <li>{t('partner.step3') || 'Get a unique invite link to share with others'}</li>
-                  <li>{t('partner.step4') || 'Earn revenue when your referred users subscribe'}</li>
-                  <li>{t('partner.step5') || 'Connect your Stripe account to receive payouts'}</li>
-                  <li>{t('partner.step6') || 'Request unstake anytime (60-day lockup applies)'}</li>
+                  <li>{t('partner.step1')}</li>
+                  <li>{t('partner.step2')}</li>
+                  <li>{t('partner.step3')}</li>
+                  <li>{t('partner.step4')}</li>
+                  <li>{t('partner.step5')}</li>
+                  <li>{t('partner.step6')}</li>
                 </ol>
               </div>
             </>
@@ -372,7 +371,7 @@ export default function PartnerPage() {
             onClick={() => router.push("/dashboard")}
             className="mt-6 px-6 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700"
           >
-            Back to Dashboard
+            {t('partner.backToDashboard')}
           </button>
         </div>
       </div>
@@ -395,7 +394,7 @@ export default function PartnerPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-              Partner Dashboard
+              {t('partner.partnerDashboard')}
               <span
                 className={`text-sm px-3 py-1 rounded-full ${
                   partner.tier === "gold"
@@ -409,7 +408,7 @@ export default function PartnerPage() {
               </span>
             </h1>
             <p className="text-neutral-400 mt-1">
-              Staked {(partner.stakeAmount / 1_000_000).toFixed(0)}M $UNSYS • {tierInfo.revenueShare * 100}% revenue share
+              {t('partner.stakedInfo', { amount: (partner.stakeAmount / 1_000_000).toFixed(0), percent: String(tierInfo.revenueShare * 100) })}
             </p>
           </div>
         </div>
@@ -418,7 +417,7 @@ export default function PartnerPage() {
           <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
             <div className="flex items-center gap-2 text-neutral-400 mb-4">
               <Link2 className="w-4 h-4" />
-              <span className="text-sm font-medium">Your Invite Link</span>
+              <span className="text-sm font-medium">{t('dashboard.yourInviteLink')}</span>
             </div>
             <div className="flex gap-2">
               <input
@@ -432,43 +431,43 @@ export default function PartnerPage() {
                 className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 flex items-center gap-2"
               >
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                {copied ? "Copied!" : "Copy"}
+                {copied ? t('common.copied') : t('common.copy')}
               </button>
             </div>
-            <p className="text-xs text-neutral-500 mt-2">Referral code: {partner.referralCode}</p>
+            <p className="text-xs text-neutral-500 mt-2">{t('partner.referralCode')}: {partner.referralCode}</p>
           </div>
 
           <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
             <div className="flex items-center gap-2 text-neutral-400 mb-4">
               <DollarSign className="w-4 h-4" />
-              <span className="text-sm font-medium">Revenue</span>
+              <span className="text-sm font-medium">{t('partner.revenue')}</span>
             </div>
             <div className="text-3xl font-bold text-white mb-1">
               ${stats.unclaimedRevenue.toFixed(2)}
             </div>
             <div className="text-sm text-neutral-400">
-              Unclaimed • Lifetime: ${stats.lifetimeEarnings.toFixed(2)}
+              {t('partner.unclaimedLifetime', { lifetime: stats.lifetimeEarnings.toFixed(2) })}
             </div>
           </div>
 
           <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
             <div className="flex items-center gap-2 text-neutral-400 mb-4">
               <Users className="w-4 h-4" />
-              <span className="text-sm font-medium">Referrals</span>
+              <span className="text-sm font-medium">{t('partner.referrals')}</span>
             </div>
             <div className="text-3xl font-bold text-white mb-1">{stats.referralCount}</div>
-            <div className="text-sm text-neutral-400">Users referred</div>
+            <div className="text-sm text-neutral-400">{t('partner.usersReferred')}</div>
           </div>
 
           <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
             <div className="flex items-center gap-2 text-neutral-400 mb-4">
               <DollarSign className="w-4 h-4" />
-              <span className="text-sm font-medium">Payout Method</span>
+              <span className="text-sm font-medium">{t('partner.payoutMethod')}</span>
             </div>
             {partner.stripeAccountStatus === "connected" ? (
               <div className="flex items-center gap-2 text-emerald-400">
                 <Check className="w-4 h-4" />
-                <span>Stripe connected</span>
+                <span>{t('partner.stripeConnected')}</span>
               </div>
             ) : (
               <button
@@ -476,7 +475,7 @@ export default function PartnerPage() {
                 disabled={connectingStripe}
                 className="px-4 py-2 bg-[#635BFF] text-white rounded-lg hover:bg-[#5851E1] disabled:opacity-50 flex items-center gap-2"
               >
-                {connectingStripe ? "Connecting..." : "Connect Stripe"}
+                {connectingStripe ? t('common.connecting') : t('partner.connectStripeBtn')}
                 <ExternalLink className="w-4 h-4" />
               </button>
             )}
@@ -492,19 +491,17 @@ export default function PartnerPage() {
             <div className="flex items-center gap-2 text-white mb-2">
               <AlertTriangle className={`w-5 h-5 ${stats.isUnstakeLocked ? "text-amber-400" : "text-red-400"}`} />
               <span className="font-medium">
-                {stats.isUnstakeLocked ? "Unstake in Progress" : "Ready to Complete Unstake"}
+                {stats.isUnstakeLocked ? t('partner.unstakeInProgress') : t('partner.readyToCompleteUnstake')}
               </span>
             </div>
             <p className="text-sm text-neutral-400 mb-2">
               {stats.isUnstakeLocked 
-                ? `${daysRemaining} days remaining until you can complete your unstake.`
-                : "Your 60-day lockup period has ended. You can now complete your unstake."
+                ? t('partner.daysRemainingUnstake', { days: String(daysRemaining) })
+                : t('partner.lockupEnded')
               }
             </p>
             <p className="text-xs text-neutral-500 mb-4">
-              Your plan access will be revoked upon completion. Contact{" "}
-              <a href="https://x.com/uncertainsys" target="_blank" rel="noopener noreferrer" className="text-neutral-400 underline">@uncertainsys</a>
-              {" "}to arrange token return.
+              {t('partner.planAccessRevoked')}
             </p>
             {!stats.isUnstakeLocked && (
               <button
@@ -512,7 +509,7 @@ export default function PartnerPage() {
                 disabled={unstaking}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-500 disabled:opacity-50"
               >
-                {unstaking ? "Processing..." : "Complete Unstake"}
+                {unstaking ? t('partner.processing') : t('partner.completeUnstake')}
               </button>
             )}
           </div>
@@ -523,32 +520,32 @@ export default function PartnerPage() {
             onClick={() => setShowHowItWorks(!showHowItWorks)}
             className="text-emerald-400 hover:text-emerald-300 text-sm flex items-center gap-1 mb-4"
           >
-            {showHowItWorks ? "Hide" : "Show"} how the program works
+            {showHowItWorks ? t('partner.hideHowItWorks') : t('partner.showHowItWorks')}
           </button>
           
           {showHowItWorks && (
             <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
-              <h3 className="font-semibold text-white mb-4">How the Partner Program Works</h3>
+              <h3 className="font-semibold text-white mb-4">{t('partner.howProgramWorks')}</h3>
               <div className="space-y-4 text-sm text-neutral-400">
                 <div>
-                  <div className="font-medium text-white mb-1">Staking</div>
-                  <p>Stake $UNSYS tokens to become a partner. Higher stakes unlock better revenue shares.</p>
+                  <div className="font-medium text-white mb-1">{t('partner.staking')}</div>
+                  <p>{t('partner.stakingDesc')}</p>
                 </div>
                 <div>
-                  <div className="font-medium text-white mb-1">Referrals</div>
-                  <p>Share your unique invite link. When someone signs up with your link, they become linked to your account.</p>
+                  <div className="font-medium text-white mb-1">{t('partner.referralsLabel')}</div>
+                  <p>{t('partner.referralsDesc')}</p>
                 </div>
                 <div>
-                  <div className="font-medium text-white mb-1">Revenue Share</div>
-                  <p>Earn {PARTNER_TIERS.bronze.revenueShare * 100}% (Bronze), {PARTNER_TIERS.silver.revenueShare * 100}% (Silver), or {PARTNER_TIERS.gold.revenueShare * 100}% (Gold) of all subscription payments from your referred users.</p>
+                  <div className="font-medium text-white mb-1">{t('partner.revenueShare')}</div>
+                  <p>{t('partner.revenueShareDesc', { bronze: String(PARTNER_TIERS.bronze.revenueShare * 100), silver: String(PARTNER_TIERS.silver.revenueShare * 100), gold: String(PARTNER_TIERS.gold.revenueShare * 100) })}</p>
                 </div>
                 <div>
-                  <div className="font-medium text-white mb-1">Payouts</div>
-                  <p>Connect your Stripe account to receive payouts. Payouts are issued manually by admins.</p>
+                  <div className="font-medium text-white mb-1">{t('partner.payouts')}</div>
+                  <p>{t('partner.payoutsDesc')}</p>
                 </div>
                 <div>
-                  <div className="font-medium text-white mb-1">Unstaking</div>
-                  <p>Request to unstake at any time. There's a {UNSTAKE_LOCKUP_DAYS}-day lockup period before you can withdraw your tokens.</p>
+                  <div className="font-medium text-white mb-1">{t('partner.unstaking')}</div>
+                  <p>{t('partner.unstakingDesc', { days: String(UNSTAKE_LOCKUP_DAYS) })}</p>
                 </div>
               </div>
             </div>
@@ -560,26 +557,24 @@ export default function PartnerPage() {
             onClick={() => setShowUnstakeConfirm(true)}
             className="text-red-400 hover:text-red-300 text-sm"
           >
-            Want to unstake your $UNSYS?
+            {t('partner.wantToUnstake')}
           </button>
         )}
 
         {showUnstakeConfirm && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-neutral-900 rounded-xl p-6 max-w-md border border-neutral-800">
-              <h3 className="text-xl font-bold text-white mb-4">Unstake $UNSYS</h3>
+              <h3 className="text-xl font-bold text-white mb-4">{t('partner.unstake')}</h3>
               <p className="text-neutral-400 mb-4">
-                Are you sure you want to unstake? You&apos;ll lose your partner status, plan access, and your referral code will no longer work.
+                {t('partner.unstakeWarning')}
               </p>
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-4">
                 <p className="text-sm text-amber-400">
                   <AlertTriangle className="w-4 h-4 inline mr-2" />
-                  60-day lockup period begins now. After the lockup, your partner status and plan access will be removed.
+                  {t('partner.lockupBegins')}
                 </p>
                 <p className="text-xs text-amber-400/70 mt-2">
-                  Contact us at{" "}
-                  <a href="https://x.com/uncertainsys" target="_blank" rel="noopener noreferrer" className="underline">@uncertainsys</a>
-                  {" "}to arrange return of your $UNSYS tokens after unstaking completes.
+                  {t('partner.contactForReturn')}
                 </p>
               </div>
               <div className="flex gap-3">
@@ -587,14 +582,14 @@ export default function PartnerPage() {
                   onClick={() => setShowUnstakeConfirm(false)}
                   className="flex-1 px-4 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={requestUnstake}
                   disabled={unstaking}
                   className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-500 disabled:opacity-50"
                 >
-                  {unstaking ? "Processing..." : "Request Unstake"}
+                  {unstaking ? t('partner.processing') : t('partner.requestUnstake')}
                 </button>
               </div>
             </div>
@@ -603,13 +598,13 @@ export default function PartnerPage() {
 
         {partnerData.referredUsers && partnerData.referredUsers.length > 0 && (
           <div className="mt-8">
-            <h3 className="text-lg font-semibold text-white mb-4">Referred Users</h3>
+            <h3 className="text-lg font-semibold text-white mb-4">{t('partner.referredUsers')}</h3>
             <div className="bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-neutral-800">
-                    <th className="text-left text-xs text-neutral-400 font-medium px-4 py-3">Username</th>
-                    <th className="text-left text-xs text-neutral-400 font-medium px-4 py-3">Joined</th>
+                    <th className="text-left text-xs text-neutral-400 font-medium px-4 py-3">{t('partner.username')}</th>
+                    <th className="text-left text-xs text-neutral-400 font-medium px-4 py-3">{t('partner.joined')}</th>
                   </tr>
                 </thead>
                 <tbody>

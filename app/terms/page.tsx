@@ -1,113 +1,104 @@
+"use client";
+
 import Link from "next/link";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
-
-export const metadata = {
-  title: "Terms & Conditions - openLesson",
-  description: "Terms and Conditions for openLesson",
-};
+import { useI18n } from "@/lib/i18n";
 
 export default function TermsPage() {
+  const { t } = useI18n();
+
   return (
     <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
       <Navbar 
-        breadcrumbs={[{ label: "Terms & Conditions" }]}
+        breadcrumbs={[{ label: t('terms.title') }]}
         showNav={false}
       />
 
       <div className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-12">
-        <h1 className="text-2xl font-bold text-white mb-2">Terms & Conditions</h1>
-        <p className="text-xs text-neutral-600 mb-8">Last updated: February 2026</p>
+        <h1 className="text-2xl font-bold text-white mb-2">{t('terms.title')}</h1>
+        <p className="text-xs text-neutral-600 mb-8">{t('terms.lastUpdated')}</p>
 
         <div className="space-y-8 text-sm text-neutral-400 leading-relaxed">
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">1. Agreement to Terms</h2>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('terms.agreementHeading')}</h2>
             <p>
-              By accessing or using openLesson, operated by Uncertain Systems (&quot;Company&quot;, &quot;we&quot;,
-              &quot;us&quot;, or &quot;our&quot;), you agree to be bound by these Terms and Conditions. If you
-              disagree with any part of these terms, you may not access our services.
+              {t('terms.agreementBody')}
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">2. Platform Description</h2>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('terms.platformDescHeading')}</h2>
             <p className="mb-3">
-              openLesson is an AI-powered tutoring tool that helps users learn through
-              guided questioning. The platform is part of our broader mission of educational
-              accelerationism (edu/acc). Our services include:
+              {t('terms.platformDescIntro')}
             </p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>Real-time audio analysis during learning sessions</li>
-              <li>AI-generated guiding questions (probes) to deepen understanding</li>
-              <li>Post-session reports and analytics</li>
-              <li>EEG brain activity recording via Muse headband integration</li>
-              <li>Personalized tutoring via think-aloud transcript analysis</li>
+              <li>{t('terms.platformDescItem1')}</li>
+              <li>{t('terms.platformDescItem2')}</li>
+              <li>{t('terms.platformDescItem3')}</li>
+              <li>{t('terms.platformDescItem4')}</li>
+              <li>{t('terms.platformDescItem5')}</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">3. Account Registration</h2>
-            <p className="mb-3">To use openLesson, you must create an account. You agree to:</p>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('terms.accountHeading')}</h2>
+            <p className="mb-3">{t('terms.accountIntro')}</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>Provide accurate and complete registration information</li>
-              <li>Maintain the security of your account credentials</li>
-              <li>Accept responsibility for all activities under your account</li>
-              <li>Notify us immediately of any unauthorized access</li>
+              <li>{t('terms.accountItem1')}</li>
+              <li>{t('terms.accountItem2')}</li>
+              <li>{t('terms.accountItem3')}</li>
+              <li>{t('terms.accountItem4')}</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">4. Subscriptions & Payments</h2>
-            <p className="mb-3">Regarding paid plans and payments:</p>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('terms.paymentsHeading')}</h2>
+            <p className="mb-3">{t('terms.paymentsIntro')}</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>Paid plans (Regular, Pro) are billed monthly via Stripe</li>
-              <li>You can cancel your subscription at any time</li>
-              <li>Extra lessons can be purchased as one-time payments</li>
-              <li>Refunds are handled on a case-by-case basis — contact us if you have an issue</li>
-              <li>We reserve the right to change pricing with reasonable notice</li>
-              <li>Tax obligations are your sole responsibility</li>
+              <li>{t('terms.paymentsItem1')}</li>
+              <li>{t('terms.paymentsItem2')}</li>
+              <li>{t('terms.paymentsItem3')}</li>
+              <li>{t('terms.paymentsItem4')}</li>
+              <li>{t('terms.paymentsItem5')}</li>
+              <li>{t('terms.paymentsItem6')}</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">5. Your Content</h2>
-            <p className="mb-3">When you use openLesson:</p>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('terms.yourContentHeading')}</h2>
+            <p className="mb-3">{t('terms.yourContentIntro')}</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>You retain ownership of all content you create (audio recordings, transcripts, etc.)</li>
-              <li>You grant us a limited license to process this content to provide the tutoring experience</li>
-              <li>You can delete any session and all associated data at any time from your dashboard</li>
-              <li>We do not use your content for training AI models without explicit consent</li>
+              <li>{t('terms.yourContentItem1')}</li>
+              <li>{t('terms.yourContentItem2')}</li>
+              <li>{t('terms.yourContentItem3')}</li>
+              <li>{t('terms.yourContentItem4')}</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">6. AI Disclaimer</h2>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('terms.aiDisclaimerHeading')}</h2>
             <p>
-              openLesson uses AI models to generate questions, analyze audio, and produce reports.
-              AI-generated content may be inaccurate, incomplete, or misleading. openLesson is a
-              learning tool — it does not provide answers, and it is not a substitute for
-              professional education, tutoring, or medical advice.
+              {t('terms.aiDisclaimerBody')}
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">7. Prohibited Conduct</h2>
-            <p className="mb-3">You agree not to:</p>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('terms.prohibitedHeading')}</h2>
+            <p className="mb-3">{t('terms.prohibitedIntro')}</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>Create multiple accounts to exploit the free tier</li>
-              <li>Use automated tools to abuse the service</li>
-              <li>Attempt to reverse-engineer or extract AI model outputs at scale</li>
-              <li>Upload harmful, illegal, or abusive content</li>
-              <li>Interfere with the proper functioning of the platform</li>
+              <li>{t('terms.prohibitedItem1')}</li>
+              <li>{t('terms.prohibitedItem2')}</li>
+              <li>{t('terms.prohibitedItem3')}</li>
+              <li>{t('terms.prohibitedItem4')}</li>
+              <li>{t('terms.prohibitedItem5')}</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">8. Intellectual Property</h2>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('terms.ipHeading')}</h2>
             <p>
-              The openLesson brand, website design, and platform code are the property of
-              Uncertain Systems. The platform source code is open source under the MIT License
-              and available at{" "}
+              {t('terms.ipBody')}{" "}
               <a href="https://github.com/dncolomer/socrates" className="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener noreferrer">
                 github.com/dncolomer/socrates
               </a>.
@@ -115,48 +106,40 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">9. Disclaimer of Warranties</h2>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('terms.warrantyHeading')}</h2>
             <p>
-              openLesson is provided &quot;as is&quot; without any warranties, express or implied.
-              We do not warrant that the platform will be uninterrupted, secure, or error-free.
-              We make no guarantees regarding the accuracy of AI-generated content.
+              {t('terms.warrantyBody')}
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">10. Limitation of Liability</h2>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('terms.liabilityHeading')}</h2>
             <p>
-              To the maximum extent permitted by law, Uncertain Systems shall not be liable
-              for any indirect, incidental, special, consequential, or punitive damages
-              arising from your use of openLesson.
+              {t('terms.liabilityBody')}
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">11. Governing Law</h2>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('terms.governingLawHeading')}</h2>
             <p>
-              These Terms shall be governed by and construed in accordance with the laws of
-              Germany, without regard to its conflict of law provisions. Any legal proceedings
-              shall be subject to the exclusive jurisdiction of the courts of Hamburg, Germany.
+              {t('terms.governingLawBody')}
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">12. Changes to Terms</h2>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('terms.changesToTermsHeading')}</h2>
             <p>
-              We reserve the right to modify these terms at any time. We will notify users
-              of material changes by posting the new Terms on this page with an updated
-              revision date.
+              {t('terms.changesToTermsBody')}
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-200 mb-3">13. Contact Information</h2>
-            <p className="mb-3">For questions about these Terms and Conditions, please contact us at:</p>
+            <h2 className="text-lg font-semibold text-neutral-200 mb-3">{t('terms.contactHeading')}</h2>
+            <p className="mb-3">{t('terms.contactIntro')}</p>
             <div className="p-4 rounded-lg bg-neutral-900/50 border border-neutral-800 space-y-1">
-              <p><strong className="text-neutral-300">Email:</strong> daniel@uncertain.systems</p>
-              <p><strong className="text-neutral-300">Company:</strong> Uncertain Systems (Daniel Colomer)</p>
-              <p><strong className="text-neutral-300">Location:</strong> Hamburg, Germany</p>
+              <p><strong className="text-neutral-300">{t('terms.emailLabel')}:</strong> daniel@uncertain.systems</p>
+              <p><strong className="text-neutral-300">{t('terms.companyLabel')}:</strong> Uncertain Systems (Daniel Colomer)</p>
+              <p><strong className="text-neutral-300">{t('terms.locationLabel')}:</strong> Hamburg, Germany</p>
             </div>
           </section>
         </div>

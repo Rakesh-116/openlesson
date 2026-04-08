@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "../lib/i18n";
+
 interface Feature {
   name: string;
   description?: string;
@@ -20,6 +22,7 @@ export function FeatureStatus({
   comingSoon,
   title 
 }: FeatureStatusProps) {
+  const { t } = useI18n();
   return (
     <div className="w-full">
       {title && (
@@ -31,7 +34,7 @@ export function FeatureStatus({
         <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
           <div className="flex items-center gap-2 mb-3">
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span className="text-sm font-medium text-emerald-400">Available Now</span>
+            <span className="text-sm font-medium text-emerald-400">{t('featureStatus.availableNow')}</span>
           </div>
           <ul className="space-y-2">
             {available.map((feature, index) => (
@@ -64,7 +67,7 @@ export function FeatureStatus({
         <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
           <div className="flex items-center gap-2 mb-3">
             <span className="w-2 h-2 rounded-full bg-amber-500" />
-            <span className="text-sm font-medium text-amber-400">Coming Soon</span>
+            <span className="text-sm font-medium text-amber-400">{t('featureStatus.comingSoon')}</span>
           </div>
           <ul className="space-y-2">
             {comingSoon.map((feature, index) => (

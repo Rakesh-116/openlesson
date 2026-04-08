@@ -473,6 +473,7 @@
     "unlimitedContinue": "Nieograniczone sesje trwają",
     "upgradeToPro": "Zaktualizuj do Pro",
     "apiKeys": "Klucze API",
+    "noApiKeysYet": "Jeszcze brak kluczy API.",
     "enterKeyName": "Wprowadź nazwę klucza",
     "creating": "Tworzenie...",
     "createNewKey": "Utwórz nowy klucz",
