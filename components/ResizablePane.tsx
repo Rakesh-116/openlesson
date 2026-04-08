@@ -1,8 +1,31 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 
 type CollapsedSide = null | "left" | "right";
+
+// --- Inline SVG icon components ---
+
+function ChevronLeft({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+    </svg>
+  );
+}
+
+function ChevronRight({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+    </svg>
+  );
+}
+
+export interface ResizablePaneHandle {
+  expandLeft: () => void;
+  expandRight: () => void;
+}
 
 interface ResizablePaneProps {
   left: React.ReactNode;
@@ -15,7 +38,7 @@ interface ResizablePaneProps {
   storageKey?: string;
 }
 
-export function ResizablePane({
+export const ResizablePane = forwardRef<ResizablePaneHandle, ResizablePaneProps>(function ResizablePane({
   left,
   right,
   defaultLeftWidth = 50,
@@ -24,7 +47,7 @@ export function ResizablePane({
   leftLabel = "Left Panel",
   rightLabel = "Right Panel",
   storageKey,
-}: ResizablePaneProps) {
+}, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [leftWidth, setLeftWidth] = useState(defaultLeftWidth);
   const [isDragging, setIsDragging] = useState(false);
@@ -141,6 +164,16 @@ export function ResizablePane({
     persistState(savedLeftWidthRef.current, null);
     setTimeout(() => setIsTransitioning(false), 250);
   }, [persistState]);
+
+  // Expose expand methods to parent via ref
+  useImperativeHandle(ref, () => ({
+    expandLeft: () => {
+      if (collapsedSide === "left") expand();
+    },
+    expandRight: () => {
+      if (collapsedSide === "right") expand();
+    },
+  }), [collapsedSide, expand]);
 
   // --- Double-click to reset to 50/50 ---
   const handleDoubleClick = useCallback(() => {
@@ -264,22 +297,6 @@ export function ResizablePane({
       )}
     </div>
   );
-}
+});
 
-// --- Inline SVG icon components ---
 
-function ChevronLeft({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-    </svg>
-  );
-}
-
-function ChevronRight({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-    </svg>
-  );
-}

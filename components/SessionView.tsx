@@ -45,7 +45,7 @@ import { formatTime } from "@/lib/utils";
 import { AudioVisualizer, RecordingIndicator } from "./AudioVisualizer";
 import { ActiveProbe } from "./ActiveProbe";
 import { ProbeNotifications } from "./ProbeNotifications";
-import { ResizablePane } from "./ResizablePane";
+import { ResizablePane, type ResizablePaneHandle } from "./ResizablePane";
 import { WhiteboardCanvas } from "./WhiteboardCanvas";
 import { ToolsPanel, type Tool } from "./ToolsPanel";
 import { ToolsHelp } from "./ToolsHelp";
@@ -157,6 +157,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // New 3-panel layout state
   const [activeTool, setActiveTool] = useState<Tool>("chat");
   const prevToolRef = useRef<Tool | null>(null);
+  const resizablePaneRef = useRef<ResizablePaneHandle>(null);
   const [objectives, setObjectives] = useState<string[]>([]);
   const [objectiveStatuses, setObjectiveStatuses] = useState<("red" | "yellow" | "green" | "blue")[]>([]);
 
@@ -271,10 +272,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     }
   }, [activeTool]);
 
-  // Track tool open/close events
+  // Track tool open/close events + auto-expand tool panel if collapsed
   useEffect(() => {
     if (!session?.id || !activeTool) return;
     
+    // Auto-expand the tool panel (left pane) whenever a tool is selected
+    resizablePaneRef.current?.expandLeft();
+
     const prevTool = prevToolRef.current;
     const elapsedTime = session.startedAt 
       ? Date.now() - new Date(session.startedAt).getTime() 
@@ -2695,6 +2699,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           {/* Resizable split view */}
           <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
             <ResizablePane
+              ref={resizablePaneRef}
               defaultLeftWidth={50}
               leftLabel={t('session.tools')}
               rightLabel={t('session.studentMonitoring')}
