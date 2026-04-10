@@ -44,7 +44,9 @@ import { playArchiveSound, playStepCompleteSound, playSessionCompleteSound } fro
 import { formatTime } from "@/lib/utils";
 import { AudioVisualizer, RecordingIndicator } from "./AudioVisualizer";
 import { ActiveProbe } from "./ActiveProbe";
-import { ProbeNotifications } from "./ProbeNotifications";
+import { ProbesPanel } from "./ProbesPanel";
+import { SessionControlBar } from "./SessionControlBar";
+import { SessionPlanViewer } from "./SessionPlanViewer";
 import { ResizablePane, type ResizablePaneHandle } from "./ResizablePane";
 import { WhiteboardCanvas } from "./WhiteboardCanvas";
 import { ToolsPanel, type Tool } from "./ToolsPanel";
@@ -158,6 +160,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [activeTool, setActiveTool] = useState<Tool>("chat");
   const prevToolRef = useRef<Tool | null>(null);
   const resizablePaneRef = useRef<ResizablePaneHandle>(null);
+  const resizablePaneRef2 = useRef<ResizablePaneHandle>(null);
   const [objectives, setObjectives] = useState<string[]>([]);
   const [objectiveStatuses, setObjectiveStatuses] = useState<("red" | "yellow" | "green" | "blue")[]>([]);
 
@@ -205,6 +208,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   // Welcome modal
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
+  const [showTutorialBanner, setShowTutorialBanner] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("tutorial-banner-dismissed") !== "true";
+  });
 
   // Block ILE tools when not actively monitoring
   const shouldBlockTools = session && !showWelcomeModal && (!isRecording || isPaused);
@@ -2272,25 +2279,34 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div className="relative z-10 w-[90vw] max-w-lg p-6 bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl">
-            <h2 className="text-xl font-semibold text-white mb-2">{t('session.welcomeTitle')}</h2>
-            <p className="text-neutral-400 text-sm mb-5">{t('session.welcomeMessage')}</p>
-            
-            <div className="space-y-3 mb-5">
-              <div className="flex items-start gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-neutral-800 border border-neutral-700 rounded-full flex items-center justify-center text-neutral-300 text-xs font-medium">1</span>
-                <p className="text-neutral-300 text-sm pt-0.5">{t('session.pressStart')}</p>
+            {/* Tutorial banner - hidden for now
+            {showTutorialBanner && (
+              <div className="mb-4 p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 relative">
+                <button
+                  onClick={() => {
+                    setShowTutorialBanner(false);
+                    localStorage.setItem("tutorial-banner-dismissed", "true");
+                  }}
+                  className="absolute top-2 right-2 text-neutral-500 hover:text-neutral-300 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+                <p className="text-xs text-cyan-300 font-medium mb-1">{t('session.tutorialBannerTitle')}</p>
+                <p className="text-[11px] text-neutral-400 mb-2.5 pr-4">{t('session.tutorialBannerDesc')}</p>
+                <button
+                  onClick={() => {
+                    // TODO: navigate to simple tutorial
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium rounded-md bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30 transition-colors"
+                >
+                  {t('session.trySimpleTutorial')}
+                </button>
               </div>
-              <div className="flex items-start gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-neutral-800 border border-neutral-700 rounded-full flex items-center justify-center text-neutral-300 text-xs font-medium">2</span>
-                <p className="text-neutral-300 text-sm pt-0.5">{t('session.followPlan')}</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-neutral-800 border border-neutral-700 rounded-full flex items-center justify-center text-neutral-300 text-xs font-medium">3</span>
-                <p className="text-neutral-300 text-sm pt-0.5">{t('session.useSidebar')}</p>
-              </div>
-            </div>
-
-            <p className="text-xs text-neutral-500 mb-5">{t('session.encouragement')}</p>
+            )}
+            */}
+            <h2 className="text-xl font-semibold text-white mb-4">{t('session.welcomeTitle')}</h2>
 
             {(() => {
               const isSessionReady = sessionPlan && !planLoading && !openingProbeLoading && session?.probes && session.probes.length > 0;
@@ -2531,8 +2547,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                             }
                           }
 
-                          // All done - Phase 2 will show "Get Started"
+                          // All done - close modal and enter session
                           setPrepStage("done");
+                          setShowWelcomeModal(false);
                         } catch (err) {
                           console.error("Failed to prepare session:", err);
                           setPlanError("Failed to prepare session");
@@ -2646,20 +2663,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                       </div>
                     )}
 
-                    {/* Ready to go - show after all prep is done */}
-                    {prepStage === "done" && languageConfirmed && !isPreparing && (
-                      <button
-                        onClick={() => setShowWelcomeModal(false)}
-                        className="mt-4 w-full py-2.5 px-4 font-medium rounded-lg transition-colors bg-white hover:bg-neutral-100 text-neutral-900"
-                      >
-                        {t('session.getStarted')}
-                      </button>
-                    )}
                   </>
                 );
               }
               
-              // Phase 2: Ready (already confirmed before, e.g. page refresh)
+              // Phase 2: Ready (already confirmed before, e.g. page refresh) - just show close button
               return (
                 <button
                   onClick={() => setShowWelcomeModal(false)}
@@ -2691,48 +2699,37 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               }} 
               problem={session.problem} 
               ragNotification={ragHasNotification}
+              sessionId={session.id}
+              disabledTools={shouldBlockTools ? ["exercise", "reading"] as Tool[] : []}
             />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Header removed */}
+        {/* Session control bar */}
+        {!showWelcomeModal && (
+          <SessionControlBar
+            isRecording={isRecording}
+            isPaused={isPaused}
+            elapsedSeconds={elapsedSeconds}
+            onStartRecording={startRecording}
+            onStopRecording={stopRecording}
+            onPause={handlePause}
+            onResume={handleResume}
+          />
+        )}
         <div className="flex-1 flex min-h-0 overflow-hidden">
-          {/* Resizable split view */}
+          {/* Resizable 3-pane split view */}
           <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
             <ResizablePane
               ref={resizablePaneRef}
-              defaultLeftWidth={50}
+              defaultLeftWidth={40}
               leftLabel={t('session.tools')}
               rightLabel={t('session.studentMonitoring')}
               storageKey="session-split"
               left={
                 <div className="flex flex-col min-w-0 p-4 overflow-hidden h-full relative">
-                  {shouldBlockTools && !["data-input", "help", "logs", "rag"].includes(activeTool) ? (
-                    <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-6">
-                      <div className="w-12 h-12 rounded-xl bg-neutral-800 border border-neutral-700 flex items-center justify-center">
-                        <svg className="w-6 h-6 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          {isPaused ? (
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
-                          ) : (
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                          )}
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-neutral-300">
-                          {isPaused ? t('session.sessionPaused') : t('session.sessionNotActive')}
-                        </p>
-                        <p className="text-xs text-neutral-500 mt-1">
-                          {isPaused ? t('session.resumeMonitoringToUse') : t('session.startMonitoringToUse')}
-                        </p>
-                      </div>
-                      <button
-                        onClick={isPaused ? handleResume : startRecording}
-                        className="mt-2 px-5 py-2 bg-cyan-500 hover:bg-cyan-400 text-black text-sm font-medium rounded-lg transition-colors"
-                      >
-                        {isPaused ? t('session.resumeSession') : t('session.startSession')}
-                      </button>
-                    </div>
-                  ) : (
+                  {shouldBlockTools && !["data-input", "help", "logs"].includes(activeTool) && (
+                    <div className="absolute inset-0 z-10 bg-black/30 cursor-not-allowed" />
+                  )}
                   <div className="flex-1 min-h-0 overflow-hidden relative">
                     {activeTool === "chat" && (
                       <LLMChat 
@@ -3035,45 +3032,55 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                       </div>
                     )}
                   </div>
-                  )}
                 </div>
               }
               right={
-                <ProbeNotifications
-                  sessionId={session.id}
-                  probes={session.probes}
-                  sessionPlan={sessionPlan}
-                  objectives={objectives}
-                  objectiveStatuses={objectiveStatuses}
-                  isRecording={isRecording}
-                  isPaused={isPaused}
-                  stream={stream}
-                  onStartRecording={startRecording}
-                  onStopRecording={stopRecording}
-                  onPause={handlePause}
-                  onResume={handleResume}
-                  elapsedSeconds={elapsedSeconds}
-                  storageBeat={storageBeat}
-                  analysisBeat={analysisBeat}
-                  isAnalyzing={isAnalyzing}
-                  onArchiveProbe={handleArchiveProbe}
-                  onToggleFocus={handleToggleFocus}
-                  onToolSelect={(tool) => setActiveTool(tool as Tool)}
-                  onReset={handleReset}
-                  onClose={handleClose}
-                  archivingProbeId={archivingProbeId}
-                  planLoading={planLoading}
-                  planError={planError}
-                  onAdvanceStep={handleAdvanceStep}
-                  onRollbackToStep={handleRollbackToStep}
-                   autoAdvance={autoAdvance}
-                   onToggleAutoAdvance={setAutoAdvance}
-                   onOpenResources={handleStepResources}
-                   onOpenPractice={handleStepPractice}
-                   onAskAssistant={handleStepAskAssistant}
-                   isInitializing={planLoading || openingProbeLoading}
-                   isCelebrating={isCelebrating}
-                   isGeneratingProbe={isGeneratingProbe}
+                <ResizablePane
+                  ref={resizablePaneRef2}
+                  defaultLeftWidth={50}
+                  leftLabel={t('probes.guidingTasks')}
+                  rightLabel={t('session.sessionPlan')}
+                  storageKey="session-split-right"
+                  left={
+                    <div className="relative h-full">
+                      {shouldBlockTools && (
+                        <div className="absolute inset-0 z-10 bg-black/30 cursor-not-allowed" />
+                      )}
+                      <ProbesPanel
+                        probes={session.probes}
+                        onArchiveProbe={handleArchiveProbe}
+                        onToggleFocus={handleToggleFocus}
+                        onToolSelect={(tool) => setActiveTool(tool as Tool)}
+                        archivingProbeId={archivingProbeId}
+                        isInitializing={planLoading || openingProbeLoading}
+                        isGeneratingProbe={isGeneratingProbe}
+                        sessionPlan={sessionPlan}
+                      />
+                    </div>
+                  }
+                  right={
+                    <div className="flex-1 min-w-0 flex flex-col bg-[#0a0a0a] h-full overflow-hidden relative">
+                      {shouldBlockTools && (
+                        <div className="absolute inset-0 z-10 bg-black/30 cursor-not-allowed" />
+                      )}
+                      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
+                        <SessionPlanViewer
+                          plan={sessionPlan ?? null}
+                          loading={planLoading}
+                          error={planError ?? null}
+                          onAdvanceStep={handleAdvanceStep}
+                          onRollbackToStep={handleRollbackToStep}
+                          autoAdvance={autoAdvance}
+                          onToggleAutoAdvance={setAutoAdvance}
+                          sessionId={session.id}
+                          onOpenResources={handleStepResources}
+                          onOpenPractice={handleStepPractice}
+                          onAskAssistant={handleStepAskAssistant}
+                          isSessionActive={isRecording && !isPaused}
+                        />
+                      </div>
+                    </div>
+                  }
                 />
               }
             />

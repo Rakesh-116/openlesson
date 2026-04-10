@@ -872,6 +872,7 @@
     "theoryDesc": "Schlüsselkonzepte zur Überprüfung vor oder während der Sitzung. Wird beim ersten Klick automatisch generiert.",
     "utilityTools": "Hilfswerkzeuge",
     "help": "Hilfe",
+    "mobile": "Mobil",
     "helpDesc": "Diese Anleitung.",
     "dataInput": "Dateneingabe",
     "dataInputDesc": "Konfiguriere Audio, EEG (Muse-Headset) und Webcam. Siehe Live-Audiopegel, EEG-Bandleistungen und Engagement-Metriken.",

@@ -924,6 +924,7 @@
     "theoryDesc": "Conceptos clave para revisar antes o durante tu sesión. Se autogenera al primer clic.",
     "utilityTools": "Herramientas de Utilidad",
     "help": "Ayuda",
+    "mobile": "Móvil",
     "helpDesc": "Esta guía.",
     "dataInput": "Entrada de Datos",
     "dataInputDesc": "Configura audio, EEG (auricular Muse) y webcam. Ve niveles de audio en vivo, potencias de banda EEG y métricas de engagement facial.",

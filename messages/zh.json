@@ -874,6 +874,7 @@
     "ragMatchesDesc": "搜索并选择相关的知识片段用于观察提示。",
     "utilityTools": "实用工具",
     "help": "帮助",
+    "mobile": "手机",
     "helpDesc": "本指南。",
     "dataInput": "数据输入",
     "dataInputDesc": "配置音频、EEG（Muse头戴设备）和网络摄像头输入。查看实时音频电平、EEG频段功率和面部参与度指标。",

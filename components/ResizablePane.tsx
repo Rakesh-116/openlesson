@@ -194,7 +194,7 @@ export const ResizablePane = forwardRef<ResizablePaneHandle, ResizablePaneProps>
     isTransitioning && !isDragging ? "transition-all duration-200 ease-in-out" : "";
 
   return (
-    <div ref={containerRef} className="flex flex-1 min-h-0 overflow-hidden relative">
+    <div ref={containerRef} className="flex flex-1 h-full min-h-0 overflow-hidden relative">
       {/* ---- Left collapsed strip ---- */}
       {collapsedSide === "left" && (
         <div className="flex-shrink-0 w-7 bg-neutral-900 border-r border-neutral-800 flex flex-col items-center justify-center relative group cursor-pointer hover:bg-neutral-800/80 transition-colors"

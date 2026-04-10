@@ -872,6 +872,7 @@
     "theoryDesc": "Kluczowe koncepcje do przeglądu przed lub podczas sesji. Generuje się automatycznie.",
     "utilityTools": "Narzędzia pomocnicze",
     "help": "Pomoc",
+    "mobile": "Mobilny",
     "helpDesc": "Ten przewodnik.",
     "dataInput": "Wprowadzanie danych",
     "dataInputDesc": "Skonfiguruj audio, EEG (słuchawki Muse) i kamerkę. Zobacz poziomy audio, moce pasm EEG i metryki zaangażowania twarzy.",
