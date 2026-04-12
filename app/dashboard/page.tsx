@@ -7,198 +7,10 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { getSessions, deleteSession, getLearningPlans, type Session, type LearningPlan } from "@/lib/storage";
 import { DEFAULT_PROMPTS, PROMPT_META, type PromptKey, type UserPrompts } from "@/lib/openrouter";
-import { Crown, Users, DollarSign, Copy, Check, ExternalLink, AlertTriangle, Link2 } from "lucide-react";
+
 import { useI18n } from "@/lib/i18n";
 
-type Tab = "sessions" | "plans" | "usage" | "config" | "partner";
-
-function PartnerTabContent() {
-  const { t } = useI18n();
-  const [partnerData, setPartnerData] = useState<{
-    partner: {
-      tier: string;
-      stakeAmount: number;
-      referralCode: string;
-      stripeAccountStatus: string;
-      unclaimedRevenue: number;
-    };
-    stats: {
-      referralCount: number;
-      lifetimeEarnings: number;
-    };
-  } | null>(null);
-  const [referrerInfo, setReferrerInfo] = useState<{ username: string; tier: string } | null>(null);
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    loadPartnerData();
-    loadReferrerInfo();
-  }, []);
-
-  const loadPartnerData = async () => {
-    try {
-      const res = await fetch("/api/partners/me");
-      const data = await res.json();
-      if (data.isPartner) {
-        setPartnerData({
-          partner: {
-            tier: data.partner.tier,
-            stakeAmount: data.partner.stakeAmount,
-            referralCode: data.partner.referralCode,
-            stripeAccountStatus: data.partner.stripeAccountStatus,
-            unclaimedRevenue: data.stats.unclaimedRevenue,
-          },
-          stats: {
-            referralCount: data.stats.referralCount,
-            lifetimeEarnings: data.stats.lifetimeEarnings,
-          },
-        });
-      }
-    } catch (err) {
-      console.error("Failed to load partner data:", err);
-    }
-  };
-
-  const loadReferrerInfo = async () => {
-    try {
-      const res = await fetch("/api/referral/who-referred");
-      const data = await res.json();
-      if (data.hasReferrer && data.referrer) {
-        setReferrerInfo({
-          username: data.referrer.username,
-          tier: data.referrer.tier,
-        });
-      }
-    } catch (err) {
-      console.error("Failed to load referrer info:", err);
-    }
-  };
-
-  const copyLink = () => {
-    if (!partnerData) return;
-    const link = `${window.location.origin}/register?ref=${partnerData.partner.referralCode}`;
-    navigator.clipboard.writeText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  if (!partnerData) {
-    return (
-      <div className="text-center py-12 text-neutral-400">{t('dashboard.loadingPartner')}</div>
-    );
-  }
-
-  const tierColors = {
-    gold: "bg-amber-500/20 text-amber-400",
-    silver: "bg-slate-400/20 text-slate-300",
-    bronze: "bg-amber-700/20 text-amber-600",
-  };
-
-  return (
-    <div className="space-y-6">
-      {referrerInfo && (
-        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
-          <p className="text-sm text-emerald-400">
-            {t('dashboard.partnerInvitedBy', { username: referrerInfo.username, tier: referrerInfo.tier })}
-          </p>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-white">{t('dashboard.title')}</h2>
-          <p className="text-sm text-neutral-400">{t('dashboard.subtitle')}</p>
-        </div>
-        <Link
-          href="/dashboard/partner"
-          className="text-sm text-emerald-400 hover:text-emerald-300"
-        >
-          {t('dashboard.fullPartnerPage')}
-        </Link>
-      </div>
-
-      <div className="grid md:grid-cols-4 gap-4">
-        <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
-          <div className="flex items-center gap-2 text-neutral-400 mb-2">
-            <Crown className="w-4 h-4" />
-            <span className="text-sm">{t('dashboard.tier')}</span>
-          </div>
-          <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${tierColors[partnerData.partner.tier as keyof typeof tierColors] || tierColors.bronze}`}>
-            {partnerData.partner.tier.charAt(0).toUpperCase() + partnerData.partner.tier.slice(1)}
-          </div>
-          <div className="text-xs text-neutral-500 mt-2">
-            {(partnerData.partner.stakeAmount / 1_000_000).toFixed(0)}{t('dashboard.staked')}
-          </div>
-        </div>
-
-        <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
-          <div className="flex items-center gap-2 text-neutral-400 mb-2">
-            <Users className="w-4 h-4" />
-            <span className="text-sm">{t('dashboard.referrals')}</span>
-          </div>
-          <div className="text-2xl font-bold text-white">{partnerData.stats.referralCount}</div>
-        </div>
-
-        <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
-          <div className="flex items-center gap-2 text-neutral-400 mb-2">
-            <DollarSign className="w-4 h-4" />
-            <span className="text-sm">{t('dashboard.unclaimed')}</span>
-          </div>
-          <div className="text-2xl font-bold text-emerald-400">
-            ${partnerData.partner.unclaimedRevenue.toFixed(2)}
-          </div>
-        </div>
-
-        <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
-          <div className="flex items-center gap-2 text-neutral-400 mb-2">
-            <DollarSign className="w-4 h-4" />
-            <span className="text-sm">{t('dashboard.lifetime')}</span>
-          </div>
-          <div className="text-2xl font-bold text-white">
-            ${partnerData.stats.lifetimeEarnings.toFixed(2)}
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
-        <div className="flex items-center gap-2 text-neutral-400 mb-4">
-          <Link2 className="w-4 h-4" />
-          <span className="text-sm font-medium">{t('dashboard.yourInviteLink')}</span>
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={`${typeof window !== "undefined" ? window.location.origin : ""}/register?ref=${partnerData.partner.referralCode}`}
-            readOnly
-            className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white text-sm"
-          />
-          <button
-            onClick={copyLink}
-            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 flex items-center gap-2"
-          >
-            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            {copied ? t('common.copied') : t('common.copy')}
-          </button>
-        </div>
-      </div>
-
-      {partnerData.partner.stripeAccountStatus !== "connected" && (
-        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
-          <div className="flex items-center gap-2 text-yellow-400">
-            <AlertTriangle className="w-4 h-4" />
-            <span className="font-medium">{t('dashboard.connectStripe')}</span>
-          </div>
-          <Link
-            href="/dashboard/partner"
-            className="text-sm text-yellow-300 hover:text-yellow-200 mt-2 inline-flex items-center gap-1"
-          >
-            {t('dashboard.goToPartnerSettings')} <ExternalLink className="w-3 h-3" />
-          </Link>
-        </div>
-      )}
-    </div>
-  );
-}
+type Tab = "sessions" | "plans" | "usage" | "config";
 
 interface OpenRouterModel {
   id: string;
@@ -224,7 +36,7 @@ export default function DashboardPage() {
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get("tab") as Tab) || "sessions";
   const [activeTab, setActiveTab] = useState<Tab>(
-    ["sessions", "plans", "usage", "config", "partner"].includes(initialTab) ? initialTab : "sessions"
+    ["sessions", "plans", "usage", "config"].includes(initialTab) ? initialTab : "sessions"
   );
 
   // User state
@@ -235,8 +47,6 @@ export default function DashboardPage() {
     isAdmin?: boolean;
     extraLessons?: number;
   } | null>(null);
-
-  const [isPartner, setIsPartner] = useState(false);
 
   // Usage tab
   const [usageData, setUsageData] = useState<{
@@ -372,15 +182,6 @@ export default function DashboardPage() {
         // Load learning plans
         const plans = await getLearningPlans();
         setLearningPlans(plans);
-
-        // Check partner status
-        try {
-          const partnerRes = await fetch("/api/partners/me");
-          const partnerData = await partnerRes.json();
-          setIsPartner(partnerData.isPartner || false);
-        } catch (err) {
-          console.error("Failed to load partner status:", err);
-        }
 
         // Load usage data
         try {
@@ -649,31 +450,6 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       <Navbar />
 
-            {/* Partner CTA for non-partners */}
-      {!loading && !isPartner && (
-        <div className="border-b border-neutral-800/60 bg-neutral-900/50">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-500/20 rounded-lg">
-                  <Crown className="w-5 h-5 text-amber-400" />
-                </div>
-                <div>
-                  <div className="text-sm text-white font-medium">{t('dashboard.becomePartner')}</div>
-                  <div className="text-xs text-neutral-400">{t('dashboard.earnUpTo')}</div>
-                </div>
-              </div>
-              <Link
-                href="/dashboard/partner"
-                className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-500"
-              >
-                {t('dashboard.learnMore')}
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Tabs */}
       <div className="border-b border-neutral-800/60">
         <div className="max-w-5xl mx-auto flex gap-1 px-4 sm:px-6">
@@ -682,7 +458,6 @@ export default function DashboardPage() {
             { id: "plans", label: t('dashboard.plans') },
             { id: "usage", label: t('dashboard.usage') },
             ...(user?.isAdmin ? [{ id: "config", label: t('dashboard.config') }] : []),
-            ...(isPartner ? [{ id: "partner", label: t('dashboard.partner') }] : []),
           ].map((tab) => (
             <button
               key={tab.id}
@@ -1312,10 +1087,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Partner Tab */}
-        {activeTab === "partner" && isPartner && (
-          <PartnerTabContent />
-        )}
       </main>
     </div>
   );

@@ -278,12 +278,14 @@ export default function PricingPage() {
               >
                 {t('pricing.buyOnPumpFun')}
               </a>
-              <Link
-                href="/dashboard/partner"
+              <a
+                href="https://uncertain.systems/investors"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-full py-2 text-center text-xs text-purple-400 hover:text-purple-300 border border-purple-500/30 hover:border-purple-500/50 rounded-xl transition-colors"
               >
                 {t('pricing.stakeBecomePartner')}
-              </Link>
+              </a>
             </div>
           </div>
 

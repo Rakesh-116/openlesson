@@ -165,10 +165,7 @@ export const getAboutFaqItems = (t: (key: string) => string): FAQItem[] => [
     question: t('about.faqToken'),
     answer: t('about.faqTokenAnswer'),
   },
-  {
-    question: t('about.faqPartner'),
-    answer: t('about.faqPartnerAnswer'),
-  },
+
   {
     question: t('about.faqDifference'),
     answer: t('about.faqDifferenceAnswer'),
