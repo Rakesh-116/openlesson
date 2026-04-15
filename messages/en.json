@@ -1139,7 +1139,7 @@
     "v2BadgeDesc": "Multimodal inputs, cryptographic proofs, teaching assistant, scoped API keys",
     "elizaDescription": "Turn your ElizaOS agent into an openLesson-powered personal tutor.",
     "openclawDescription": "Turn your OpenClaw agent into an openLesson-powered personal tutor.",
-    "hermesDescription": "The self-improving AI agent by Nous Research. Install the openLesson plugin for Socratic tutoring.",
+    "hermesDescription": "The self-improving AI agent by Nous Research. Install the openLesson plugin for guided tutoring.",
     "hermesInstall": "hermes plugins install openlesson",
     "viewOnGitHub": "View on GitHub",
     "v2ApiEndpoints": "API v2 Endpoints",
