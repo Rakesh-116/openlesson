@@ -60,13 +60,13 @@ export async function authenticateRequest(
   // Look up profile for Pro/admin check
   const { data: profile } = await supabase
     .from("profiles")
-    .select("subscription_tier, subscription_status, is_admin")
+    .select("plan, subscription_status, is_admin")
     .eq("id", keyData.user_id)
     .single();
 
   const isAdmin = profile?.is_admin === true;
   const isPro =
-    profile?.subscription_tier === "pro" &&
+    profile?.plan === "pro" &&
     profile?.subscription_status === "active";
 
   if (!isAdmin && !isPro) {
