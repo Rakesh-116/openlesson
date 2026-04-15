@@ -490,7 +490,7 @@ export function AgenticModeSelect() {
       </div>
 
       <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 text-sm text-neutral-500">
-        <a href="/docs/AGENTIC_API_V2.md" className="text-blue-400 hover:text-blue-300">
+        <a href="/docs/agentic-v2" className="text-blue-400 hover:text-blue-300">
           {t('agenticMode.v2FullDocs')} →
         </a>
         <span className="hidden sm:inline">•</span>

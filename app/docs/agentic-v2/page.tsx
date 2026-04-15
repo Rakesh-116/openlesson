@@ -196,9 +196,6 @@ export default function AgenticApiV2DocsPage() {
             {/* Header */}
             <div className="mb-8">
               <div className="flex items-center gap-3 mb-4">
-                <span className="px-2.5 py-1 text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full">
-                  DRAFT
-                </span>
                 <span className="text-xs text-slate-500">v2.0.0</span>
               </div>
               <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">
@@ -210,7 +207,7 @@ export default function AgenticApiV2DocsPage() {
                 proof verification on Solana.
               </p>
               <div className="flex flex-wrap gap-4 mt-6 text-sm text-slate-500">
-                <span>Last updated: April 14, 2026</span>
+                <span>Last updated: April 15, 2026</span>
                 <span className="text-slate-700">|</span>
                 <span>Base URL: <code className="text-slate-400">https://openlesson.academy/api/v2/agent</code></span>
               </div>
@@ -1102,10 +1099,9 @@ genuine learning through the Socratic method.
             <div className="mt-16 pt-8 border-t border-slate-800">
               <div className="flex items-center justify-between text-sm text-slate-500">
                 <span>OpenLesson Agentic API v2 Specification</span>
-                <span>Draft - April 2026</span>
+                <span>April 2026</span>
               </div>
               <p className="text-xs text-slate-600 mt-2">
-                This document is a draft specification and subject to change. 
                 For questions or feedback, contact{" "}
                 <a href="mailto:daniel@uncertain.systems" className="text-slate-400 hover:text-slate-300">
                   daniel@uncertain.systems
