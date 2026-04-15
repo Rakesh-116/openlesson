@@ -64,15 +64,16 @@ export async function authenticateRequest(
     .eq("id", keyData.user_id)
     .single();
 
-  if (
-    !profile?.is_admin &&
-    (profile?.subscription_tier !== "pro" ||
-     profile?.subscription_status !== "active")
-  ) {
+  const isAdmin = profile?.is_admin === true;
+  const isPro =
+    profile?.subscription_tier === "pro" &&
+    profile?.subscription_status === "active";
+
+  if (!isAdmin && !isPro) {
     return errorResponse(
       403,
       "subscription_lapsed",
-      "Your Pro subscription has expired. Please renew to continue using the Agentic API.",
+      "A Pro subscription is required to use the Agentic API.",
       { renew_url: "https://openlesson.academy/pricing" }
     );
   }
