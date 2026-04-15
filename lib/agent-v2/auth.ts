@@ -36,13 +36,10 @@ export async function authenticateRequest(
   const supabase = await getServiceClient();
   const keyHash = await hashApiKey(apiKey);
 
-  // Look up key with profile join for Pro/admin check
+  // Look up key
   const { data: keyData, error } = await supabase
     .from("agent_api_keys")
-    .select(`
-      id, user_id, scopes, is_active, expires_at, rate_limit,
-      profiles!inner(subscription_tier, subscription_status, is_admin)
-    `)
+    .select("id, user_id, scopes, is_active, expires_at, rate_limit")
     .eq("key_hash", keyHash)
     .single();
 
@@ -60,16 +57,17 @@ export async function authenticateRequest(
     return errorResponse(401, "key_expired", "API key has expired");
   }
 
-  // Check Pro subscription (admins bypass)
-  const profile = keyData.profiles as unknown as {
-    subscription_tier: string;
-    subscription_status: string;
-    is_admin: boolean;
-  };
+  // Look up profile for Pro/admin check
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("subscription_tier, subscription_status, is_admin")
+    .eq("id", keyData.user_id)
+    .single();
+
   if (
-    !profile.is_admin &&
-    (profile.subscription_tier !== "pro" ||
-     profile.subscription_status !== "active")
+    !profile?.is_admin &&
+    (profile?.subscription_tier !== "pro" ||
+     profile?.subscription_status !== "active")
   ) {
     return errorResponse(
       403,
