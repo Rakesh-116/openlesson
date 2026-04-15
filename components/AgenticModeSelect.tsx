@@ -1,159 +1,238 @@
 "use client";
 
 import { useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
-import { Bot } from "lucide-react";
+import { Shield, Zap, BookOpen, Brain, BarChart3 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
-const ENDPOINTS = [
+const V2_ENDPOINT_GROUPS = [
   {
-    name: "agenticMode.endpointGeneratePlan",
-    method: "POST",
-    path: "/api/agent/plan",
-    description: "agenticMode.endpointGeneratePlanDesc",
-    params: [
-      { name: "topic", type: "string", required: true, example: "Machine Learning" },
-      { name: "days", type: "number", required: false, example: "30" },
-    ],
-    daysOptions: [7, 14, 30, 60, 90, 180],
-    response: {
-      planId: "uuid",
-      topic: "string",
-      days: "number",
-      nodes: "array",
-    },
-    curl: `curl -X POST https://openlesson.academy/api/agent/plan \\
+    group: "agenticMode.groupPlans",
+    endpoints: [
+      {
+        name: "agenticMode.v2CreatePlan",
+        method: "POST",
+        path: "/api/v2/agent/plans",
+        description: "agenticMode.v2CreatePlanDesc",
+        params: [
+          { name: "topic", type: "string", required: true, example: "Machine Learning" },
+          { name: "duration_days", type: "number", required: false, example: "30" },
+          { name: "difficulty", type: "string", required: false, example: "intermediate" },
+        ],
+        curl: `curl -X POST https://openlesson.academy/api/v2/agent/plans \\
   -H "Authorization: Bearer sk_YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"topic": "Machine Learning", "days": 30}'`,
-  },
-  {
-    name: "agenticMode.endpointStartSession",
-    method: "POST",
-    path: "/api/agent/session/start",
-    description: "agenticMode.endpointStartSessionDesc",
-    params: [
-      { name: "problem", type: "string", required: true, example: "Explain how backpropagation works" },
-      { name: "plan_node_id", type: "string", required: false, example: "uuid" },
-    ],
-    response: {
-      sessionId: "uuid",
-      problem: "string",
-      status: "active",
-    },
-    curl: `curl -X POST https://openlesson.academy/api/agent/session/start \\
-  -H "Authorization: Bearer sk_YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{"problem": "Explain how backpropagation works", "plan_node_id": "uuid-from-plan"}'`,
-  },
-  {
-    name: "agenticMode.endpointAnalyzeAudio",
-    method: "POST",
-    path: "/api/agent/session/analyze",
-    description: "agenticMode.endpointAnalyzeAudioDesc",
-    params: [
-      { name: "session_id", type: "string", required: true, example: "uuid" },
-      { name: "audio_base64", type: "string", required: true, example: "base64-encoded-audio" },
-      { name: "audio_format", type: "string", required: true, example: "webm" },
-    ],
-    response: {
-      sessionId: "uuid",
-      gapScore: "number (0-1)",
-      signals: "string[]",
-      followUpQuestion: "string",
-      requiresFollowUp: "boolean",
-    },
-    curl: `curl -X POST https://openlesson.academy/api/agent/session/analyze \\
-  -H "Authorization: Bearer sk_YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{"session_id": "uuid", "audio_base64": "BASE64_AUDIO", "audio_format": "webm"}'`,
-  },
-  {
-    name: "agenticMode.endpointEndSession",
-    method: "POST",
-    path: "/api/agent/session/end",
-    description: "agenticMode.endpointEndSessionDesc",
-    params: [
-      { name: "session_id", type: "string", required: true, example: "uuid" },
-    ],
-    response: {
-      success: "boolean",
-      sessionId: "uuid",
-      message: "string",
-      chunkCount: "number",
-      wordCount: "number",
-    },
-    curl: `curl -X POST https://openlesson.academy/api/agent/session/end \\
-  -H "Authorization: Bearer sk_YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{"session_id": "uuid"}'`,
-  },
-  {
-    name: "agenticMode.endpointGetReport",
-    method: "GET",
-    path: "/api/agent/session/summary?session_id=xxx",
-    description: "agenticMode.endpointGetReportDesc",
-    params: [
-      { name: "session_id", type: "string", required: true, example: "uuid" },
-    ],
-    response: {
-      ready: "boolean",
-      sessionId: "uuid",
-      report: "string (markdown)",
-      createdAt: "timestamp",
-      status: "string",
-    },
-    curl: `curl "https://openlesson.academy/api/agent/session/summary?session_id=uuid" \\
+  -d '{"topic": "Machine Learning", "duration_days": 30}'`,
+      },
+      {
+        name: "agenticMode.v2ListPlans",
+        method: "GET",
+        path: "/api/v2/agent/plans",
+        description: "agenticMode.v2ListPlansDesc",
+        params: [
+          { name: "status", type: "string", required: false, example: "active" },
+          { name: "limit", type: "number", required: false, example: "20" },
+        ],
+        curl: `curl "https://openlesson.academy/api/v2/agent/plans?status=active&limit=20" \\
   -H "Authorization: Bearer sk_YOUR_API_KEY"`,
+      },
+      {
+        name: "agenticMode.v2AdaptPlan",
+        method: "POST",
+        path: "/api/v2/agent/plans/{id}/adapt",
+        description: "agenticMode.v2AdaptPlanDesc",
+        params: [
+          { name: "instruction", type: "string", required: true, example: "Skip intro, focus on advanced topics" },
+          { name: "preserve_completed", type: "boolean", required: false, example: "true" },
+        ],
+        curl: `curl -X POST https://openlesson.academy/api/v2/agent/plans/PLAN_ID/adapt \\
+  -H "Authorization: Bearer sk_YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"instruction": "Skip intro, focus on advanced topics", "preserve_completed": true}'`,
+      },
+      {
+        name: "agenticMode.v2FromVideo",
+        method: "POST",
+        path: "/api/v2/agent/plans/from-video",
+        description: "agenticMode.v2FromVideoDesc",
+        params: [
+          { name: "youtube_url", type: "string", required: true, example: "https://youtube.com/watch?v=..." },
+        ],
+        curl: `curl -X POST https://openlesson.academy/api/v2/agent/plans/from-video \\
+  -H "Authorization: Bearer sk_YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"youtube_url": "https://youtube.com/watch?v=dQw4w9WgXcQ"}'`,
+      },
+    ],
+  },
+  {
+    group: "agenticMode.groupSessions",
+    endpoints: [
+      {
+        name: "agenticMode.v2StartSession",
+        method: "POST",
+        path: "/api/v2/agent/sessions",
+        description: "agenticMode.v2StartSessionDesc",
+        params: [
+          { name: "topic", type: "string", required: true, example: "Explain gradient descent" },
+          { name: "plan_id", type: "string", required: false, example: "uuid" },
+          { name: "plan_node_id", type: "string", required: false, example: "uuid" },
+          { name: "tutoring_language", type: "string", required: false, example: "en" },
+        ],
+        curl: `curl -X POST https://openlesson.academy/api/v2/agent/sessions \\
+  -H "Authorization: Bearer sk_YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"topic": "Explain gradient descent"}'`,
+      },
+      {
+        name: "agenticMode.v2Analyze",
+        method: "POST",
+        path: "/api/v2/agent/sessions/{id}/analyze",
+        description: "agenticMode.v2AnalyzeDesc",
+        params: [
+          { name: "inputs", type: "array", required: true, example: '[{"type": "audio", "data": "...", "format": "webm"}]' },
+          { name: "context", type: "object", required: false, example: '{}' },
+        ],
+        curl: `curl -X POST https://openlesson.academy/api/v2/agent/sessions/SESSION_ID/analyze \\
+  -H "Authorization: Bearer sk_YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"inputs": [{"type": "audio", "data": "BASE64", "format": "webm"}]}'`,
+      },
+      {
+        name: "agenticMode.v2PauseResume",
+        method: "POST",
+        path: "/api/v2/agent/sessions/{id}/pause",
+        description: "agenticMode.v2PauseResumeDesc",
+        params: [
+          { name: "reason", type: "string", required: false, example: "Taking a break" },
+        ],
+        curl: `curl -X POST https://openlesson.academy/api/v2/agent/sessions/SESSION_ID/pause \\
+  -H "Authorization: Bearer sk_YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"reason": "Taking a break"}'`,
+      },
+      {
+        name: "agenticMode.v2EndSession",
+        method: "POST",
+        path: "/api/v2/agent/sessions/{id}/end",
+        description: "agenticMode.v2EndSessionDesc",
+        params: [
+          { name: "completion_status", type: "string", required: false, example: "completed" },
+        ],
+        curl: `curl -X POST https://openlesson.academy/api/v2/agent/sessions/SESSION_ID/end \\
+  -H "Authorization: Bearer sk_YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"completion_status": "completed"}'`,
+      },
+    ],
+  },
+  {
+    group: "agenticMode.groupAssistant",
+    endpoints: [
+      {
+        name: "agenticMode.v2Ask",
+        method: "POST",
+        path: "/api/v2/agent/sessions/{id}/ask",
+        description: "agenticMode.v2AskDesc",
+        params: [
+          { name: "question", type: "string", required: true, example: "Can you explain phase kickback?" },
+          { name: "conversation_id", type: "string", required: false, example: "uuid" },
+        ],
+        curl: `curl -X POST https://openlesson.academy/api/v2/agent/sessions/SESSION_ID/ask \\
+  -H "Authorization: Bearer sk_YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"question": "Can you explain phase kickback?"}'`,
+      },
+    ],
+  },
+  {
+    group: "agenticMode.groupProofs",
+    endpoints: [
+      {
+        name: "agenticMode.v2ListProofs",
+        method: "GET",
+        path: "/api/v2/agent/proofs",
+        description: "agenticMode.v2ListProofsDesc",
+        params: [
+          { name: "session_id", type: "string", required: false, example: "uuid" },
+          { name: "type", type: "string", required: false, example: "session_ended" },
+        ],
+        curl: `curl "https://openlesson.academy/api/v2/agent/proofs?session_id=SESSION_ID" \\
+  -H "Authorization: Bearer sk_YOUR_API_KEY"`,
+      },
+      {
+        name: "agenticMode.v2VerifyProof",
+        method: "GET",
+        path: "/api/v2/agent/proofs/{id}/verify",
+        description: "agenticMode.v2VerifyProofDesc",
+        params: [],
+        curl: `curl "https://openlesson.academy/api/v2/agent/proofs/PROOF_ID/verify" \\
+  -H "Authorization: Bearer sk_YOUR_API_KEY"`,
+      },
+    ],
   },
 ];
 
-const CURL_EXAMPLE = `# Agentic Mode - Complete Workflow Example
-# This demonstrates how to use the openLesson Agent API
+const V2_CURL_EXAMPLE = `# Agentic API v2 - Complete Workflow Example
 
-# Step 1: Generate a learning plan
-# Use 'days' to specify plan duration (7, 14, 30, 60, 90, 180)
-curl -X POST https://openlesson.academy/api/agent/plan \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "topic": "Machine Learning Fundamentals",
-    "days": 30
-  }'
-
-# Step 2: Start a session for a specific node
-curl -X POST https://openlesson.academy/api/agent/session/start \\
+# Step 1: Create a learning plan
+curl -X POST https://openlesson.academy/api/v2/agent/plans \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "problem": "Explain gradient descent",
-    "plan_node_id": "node-uuid-from-plan"
+    "topic": "Quantum Computing Fundamentals",
+    "duration_days": 30
   }'
 
-# Step 3: Submit audio chunks for analysis (audio-only!)
-curl -X POST https://openlesson.academy/api/agent/session/analyze \\
+# Step 2: Adapt the plan based on user needs
+curl -X POST https://openlesson.academy/api/v2/agent/plans/PLAN_ID/adapt \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "session_id": "session-uuid",
-    "audio_base64": "$(base64 -w0 audio.webm)",
-    "audio_format": "webm"
+    "instruction": "I already understand superposition, skip that",
+    "preserve_completed": true
   }'
 
-# Step 4: End session and generate report
-curl -X POST https://openlesson.academy/api/agent/session/end \\
+# Step 3: Start a session (can be standalone or linked to a plan)
+curl -X POST https://openlesson.academy/api/v2/agent/sessions \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"session_id": "session-uuid"}'
+  -d '{
+    "topic": "Quantum Gates and Circuits",
+    "plan_id": "PLAN_ID",
+    "plan_node_id": "NODE_ID"
+  }'
 
-# Step 5: Get the session report
-curl "https://openlesson.academy/api/agent/session/summary?session_id=session-uuid" \
+# Step 4: Submit analysis heartbeats (supports audio, text, or images)
+curl -X POST https://openlesson.academy/api/v2/agent/sessions/SESSION_ID/analyze \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "inputs": [
+      {"type": "audio", "data": "'$(base64 -w0 audio.webm)'", "format": "webm"}
+    ]
+  }'
+
+# Step 5: Ask the teaching assistant for help
+curl -X POST https://openlesson.academy/api/v2/agent/sessions/SESSION_ID/ask \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"question": "Can you explain phase kickback?"}'
+
+# Step 6: End session and get report
+curl -X POST https://openlesson.academy/api/v2/agent/sessions/SESSION_ID/end \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"completion_status": "completed"}'
+
+# Step 7: Verify cryptographic proof
+curl "https://openlesson.academy/api/v2/agent/proofs/PROOF_ID/verify" \\
   -H "Authorization: Bearer YOUR_API_KEY"`;
 
 export function AgenticModeSelect() {
   const { t } = useI18n();
   const [copiedEndpoint, setCopiedEndpoint] = useState<string | null>(null);
   const [copiedCurl, setCopiedCurl] = useState(false);
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
 
   const copyToClipboard = async (text: string, id: string) => {
     try {
@@ -167,12 +246,19 @@ export function AgenticModeSelect() {
 
   const copyCurl = async () => {
     try {
-      await navigator.clipboard.writeText(CURL_EXAMPLE);
+      await navigator.clipboard.writeText(V2_CURL_EXAMPLE);
       setCopiedCurl(true);
       setTimeout(() => setCopiedCurl(false), 2000);
     } catch {
       console.error("Failed to copy");
     }
+  };
+
+  const groupIcons: Record<string, typeof Zap> = {
+    "agenticMode.groupPlans": BookOpen,
+    "agenticMode.groupSessions": Brain,
+    "agenticMode.groupAssistant": Zap,
+    "agenticMode.groupProofs": Shield,
   };
 
   return (
@@ -184,9 +270,9 @@ export function AgenticModeSelect() {
         <p className="text-slate-500 max-w-lg mx-auto text-sm leading-relaxed mb-4">
           {t('agenticMode.subtitle')}
         </p>
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
-          <span className="text-xs font-medium text-amber-400">{t('agenticMode.experimental')}</span>
-          <span className="text-xs text-amber-400/70">— {t('agenticMode.experimentalDesc')}</span>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/30">
+          <span className="text-xs font-medium text-green-400">{t('agenticMode.v2Badge')}</span>
+          <span className="text-xs text-green-400/70">— {t('agenticMode.v2BadgeDesc')}</span>
         </div>
       </div>
 
@@ -194,7 +280,9 @@ export function AgenticModeSelect() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         {/* ElizaOS Card */}
         <a
-          href="/skill-elizaos.md"
+          href="https://github.com/dncolomer/openlesson-elizaos"
+          target="_blank"
+          rel="noopener noreferrer"
           className="block p-6 bg-slate-900/50 border border-slate-800 rounded-xl hover:border-purple-500/50 transition-all group"
         >
           <div className="aspect-square rounded-lg mb-4 flex items-center justify-center overflow-hidden bg-slate-800/50">
@@ -210,21 +298,16 @@ export function AgenticModeSelect() {
           <p className="text-sm text-slate-400">
             {t('agenticMode.elizaDescription')}
           </p>
-          <button
-            type="button"
-            className="mt-3 inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300"
-            onClick={(e) => {
-              e.stopPropagation();
-              window.location.href = "/elizaos/open_lessons.zip";
-            }}
-          >
-            {t('agenticMode.downloadPlugin')} ↓
-          </button>
+          <span className="mt-3 inline-flex items-center gap-1 text-xs text-purple-400">
+            {t('agenticMode.viewOnGitHub')} →
+          </span>
         </a>
 
         {/* OpenClaw Card */}
         <a
-          href="/skill-openclaw.md"
+          href="https://github.com/dncolomer/openlesson-openclaw"
+          target="_blank"
+          rel="noopener noreferrer"
           className="block p-6 bg-slate-900/50 border border-slate-800 rounded-xl hover:border-blue-500/50 transition-all group"
         >
           <div className="aspect-square rounded-lg mb-4 flex items-center justify-center overflow-hidden bg-slate-800/50">
@@ -240,94 +323,124 @@ export function AgenticModeSelect() {
           <p className="text-sm text-slate-400">
             {t('agenticMode.openclawDescription')}
           </p>
-          <span 
-            className="mt-3 inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 cursor-pointer"
-            onClick={(e) => {
-              e.stopPropagation();
-              window.open('https://clawhub.ai/dncolomer/open-lesson', '_blank', 'noopener,noreferrer');
-            }}
-          >
-            {t('agenticMode.viewOnClawHub')} →
-          </span>
-          <span 
-            className="ml-3 inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 cursor-pointer"
-            onClick={(e) => {
-              e.stopPropagation();
-              const link = document.createElement('a');
-              link.href = '/openclaw/open-lesson.zip';
-              link.download = '';
-              link.click();
-            }}
-          >
-            {t('agenticMode.downloadPlugin')} ↓
+          <span className="mt-3 inline-flex items-center gap-1 text-xs text-blue-400">
+            {t('agenticMode.viewOnGitHub')} →
           </span>
         </a>
 
-        {/* Any Agent Card */}
+        {/* Hermes Card */}
         <a
-          href="/skill.md"
-          className="block p-6 bg-slate-900/50 border border-slate-800 rounded-xl hover:border-green-500/50 transition-all group"
+          href="https://github.com/dncolomer/openlesson-hermes"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block p-6 bg-slate-900/50 border border-slate-800 rounded-xl hover:border-emerald-500/50 transition-all group"
         >
-          <div className="aspect-square rounded-lg mb-4 flex items-center justify-center bg-slate-800/50">
-            <Bot className="w-16 h-16 text-slate-600" strokeWidth={1.5} />
+          <div className="aspect-square rounded-lg mb-4 flex items-center justify-center overflow-hidden bg-slate-800/50">
+            <img 
+              src="https://pbs.twimg.com/profile_images/1816254738234761216/TX7TW-Mp_400x400.jpg" 
+              alt="Hermes Agent" 
+              className="w-full h-full object-contain"
+            />
           </div>
-          <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-green-400 transition-colors">
-            Any Agent
+          <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-emerald-400 transition-colors">
+            Hermes
           </h3>
           <p className="text-sm text-slate-400">
-            {t('agenticMode.anyAgentDescription')}
+            {t('agenticMode.hermesDescription')}
           </p>
+          <span className="mt-3 inline-flex items-center gap-1 text-xs text-emerald-400">
+            {t('agenticMode.viewOnGitHub')} →
+          </span>
         </a>
       </div>
 
+      {/* V2 Feature Highlights */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+        {[
+          { icon: Brain, label: "agenticMode.v2FeatureMultimodal", desc: "agenticMode.v2FeatureMultimodalDesc" },
+          { icon: Shield, label: "agenticMode.v2FeatureProofs", desc: "agenticMode.v2FeatureProofsDesc" },
+          { icon: Zap, label: "agenticMode.v2FeatureAssistant", desc: "agenticMode.v2FeatureAssistantDesc" },
+          { icon: BarChart3, label: "agenticMode.v2FeatureAnalytics", desc: "agenticMode.v2FeatureAnalyticsDesc" },
+        ].map((feature, idx) => (
+          <div key={idx} className="p-3 bg-slate-900/30 border border-slate-800/50 rounded-lg text-center">
+            <feature.icon className="w-5 h-5 text-slate-400 mx-auto mb-2" />
+            <p className="text-xs font-medium text-white">{t(feature.label)}</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">{t(feature.desc)}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* V2 API Endpoints - Grouped */}
       <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white">{t('agenticMode.apiEndpoints')}</h3>
+          <h3 className="text-lg font-semibold text-white">{t('agenticMode.v2ApiEndpoints')}</h3>
+          <span className="text-xs text-slate-500 font-mono">v2</span>
         </div>
 
-        <div className="space-y-6">
-          {ENDPOINTS.map((endpoint, idx) => (
-            <div key={idx} className="border border-slate-800 rounded-lg p-4">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 text-xs font-mono bg-blue-500/20 text-blue-400 rounded">
-                      {endpoint.method}
-                    </span>
-                    <span className="text-sm font-mono text-slate-300">
-                      {endpoint.path}
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-400 mt-1">{t(endpoint.description)}</p>
-                </div>
-              </div>
-
-              <div className="text-xs mb-3">
-                <span className="text-slate-500">{t('agenticMode.parameters')}: </span>
-                {endpoint.params.map((p, i) => (
-                  <span key={i} className={p.required ? "text-white" : "text-slate-400"}>
-                    {p.name}
-                    {p.required ? "*" : ""}
-                    {i < endpoint.params.length - 1 ? ", " : ""}
+        <div className="space-y-4">
+          {V2_ENDPOINT_GROUPS.map((group, gIdx) => {
+            const Icon = groupIcons[group.group] || Zap;
+            const isExpanded = expandedGroup === group.group;
+            return (
+              <div key={gIdx} className="border border-slate-800 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setExpandedGroup(isExpanded ? null : group.group)}
+                  className="w-full flex items-center gap-3 p-4 hover:bg-slate-800/30 transition-colors text-left"
+                >
+                  <Icon className="w-4 h-4 text-slate-400 shrink-0" />
+                  <span className="text-sm font-medium text-white flex-1">{t(group.group)}</span>
+                  <span className="text-xs text-slate-500">{group.endpoints.length} endpoints</span>
+                  <span className={`text-slate-500 transition-transform ${isExpanded ? "rotate-180" : ""}`}>
+                    &#9660;
                   </span>
-                ))}
-              </div>
+                </button>
 
-              <div className="bg-black/40 rounded-lg p-3 overflow-x-auto">
-                <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap break-all">{endpoint.curl}</pre>
+                {isExpanded && (
+                  <div className="border-t border-slate-800 p-4 space-y-4">
+                    {group.endpoints.map((endpoint, eIdx) => (
+                      <div key={eIdx} className="border border-slate-700/50 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`px-2 py-0.5 text-xs font-mono rounded ${
+                            endpoint.method === "POST" 
+                              ? "bg-blue-500/20 text-blue-400" 
+                              : "bg-green-500/20 text-green-400"
+                          }`}>
+                            {endpoint.method}
+                          </span>
+                          <span className="text-sm font-mono text-slate-300">{endpoint.path}</span>
+                        </div>
+                        <p className="text-xs text-slate-400 mb-2">{t(endpoint.description)}</p>
+                        
+                        <div className="text-xs mb-2">
+                          <span className="text-slate-500">{t('agenticMode.parameters')} </span>
+                          {endpoint.params.map((p, i) => (
+                            <span key={i} className={p.required ? "text-white" : "text-slate-400"}>
+                              {p.name}{p.required ? "*" : ""}
+                              {i < endpoint.params.length - 1 ? ", " : ""}
+                            </span>
+                          ))}
+                        </div>
+
+                        <div className="bg-black/40 rounded-lg p-3 overflow-x-auto">
+                          <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap break-all">{endpoint.curl}</pre>
+                        </div>
+                        <button
+                          onClick={() => copyToClipboard(endpoint.curl, `curl-${gIdx}-${eIdx}`)}
+                          className="mt-2 text-xs text-blue-400 hover:text-blue-300"
+                        >
+                          {copiedEndpoint === `curl-${gIdx}-${eIdx}` ? t('agenticMode.copiedCurl') : t('agenticMode.copyCurl')}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              
-              <button
-                onClick={() => copyToClipboard(endpoint.curl, `curl-${idx}`)}
-                className="mt-2 text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
-              >
-                {copiedEndpoint === `curl-${idx}` ? t('agenticMode.copiedCurl') : t('agenticMode.copyCurl')}
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
+      {/* Important Notes */}
       <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6 mb-8">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-white">{t('agenticMode.importantNotes')}</h3>
@@ -335,25 +448,23 @@ export function AgenticModeSelect() {
         
         <ul className="space-y-3 text-sm text-neutral-400">
           <li className="flex items-start gap-2">
-            <span className="text-yellow-400">•</span>
-            <span>
-              <span className="text-white font-medium">{t('agenticMode.audioOnly').split(':')[0]}:</span> {t('agenticMode.audioOnly').split(':').slice(1).join(':')}
-            </span>
+            <span className="text-green-400">•</span>
+            <span>{t('agenticMode.v2NoteMultimodal')}</span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-yellow-400">•</span>
-            <span>
-              <span className="text-white font-medium">{t('agenticMode.supportedFormats').split(':')[0]}:</span> {t('agenticMode.supportedFormats').split(':').slice(1).join(':')}
-            </span>
+            <span className="text-green-400">•</span>
+            <span>{t('agenticMode.v2NoteStandalone')}</span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-yellow-400">•</span>
-            <span>
-              {t('agenticMode.daysParam')}
-            </span>
+            <span className="text-green-400">•</span>
+            <span>{t('agenticMode.v2NoteProofs')}</span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-yellow-400">•</span>
+            <span className="text-green-400">•</span>
+            <span>{t('agenticMode.v2NoteScopes')}</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-green-400">•</span>
             <span>
               {t('agenticMode.authentication')} <code className="text-green-400">Bearer YOUR_KEY</code>
             </span>
@@ -361,6 +472,7 @@ export function AgenticModeSelect() {
         </ul>
       </div>
 
+      {/* Complete Workflow */}
       <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-white">{t('agenticMode.completeWorkflow')}</h3>
@@ -373,13 +485,13 @@ export function AgenticModeSelect() {
         </div>
         
         <pre className="text-xs font-mono text-neutral-300 overflow-x-auto p-4 bg-black/30 rounded-lg">
-          <code>{CURL_EXAMPLE}</code>
+          <code>{V2_CURL_EXAMPLE}</code>
         </pre>
       </div>
 
       <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 text-sm text-neutral-500">
-        <a href="/skill.md" className="text-blue-400 hover:text-blue-300">
-          {t('agenticMode.fullApiDocs')} →
+        <a href="/docs/AGENTIC_API_V2.md" className="text-blue-400 hover:text-blue-300">
+          {t('agenticMode.v2FullDocs')} →
         </a>
         <span className="hidden sm:inline">•</span>
         <a href="/dashboard" className="text-blue-400 hover:text-blue-300">

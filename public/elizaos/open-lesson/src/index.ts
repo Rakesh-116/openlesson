@@ -1,19 +1,31 @@
 import type { Plugin } from '@elizaos/core';
-import { generateLearningPlanAction } from './actions/generateLearningPlan';
+
+import { createPlanAction } from './actions/createPlan';
+import { adaptPlanAction } from './actions/adaptPlan';
+import { createPlanFromVideoAction } from './actions/createPlanFromVideo';
 import { startSessionAction } from './actions/startSession';
-import { analyzeAudioAction } from './actions/analyzeAudio';
+import { analyzeHeartbeatAction } from './actions/analyzeHeartbeat';
+import { pauseSessionAction } from './actions/pauseSession';
+import { resumeSessionAction } from './actions/resumeSession';
 import { endSessionAction } from './actions/endSession';
-import { getSessionSummaryAction } from './actions/getSessionSummary';
+import { askAssistantAction } from './actions/askAssistant';
+import { getAnalyticsAction } from './actions/getAnalytics';
 
 export const openLessonPlugin: Plugin = {
   name: 'open-lesson',
-  description: 'openLesson tutoring platform integration - generate learning plans, start guided tutoring sessions, and analyze audio for reasoning gaps',
+  description:
+    'openLesson v2 tutoring platform — learning plans, multimodal sessions, teaching assistant, cryptographic proofs',
   actions: [
-    generateLearningPlanAction,
+    createPlanAction,
+    adaptPlanAction,
+    createPlanFromVideoAction,
     startSessionAction,
-    analyzeAudioAction,
+    analyzeHeartbeatAction,
+    pauseSessionAction,
+    resumeSessionAction,
     endSessionAction,
-    getSessionSummaryAction,
+    askAssistantAction,
+    getAnalyticsAction,
   ],
   providers: [],
   services: [],
@@ -22,8 +34,13 @@ export const openLessonPlugin: Plugin = {
 
 export default openLessonPlugin;
 
-export { generateLearningPlanAction } from './actions/generateLearningPlan';
+export { createPlanAction } from './actions/createPlan';
+export { adaptPlanAction } from './actions/adaptPlan';
+export { createPlanFromVideoAction } from './actions/createPlanFromVideo';
 export { startSessionAction } from './actions/startSession';
-export { analyzeAudioAction } from './actions/analyzeAudio';
+export { analyzeHeartbeatAction } from './actions/analyzeHeartbeat';
+export { pauseSessionAction } from './actions/pauseSession';
+export { resumeSessionAction } from './actions/resumeSession';
 export { endSessionAction } from './actions/endSession';
-export { getSessionSummaryAction } from './actions/getSessionSummary';
+export { askAssistantAction } from './actions/askAssistant';
+export { getAnalyticsAction } from './actions/getAnalytics';

@@ -1,121 +1,116 @@
-import {
-  type Action,
-  type IAgentRuntime,
-  type Memory,
-  type State,
-  type HandlerCallback,
-  logger,
-} from '@elizaos/core';
-import type { StartSessionParams, SessionStartResponse } from '../types';
+import type {
+  Action,
+  IAgentRuntime,
+  Memory,
+  State,
+  HandlerCallback,
+} from "@elizaos/core";
+import { apiRequest } from "../client";
+import type { StartSessionResponse } from "../types";
 
-const startSessionAction: Action = {
-  name: 'START_SESSION',
-  description: 'Start a new guided tutoring session. Returns session ID and audio submission instructions.',
+export const startSessionAction: Action = {
+  name: "START_SESSION",
+  similes: [
+    "BEGIN_SESSION",
+    "START_TUTORING",
+    "NEW_SESSION",
+    "OPEN_SESSION",
+  ],
+  description:
+    "Start a new tutoring session. Requires a topic; optionally linked to a plan via plan_id/plan_node_id. Sessions can be standalone.",
 
-  validate: async (runtime: IAgentRuntime, message: Memory, _state?: State): Promise<boolean> => {
-    const apiKey = runtime.getSetting('OPENLESSON_API_KEY');
-    return !!apiKey;
+  validate: async (runtime: IAgentRuntime, _message: Memory) => {
+    return !!runtime.getSetting("OPENLESSON_API_KEY");
   },
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state?: State,
-    params?: unknown,
-    _callback?: HandlerCallback
+    state: State,
+    _options: unknown,
+    callback: HandlerCallback
   ) => {
-    const apiKey = runtime.getSetting('OPENLESSON_API_KEY') as string | undefined;
-    const baseUrl = (runtime.getSetting('OPENLESSON_BASE_URL') as string | undefined) || 'https://www.openlesson.academy';
+    const text = (message.content as { text?: string }).text ?? "";
 
-    if (!apiKey) {
-      throw new Error('OPENLESSON_API_KEY not configured. Please set it in your character settings.');
+    // Extract topic — after common trigger words
+    const topicMatch = text.match(
+      /(?:session (?:about|on|for)|tutor(?:ing)? (?:on|about|for)|study|learn about)\s+(.+)/i
+    );
+    const topic = topicMatch ? topicMatch[1].trim() : text.trim();
+
+    if (!topic) {
+      callback({
+        text: "Please specify a topic for the session.",
+        action: "START_SESSION",
+      });
+      return true;
     }
 
-    const parsedParams = params as StartSessionParams;
-    const { problem, plan_node_id } = parsedParams;
+    // Optional plan linkage from state or message
+    const planIdMatch = text.match(/plan[_\s]?(?:id)?[:\s]*([a-zA-Z0-9_-]+)/i);
+    const planId =
+      planIdMatch?.[1] ??
+      (state as Record<string, unknown>)?.plan_id as string | undefined;
 
-    if (!problem) {
-      throw new Error('Problem/topic is required to start a session.');
-    }
-
-    logger.info(`Starting session for problem: ${problem}`);
+    const nodeIdMatch = text.match(
+      /node[_\s]?(?:id)?[:\s]*([a-zA-Z0-9_-]+)/i
+    );
+    const planNodeId =
+      nodeIdMatch?.[1] ??
+      (state as Record<string, unknown>)?.plan_node_id as string | undefined;
 
     try {
-      const body: Record<string, string> = { problem };
-      if (plan_node_id) {
-        body.plan_node_id = plan_node_id;
-      }
+      const body: Record<string, unknown> = { topic };
+      if (planId) body.plan_id = planId;
+      if (planNodeId) body.plan_node_id = planNodeId;
 
-      const response = await fetch(`${baseUrl}/api/agent/session/start`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
+      const data = await apiRequest<StartSessionResponse>(
+        runtime,
+        "POST",
+        "/sessions",
+        body
+      );
+
+      callback({
+        text: `Tutoring session started for "${data.topic}". Session ID: ${data.session_id}. Status: ${data.status}.`,
+        action: "START_SESSION",
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      const data = (await response.json()) as SessionStartResponse;
-
-      return {
-        success: true,
-        text: `Tutoring session started for "${data.problem}". Session ID: ${data.sessionId}. Please record your audio response to begin the guided dialogue.`,
-        values: {
-          session_id: data.sessionId,
-          problem: data.problem,
-        },
-        data: {
-          sessionId: data.sessionId,
-          problem: data.problem,
-          nodeTitle: data.nodeTitle,
-          planId: data.planId,
-          status: data.status,
-          audio_format: data.instructions?.audioFormat || 'webm',
-          max_chunk_duration_ms: data.instructions?.maxChunkDuration || 60000,
-        },
-      };
     } catch (error) {
-      logger.error('Failed to start session:', String(error));
-      throw new Error(`Failed to start session: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      callback({
+        text: `Failed to start session: ${error instanceof Error ? error.message : "Unknown error"}`,
+        action: "START_SESSION",
+      });
     }
+
+    return true;
   },
 
   examples: [
     [
       {
-        name: 'user',
-        content: {
-          text: 'Start a tutoring session about gradient descent',
-        },
+        user: "{{user1}}",
+        content: { text: "Start a tutoring session about gradient descent" },
       },
       {
-        name: 'assistant',
+        user: "{{agentName}}",
         content: {
-          text: 'I will start a guided tutoring session about gradient descent.',
+          text: 'Tutoring session started for "gradient descent". Session ID: sess_abc123. Status: active.',
+          action: "START_SESSION",
         },
       },
     ],
     [
       {
-        name: 'user',
-        content: {
-          text: 'Let\'s study for the first node in my learning plan',
-        },
+        user: "{{user1}}",
+        content: { text: "I want to study linear algebra" },
       },
       {
-        name: 'assistant',
+        user: "{{agentName}}",
         content: {
-          text: 'I will start the first tutoring session from your learning plan.',
+          text: 'Tutoring session started for "linear algebra". Session ID: sess_def456. Status: active.',
+          action: "START_SESSION",
         },
       },
     ],
   ],
 };
-
-export { startSessionAction };
-export default startSessionAction;

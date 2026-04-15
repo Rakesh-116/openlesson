@@ -1,118 +1,98 @@
-import {
-  type Action,
-  type IAgentRuntime,
-  type Memory,
-  type State,
-  type HandlerCallback,
-  logger,
-} from '@elizaos/core';
-import type { EndSessionParams, SessionEndResponse } from '../types';
+import type {
+  Action,
+  IAgentRuntime,
+  Memory,
+  State,
+  HandlerCallback,
+} from "@elizaos/core";
+import { apiRequest } from "../client";
+import type { EndSessionResponse } from "../types";
 
-const endSessionAction: Action = {
-  name: 'END_SESSION',
-  description: 'End an active tutoring session and generate a summary report',
+export const endSessionAction: Action = {
+  name: "END_SESSION",
+  similes: [
+    "STOP_SESSION",
+    "FINISH_SESSION",
+    "CLOSE_SESSION",
+    "COMPLETE_SESSION",
+  ],
+  description: "End an active tutoring session and trigger report generation",
 
-  validate: async (runtime: IAgentRuntime, message: Memory, _state?: State): Promise<boolean> => {
-    const apiKey = runtime.getSetting('OPENLESSON_API_KEY');
-    return !!apiKey;
+  validate: async (runtime: IAgentRuntime, _message: Memory) => {
+    return !!runtime.getSetting("OPENLESSON_API_KEY");
   },
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state?: State,
-    params?: unknown,
-    _callback?: HandlerCallback
+    state: State,
+    _options: unknown,
+    callback: HandlerCallback
   ) => {
-    const apiKey = runtime.getSetting('OPENLESSON_API_KEY') as string | undefined;
-    const baseUrl = (runtime.getSetting('OPENLESSON_BASE_URL') as string | undefined) || 'https://www.openlesson.academy';
+    const text = (message.content as { text?: string }).text ?? "";
 
-    if (!apiKey) {
-      throw new Error('OPENLESSON_API_KEY not configured. Please set it in your character settings.');
+    const sessionMatch = text.match(
+      /session[_\s]?(?:id)?[:\s]*([a-zA-Z0-9_-]+)/i
+    );
+    const sessionId =
+      sessionMatch?.[1] ??
+      (state as Record<string, unknown>)?.session_id as string | undefined;
+
+    if (!sessionId) {
+      callback({
+        text: "Please provide a session ID to end.",
+        action: "END_SESSION",
+      });
+      return true;
     }
-
-    const parsedParams = params as EndSessionParams;
-    const { session_id } = parsedParams;
-
-    if (!session_id) {
-      throw new Error('Session ID is required to end a session.');
-    }
-
-    logger.info(`Ending session: ${session_id}`);
 
     try {
-      const response = await fetch(`${baseUrl}/api/agent/session/end`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ session_id }),
+      const data = await apiRequest<EndSessionResponse>(
+        runtime,
+        "POST",
+        `/sessions/${sessionId}/end`
+      );
+
+      callback({
+        text: `Session ${data.session_id} ended. ${data.message}`,
+        action: "END_SESSION",
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      const data = (await response.json()) as SessionEndResponse;
-
-      return {
-        success: true,
-        text: `Session ended successfully. ${data.message} Analyzed ${data.chunkCount} audio chunks with ${data.wordCount} words. The summary report is now available.`,
-        values: {
-          session_id: data.sessionId,
-          chunk_count: data.chunkCount,
-          word_count: data.wordCount,
-          summary_available: true,
-        },
-        data: {
-          success: data.success,
-          sessionId: data.sessionId,
-          message: data.message,
-          chunkCount: data.chunkCount,
-          wordCount: data.wordCount,
-          summary_available: true,
-          summary_endpoint: `/api/agent/session/summary?session_id=${session_id}`,
-        },
-      };
     } catch (error) {
-      logger.error('Failed to end session:', String(error));
-      throw new Error(`Failed to end session: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      callback({
+        text: `Failed to end session: ${error instanceof Error ? error.message : "Unknown error"}`,
+        action: "END_SESSION",
+      });
     }
+
+    return true;
   },
 
   examples: [
     [
       {
-        name: 'user',
-        content: {
-          text: "I'm done with this session",
-        },
+        user: "{{user1}}",
+        content: { text: "End session sess_abc123" },
       },
       {
-        name: 'assistant',
+        user: "{{agentName}}",
         content: {
-          text: 'I will end the tutoring session and generate your summary report.',
+          text: "Session sess_abc123 ended. Your report is being generated.",
+          action: "END_SESSION",
         },
       },
     ],
     [
       {
-        name: 'user',
-        content: {
-          text: 'End this learning session',
-        },
+        user: "{{user1}}",
+        content: { text: "I'm done with this session" },
       },
       {
-        name: 'assistant',
+        user: "{{agentName}}",
         content: {
-          text: 'Ending your session now. You can retrieve the summary report afterwards.',
+          text: "Session ended. Your summary report will be available shortly.",
+          action: "END_SESSION",
         },
       },
     ],
   ],
 };
-
-export { endSessionAction };
-export default endSessionAction;

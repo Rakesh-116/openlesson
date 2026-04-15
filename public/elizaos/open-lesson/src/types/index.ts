@@ -1,4 +1,6 @@
-export interface LearningPlanNode {
+// ── Plan types ──────────────────────────────────────────────────────────────
+
+export interface PlanNode {
   id: string;
   title: string;
   description: string;
@@ -7,77 +9,107 @@ export interface LearningPlanNode {
   status: string;
 }
 
-export interface LearningPlanResponse {
-  planId: string;
+export interface CreatePlanResponse {
+  plan_id: string;
   topic: string;
-  days: number;
-  nodes: LearningPlanNode[];
+  duration_days: number;
+  nodes: PlanNode[];
 }
 
-export interface SessionStartResponse {
-  sessionId: string;
-  problem: string;
-  nodeTitle?: string;
-  planId?: string;
-  status: string;
-  instructions?: {
-    audioFormat: string;
-    submitEndpoint: string;
-    maxChunkDuration: number;
-  };
+export interface AdaptPlanResponse {
+  plan_id: string;
+  instruction: string;
+  nodes: PlanNode[];
 }
 
-export interface AudioAnalysisResponse {
-  sessionId: string;
-  gapScore: number;
-  signals: string[];
-  transcript?: string;
-  followUpQuestion: string;
-  requiresFollowUp: boolean;
-}
-
-export interface SessionEndResponse {
-  success: boolean;
-  sessionId: string;
-  message: string;
-  chunkCount: number;
-  wordCount: number;
-}
-
-export interface SessionSummaryResponse {
-  ready: boolean;
-  sessionId: string;
-  report?: string;
-  createdAt?: string;
-  status: string;
-  message?: string;
-}
-
-export interface PluginConfig {
-  apiKey: string;
-  baseUrl: string;
-}
-
-export interface GenerateLearningPlanParams {
+export interface CreatePlanFromVideoResponse {
+  plan_id: string;
+  youtube_url: string;
   topic: string;
-  days?: number;
+  duration_days: number;
+  nodes: PlanNode[];
 }
 
-export interface StartSessionParams {
-  problem: string;
+// ── Session types ───────────────────────────────────────────────────────────
+
+export interface StartSessionResponse {
+  session_id: string;
+  topic: string;
+  plan_id?: string;
   plan_node_id?: string;
+  status: string;
 }
 
-export interface AnalyzeAudioParams {
+export interface PauseSessionResponse {
   session_id: string;
-  audio_base64: string;
-  audio_format: 'webm' | 'mp4' | 'ogg';
+  status: string;
+  message: string;
 }
 
-export interface EndSessionParams {
+export interface ResumeSessionResponse {
+  session_id: string;
+  status: string;
+  message: string;
+}
+
+export interface EndSessionResponse {
+  session_id: string;
+  status: string;
+  message: string;
+}
+
+// ── Analysis / heartbeat types ──────────────────────────────────────────────
+
+export interface HeartbeatInput {
+  type: "audio" | "text" | "image";
+  content: string;
+  format?: string;
+}
+
+export interface Probe {
+  question: string;
+  reasoning: string;
+}
+
+export interface AnalyzeHeartbeatResponse {
+  session_id: string;
+  gap_score: number;
+  signals: string[];
+  probes: Probe[];
+  transcript?: string;
+  requires_follow_up: boolean;
+}
+
+// ── Ask assistant types ─────────────────────────────────────────────────────
+
+export interface AskAssistantResponse {
+  session_id: string;
+  answer: string;
+}
+
+// ── Proof types ─────────────────────────────────────────────────────────────
+
+export interface Proof {
+  hash: string;
+  timestamp: string;
   session_id: string;
 }
 
-export interface GetSessionSummaryParams {
+// ── Analytics types ─────────────────────────────────────────────────────────
+
+export interface SessionStat {
   session_id: string;
+  topic: string;
+  status: string;
+  started_at: string;
+  ended_at?: string;
+  heartbeat_count: number;
+  average_gap_score: number;
+}
+
+export interface AnalyticsResponse {
+  total_sessions: number;
+  total_plans: number;
+  average_gap_score: number;
+  sessions: SessionStat[];
 }

@@ -1,8 +1,8 @@
 # OpenLesson Agentic API v2 - Comprehensive Specification
 
 > **Version:** 2.0.0  
-> **Status:** Draft  
-> **Last Updated:** April 14, 2026  
+> **Status:** Implemented  
+> **Last Updated:** April 15, 2026  
 > **Authors:** OpenLesson Engineering
 
 ---
@@ -39,10 +39,9 @@ This specification defines a complete replacement for the existing `/api/agent/*
 ### 1.2 Goals
 
 1. **Full Flexibility**: Match the web interface capabilities exactly - multiple concurrent sessions, pause/resume, plan adaptation at any time
-2. **Reuse Everything**: Delegate to existing backend services without duplicating core tutoring logic
-3. **Verifiable Learning**: Cryptographic proofs anchored on Solana for trustless verification
-4. **Agent-First Design**: Optimized for AI agent consumption, not human UI
-5. **Security**: Scoped API keys with Pro tier enforcement
+2. **Verifiable Learning**: Cryptographic proofs anchored on Solana for trustless verification
+3. **Agent-First Design**: Optimized for AI agent consumption, not human UI
+4. **Security**: Scoped API keys with Pro tier enforcement
 
 ### 1.3 Key Differences from Current API (v1)
 
@@ -57,7 +56,7 @@ This specification defines a complete replacement for the existing `/api/agent/*
 | Teaching assistant | Not integrated | Full integration with conversation history |
 | Proofs | None | Cryptographic proofs + Solana anchoring |
 | Analytics | Basic summary | Full analytics endpoints |
-| Payment | x402 (disabled) | Bundled with Pro tier |
+| Payment | Per-request | Bundled with Pro tier |
 
 ### 1.4 Target Integrations
 
@@ -72,11 +71,10 @@ This specification defines a complete replacement for the existing `/api/agent/*
 
 ### 2.1 Design Principles
 
-1. **Reuse Everything**: All endpoints delegate to existing services (`lib/openrouter.ts`, `lib/storage.ts`, etc.)
-2. **Full Flexibility**: Match the web interface capabilities exactly
-3. **Stateless API**: Each request is independent; state lives in the database
-4. **Verifiable**: Every significant action generates cryptographic proofs
-5. **Agent-First**: Designed for AI agent consumption, not human UI
+1. **Full Flexibility**: Match the web interface capabilities exactly
+2. **Stateless API**: Each request is independent; state lives in the database
+3. **Verifiable**: Every significant action generates cryptographic proofs
+4. **Agent-First**: Designed for AI agent consumption, not human UI
 
 ### 2.2 System Architecture
 
@@ -294,7 +292,6 @@ X-RateLimit-Reset: 1713052800
 | `PATCH /plans/{id}` | `plans:write` |
 | `DELETE /plans/{id}` | `plans:write` |
 | `POST /plans/{id}/adapt` | `plans:write` |
-| `POST /plans/{id}/assess` | `plans:read` |
 | `GET /sessions` | `sessions:read` |
 | `POST /sessions` | `sessions:write` |
 | `POST /sessions/{id}/analyze` | `analysis:write` |
@@ -320,8 +317,6 @@ X-RateLimit-Reset: 1713052800
 | `/api/v2/agent/plans/{id}` | DELETE | `plans:write` | Delete plan |
 | `/api/v2/agent/plans/{id}/nodes` | GET | `plans:read` | Get plan nodes |
 | `/api/v2/agent/plans/{id}/adapt` | POST | `plans:write` | AI-powered adaptation |
-| `/api/v2/agent/plans/{id}/expand` | POST | `plans:write` | Expand a node |
-| `/api/v2/agent/plans/{id}/assess` | POST | `plans:read` | Assess user level |
 | `/api/v2/agent/plans/from-video` | POST | `plans:write` | Create from YouTube |
 
 ### 4.2 List Learning Plans
@@ -695,109 +690,6 @@ Dynamically modify a plan based on user feedback or progress. This is the AI-pow
 - Generates delta proof linking to previous plan state
 - Recalculates graph layout positions
 
-### 4.10 Expand Plan Node
-
-**POST `/api/v2/agent/plans/{id}/expand`**
-
-Add sub-sessions to a specific node for deeper exploration.
-
-**Request:**
-
-```json
-{
-  "node_id": "node-3",
-  "expansion_focus": "more practice problems",
-  "num_sessions": 3
-}
-```
-
-**Response:**
-
-```json
-{
-  "expanded_node": {
-    "id": "node-3",
-    "title": "Grover's Algorithm"
-  },
-  "new_nodes": [
-    {
-      "id": "node-11",
-      "title": "Grover's Algorithm: Oracle Design",
-      "description": "Practice designing oracle circuits"
-    },
-    {
-      "id": "node-12", 
-      "title": "Grover's Algorithm: Multi-Solution Search",
-      "description": "Handling multiple marked states"
-    }
-  ],
-  "proof": {
-    "id": "proof-004",
-    "type": "plan_adapted",
-    "fingerprint": "sha256:..."
-  }
-}
-```
-
-### 4.11 Assess User Level
-
-**POST `/api/v2/agent/plans/{id}/assess`**
-
-Assess the user's current level for a learning plan topic to calibrate difficulty.
-
-**Request:**
-
-```json
-{
-  "assessment_type": "conversation",
-  "user_responses": [
-    {
-      "question": "What is a quantum gate?",
-      "answer": "It's like a logic gate but for qubits. I know about Hadamard and CNOT gates."
-    },
-    {
-      "question": "Can you explain superposition?",
-      "answer": "A qubit can be 0 and 1 at the same time until measured."
-    }
-  ]
-}
-```
-
-**Response:**
-
-```json
-{
-  "assessment": {
-    "overall_level": "beginner-intermediate",
-    "confidence": 0.85,
-    "strengths": [
-      "Basic gate understanding",
-      "Conceptual grasp of superposition"
-    ],
-    "gaps": [
-      "Mathematical formalism (Dirac notation)",
-      "Entanglement details",
-      "Quantum algorithms"
-    ],
-    "recommended_start_node": "node-2",
-    "recommended_adaptations": [
-      "Add foundational linear algebra refresher",
-      "Reduce math notation, focus on intuition first"
-    ]
-  },
-  "plan_updated": true,
-  "changes_made": [
-    "Inserted 'Linear Algebra Refresher' node before node-2",
-    "Reduced math depth in nodes 3-5"
-  ],
-  "proof": {
-    "id": "proof-005",
-    "type": "assessment_completed",
-    "fingerprint": "sha256:ghi789..."
-  }
-}
-```
-
 ---
 
 ## 5. Session Management
@@ -861,7 +753,20 @@ Query parameters:
 
 Start a new tutoring session, optionally linked to a learning plan node.
 
-**Request:**
+**Request (standalone session, no plan):**
+
+```json
+{
+  "topic": "Understanding Grover's Algorithm",
+  "tutoring_language": "en",
+  "metadata": {
+    "user_timezone": "America/New_York",
+    "preferred_probe_frequency": "balanced"
+  }
+}
+```
+
+**Request (session linked to a plan):**
 
 ```json
 {
@@ -881,8 +786,8 @@ Start a new tutoring session, optionally linked to a learning plan node.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `topic` | string | Yes | Session topic/problem to work on |
-| `plan_id` | string | No | Associated learning plan ID |
-| `plan_node_id` | string | No | Specific plan node to work on |
+| `plan_id` | string | No | Associated learning plan ID (session can exist without a plan) |
+| `plan_node_id` | string | No | Specific plan node to work on (requires `plan_id`) |
 | `tutoring_language` | string | No | Language code (default: "en") |
 | `metadata` | object | No | Additional session configuration |
 
@@ -894,9 +799,9 @@ Start a new tutoring session, optionally linked to a learning plan node.
     "id": "sess-001",
     "topic": "Understanding Grover's Algorithm",
     "status": "active",
-    "plan_id": "550e8400-...",
-    "plan_node_id": "node-3",
-    "plan_node_title": "Grover's Search Algorithm",
+    "plan_id": null,
+    "plan_node_id": null,
+    "plan_node_title": null,
     "started_at": "2026-04-14T14:00:00Z",
     "tutoring_language": "en"
   },
@@ -1191,11 +1096,7 @@ Restarts the session from the beginning. Clears progress but preserves the sessi
     "transcript_word_count": 1847,
     "speaking_time_seconds": 890
   },
-  "plan_updates": {
-    "node_status_updated": true,
-    "plan_node_id": "node-3",
-    "new_node_status": "completed"
-  },
+  "plan_updates": null,
   "proof": {
     "id": "proof-010",
     "type": "session_ended",
@@ -1208,6 +1109,9 @@ Restarts the session from the beginning. Clears progress but preserves the sessi
   }
 }
 ```
+
+**Notes:**
+- `plan_updates` is `null` when the session is not linked to a plan. When linked, it contains `{ "node_status_updated": true, "plan_node_id": "node-3", "new_node_status": "completed" }`.
 
 **Implementation Notes:**
 - Generates report via `generateReport()` from existing logic
@@ -1535,7 +1439,6 @@ Required scope: `assistant:read`
   "response": {
     "id": "msg-005",
     "content": "Think about what happens when you apply a controlled gate where the control qubit is in superposition. The target qubit's eigenvalue 'kicks back' to affect the control qubit's phase.\n\nLook at your diagram - what happens to the control qubit when the target is already in an eigenstate of the gate?",
-    "approach": "Socratic guidance without direct answer",
     "suggested_follow_up": "Ask student to trace through a specific example"
   },
   "conversation": {
@@ -1832,7 +1735,6 @@ Every significant action generates a cryptographic fingerprint that provides:
 |------------|----------------|-----------|
 | Plan created | Individual proof | Immediate anchor |
 | Plan adapted | Individual proof | Immediate anchor |
-| Assessment completed | Individual proof | Immediate anchor |
 | Session started | Individual proof | Immediate anchor |
 | Session paused | Individual proof | Immediate anchor |
 | Session resumed | Individual proof | Immediate anchor |
@@ -1871,7 +1773,6 @@ interface Proof {
 type ProofType = 
   | 'plan_created'
   | 'plan_adapted'
-  | 'assessment_completed'
   | 'session_started'
   | 'session_paused'
   | 'session_resumed'
@@ -2043,8 +1944,7 @@ Manually trigger anchoring of a proof that hasn't been automatically anchored.
     "tx_signature": "5xYzDef456...",
     "slot": 245678950,
     "timestamp": "2026-04-14T15:01:00Z",
-    "explorer_url": "https://explorer.solana.com/tx/5xYzDef456...",
-    "cost_lamports": 5000
+    "explorer_url": "https://explorer.solana.com/tx/5xYzDef456..."
   }
 }
 ```
@@ -2247,17 +2147,7 @@ pub enum ErrorCode {
 }
 ```
 
-### 10.8 Cost Estimates
-
-| Operation | Account Rent | Transaction Fee | Total |
-|-----------|--------------|-----------------|-------|
-| Initialize User | ~0.002 SOL | ~0.000005 SOL | ~0.002 SOL |
-| Anchor Proof | ~0.003 SOL | ~0.000005 SOL | ~0.003 SOL |
-| Anchor Batch | ~0.003 SOL | ~0.000005 SOL | ~0.003 SOL |
-
-At $150/SOL, each anchor costs approximately $0.45.
-
-### 10.9 Custodial Wallet System
+### 10.8 Custodial Wallet System
 
 OpenLesson manages custodial wallets for users:
 
@@ -2279,7 +2169,7 @@ interface UserSolanaWallet {
 - Private keys encrypted with AES-256-GCM before storage
 - OpenLesson's fee payer wallet covers all transaction costs
 
-### 10.10 Fee Payer Architecture
+### 10.9 Fee Payer Architecture
 
 OpenLesson maintains a fee payer wallet that covers all Solana transaction costs:
 
@@ -2430,7 +2320,7 @@ CREATE TABLE agent_proofs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   type TEXT NOT NULL CHECK (type IN (
-    'plan_created', 'plan_adapted', 'assessment_completed',
+    'plan_created', 'plan_adapted',
     'session_started', 'session_paused', 'session_resumed', 
     'session_ended', 'analysis_heartbeat', 'assistant_query', 
     'session_batch'
@@ -2588,9 +2478,7 @@ CREATE POLICY "Users can view own conversations"
 │   └── [id]/
 │       ├── route.ts          # GET, PATCH, DELETE /plans/{id}
 │       ├── nodes/route.ts    # GET /plans/{id}/nodes
-│       ├── adapt/route.ts    # POST /plans/{id}/adapt
-│       ├── expand/route.ts   # POST /plans/{id}/expand
-│       └── assess/route.ts   # POST /plans/{id}/assess
+│       └── adapt/route.ts    # POST /plans/{id}/adapt
 ├── sessions/
 │   ├── route.ts              # GET, POST /sessions
 │   └── [id]/
@@ -2689,9 +2577,8 @@ genuine learning through the Socratic method.
 
 1. Understand the user's learning goal
 2. Create a learning plan: `POST /api/v2/agent/plans`
-3. If needed, assess their level: `POST /api/v2/agent/plans/{id}/assess`
-4. Present the plan and get approval
-5. Start a session: `POST /api/v2/agent/sessions`
+3. Present the plan and get approval
+4. Start a session: `POST /api/v2/agent/sessions`
 
 ### During a Session
 
@@ -2785,22 +2672,9 @@ AGENT: I've created a 30-day learning path called "Quantum Algorithms Mastery
 
 USER: Actually, I already understand superposition pretty well. Can we skip that?
 
-[AGENT calls POST /api/v2/agent/plans/{id}/assess]
-{
-  "assessment_type": "conversation",
-  "user_responses": [
-    { "question": "What is superposition?", "answer": "A qubit can be 0 and 1 simultaneously" },
-    { "question": "What's the math notation?", "answer": "Um, I'm not sure about Dirac notation" }
-  ]
-}
-
-AGENT: Based on our quick assessment, you have solid intuition about superposition 
-      but could use practice with the math notation. I'll adapt the plan - we'll 
-      do a quick 15-minute notation review then jump to quantum gates. Sound good?
-
 [AGENT calls POST /api/v2/agent/plans/{id}/adapt]
 {
-  "instruction": "User knows superposition conceptually but needs notation practice. Add brief Dirac notation session, then proceed to gates.",
+  "instruction": "User already understands superposition conceptually. Skip the introductory session and proceed to quantum gates.",
   "preserve_completed": true
 }
 
@@ -2808,12 +2682,12 @@ USER: Perfect, let's start.
 
 [AGENT calls POST /api/v2/agent/sessions]
 {
-  "topic": "Dirac Notation Quick Review",
+  "topic": "Quantum Gates and Circuits",
   "plan_id": "...",
-  "plan_node_id": "node-1-revised"
+  "plan_node_id": "node-2"
 }
 
-AGENT: Great! We're starting "Dirac Notation Quick Review." Here's your first 
+AGENT: Great! We're starting "Quantum Gates and Circuits." Here's your first 
       thinking prompt:
       
       "When we write |0⟩ + |1⟩, that's not a valid quantum state. What's missing, 
@@ -3179,14 +3053,13 @@ X-RateLimit-Reset: 1713052800
 |------|-------|-------------|
 | `plan_created` | 0 | Learning plan created |
 | `plan_adapted` | 1 | Learning plan modified |
-| `assessment_completed` | 2 | User assessment completed |
-| `session_started` | 3 | Tutoring session started |
-| `session_paused` | 4 | Session paused |
-| `session_resumed` | 5 | Session resumed |
-| `session_ended` | 6 | Session ended |
-| `analysis_heartbeat` | 7 | Analysis chunk processed |
-| `assistant_query` | 8 | Teaching assistant queried |
-| `session_batch` | 9 | Session batch (Merkle root) |
+| `session_started` | 2 | Tutoring session started |
+| `session_paused` | 3 | Session paused |
+| `session_resumed` | 4 | Session resumed |
+| `session_ended` | 5 | Session ended |
+| `analysis_heartbeat` | 6 | Analysis chunk processed |
+| `assistant_query` | 7 | Teaching assistant queried |
+| `session_batch` | 8 | Session batch (Merkle root) |
 
 ---
 
