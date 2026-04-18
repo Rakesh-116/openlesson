@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { type Probe, type SessionPlan, type RequestType } from "@/lib/storage";
+import { useEffect, useMemo, useState } from "react";
+import { type Probe, type SessionPlan } from "@/lib/storage";
 import { useI18n } from "@/lib/i18n";
+
+const MAX_PROBES = 5;
 
 interface MobileProbesTabProps {
   probes: Probe[];
@@ -11,219 +13,183 @@ interface MobileProbesTabProps {
   onToggleFocus?: (probeId: string, focused: boolean) => void;
   archivingProbeId?: string | null;
   isGeneratingProbe?: boolean;
-}
-
-// Type badge styling based on request type
-function getTypeBadgeStyles(type: RequestType): { bg: string; text: string; border: string } {
-  switch (type) {
-    case "question":
-      return { bg: "bg-blue-500/15", text: "text-blue-400", border: "border-blue-500/20" };
-    case "task":
-      return { bg: "bg-purple-500/15", text: "text-purple-400", border: "border-purple-500/20" };
-    case "suggestion":
-      return { bg: "bg-green-500/15", text: "text-green-400", border: "border-green-500/20" };
-    case "checkpoint":
-      return { bg: "bg-amber-500/15", text: "text-amber-400", border: "border-amber-500/20" };
-    case "feedback":
-      return { bg: "bg-cyan-500/15", text: "text-cyan-400", border: "border-cyan-500/20" };
-    default:
-      return { bg: "bg-neutral-500/15", text: "text-neutral-400", border: "border-neutral-500/20" };
-  }
+  tutorName?: string;
 }
 
 export function MobileProbesTab({
   probes,
-  sessionPlan,
   onArchiveProbe,
-  onToggleFocus,
   archivingProbeId,
   isGeneratingProbe = false,
+  tutorName,
 }: MobileProbesTabProps) {
   const { t } = useI18n();
-  const [viewMode, setViewMode] = useState<"active" | "archived">("active");
-  const [expandedProbeId, setExpandedProbeId] = useState<string | null>(null);
 
   const activeProbes = useMemo(() => probes.filter(p => !p.archived), [probes]);
-  const archivedProbes = useMemo(() => probes.filter(p => p.archived), [probes]);
 
-  const displayedProbes = viewMode === "active" ? activeProbes : archivedProbes;
+  const [currentIndex, setCurrentIndex] = useState(0);
 
-  const formatTimestamp = (timestamp: number) => {
-    const totalSeconds = Math.floor(timestamp / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-  };
+  // Keep index in bounds when list changes
+  useEffect(() => {
+    if (currentIndex >= activeProbes.length && activeProbes.length > 0) {
+      setCurrentIndex(activeProbes.length - 1);
+    } else if (activeProbes.length === 0) {
+      setCurrentIndex(0);
+    }
+  }, [activeProbes.length, currentIndex]);
 
-  const handleProbeClick = (probeId: string) => {
-    setExpandedProbeId(expandedProbeId === probeId ? null : probeId);
-  };
+  const displayTutorName = tutorName || t('probes.tutor');
+  const currentProbe = activeProbes[currentIndex];
+  const total = Math.max(activeProbes.length, 1);
+  const canGoPrev = currentIndex > 0;
+  const canGoNext = currentIndex < activeProbes.length - 1;
+
+  const goPrev = () => setCurrentIndex(i => Math.max(0, i - 1));
+  const goNext = () => setCurrentIndex(i => Math.min(activeProbes.length - 1, i + 1));
+
+  const avatarInitial = displayTutorName.charAt(0).toUpperCase();
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0a0a]">
-      {/* Toggle tabs */}
-      <div className="shrink-0 px-4 pt-3 pb-3">
-        <div className="flex rounded-lg overflow-hidden border border-neutral-800 bg-neutral-900/50">
-          <button
-            onClick={() => setViewMode("active")}
-            className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
-              viewMode === "active"
-                ? "bg-cyan-500/20 text-cyan-400"
-                : "text-neutral-500 hover:text-neutral-400"
-            }`}
-          >
-            {t('probes.activeCount', { count: activeProbes.length })}
-          </button>
-          <button
-            onClick={() => setViewMode("archived")}
-            className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
-              viewMode === "archived"
-                ? "bg-cyan-500/20 text-cyan-400"
-                : "text-neutral-500 hover:text-neutral-400"
-            }`}
-          >
-            {t('probes.archivedCount', { count: archivedProbes.length })}
-          </button>
+    <div className="relative flex-1 min-w-0 flex flex-col bg-[#0a0a0a] h-full overflow-hidden">
+      {/* Position counter (top-right corner) */}
+      {activeProbes.length > 0 && (
+        <div className="absolute top-3 right-4 z-10 font-mono text-[10px] text-neutral-600 tabular-nums pointer-events-none">
+          {String(currentIndex + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}
         </div>
-      </div>
+      )}
 
-      {/* Probes list */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 space-y-3">
-        {displayedProbes.length === 0 ? (
-          isGeneratingProbe && viewMode === "active" ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <div className="w-7 h-7 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
-              <p className="text-neutral-500 text-sm">{t('probes.generatingProbe')}</p>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-neutral-800 flex items-center justify-center mb-4">
-                <svg className="w-8 h-8 text-neutral-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+      {/* Main message area */}
+      <div className="relative flex-1 min-h-0 flex flex-col px-4 py-4 overflow-hidden">
+        {!currentProbe ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center">
+            {/* Silent tutor avatar */}
+            <div className="relative">
+              <div className="w-28 h-28 rounded-full bg-gradient-to-br from-neutral-800 to-neutral-900 border border-neutral-800 flex items-center justify-center opacity-50">
+                <span className="text-3xl font-serif text-neutral-600">{avatarInitial}</span>
               </div>
-              <p className="text-neutral-500 text-sm">
-                {viewMode === "active" 
-                  ? t('probes.noActiveProbes') 
-                  : t('probes.noArchivedProbes')
-                }
-              </p>
-              <p className="text-neutral-600 text-xs mt-1">
-                {viewMode === "active" 
-                  ? t('probes.startSessionHint') 
-                  : t('probes.completedProbesHint')
-                }
-              </p>
             </div>
-          )
-        ) : (
-          displayedProbes.map((probe) => {
-            const planStep = probe.planStepId 
-              ? sessionPlan?.steps?.find(s => s.id === probe.planStepId)
-              : null;
-            const stepContext = planStep 
-              ? t('probes.stepContext', { order: planStep.order, description: planStep.description })
-              : t('probes.general');
-            
-            const requestType = probe.requestType || "question";
-            const typeBadge = getTypeBadgeStyles(requestType);
-            const isArchiving = archivingProbeId === probe.id;
-            const isExpanded = expandedProbeId === probe.id;
-
-            return (
-              <div
-                key={probe.id}
-                className={`
-                  relative rounded-xl transition-all duration-300
-                  ${probe.focused 
-                    ? "bg-amber-500/10 border-2 border-amber-500/30" 
-                    : "bg-neutral-900/70 border border-neutral-800"
-                  }
-                  ${isArchiving ? "opacity-50 scale-95" : ""}
-                `}
-              >
-                {/* Main content - clickable */}
-                <button
-                  onClick={() => handleProbeClick(probe.id)}
-                  className="w-full text-left p-4"
-                >
-                  {/* Header row */}
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    <span className="text-xs font-mono text-neutral-500">
-                      {formatTimestamp(probe.timestamp)}
-                    </span>
-                    <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${typeBadge.bg} ${typeBadge.text} border ${typeBadge.border}`}>
-                      {requestType}
-                    </span>
-                    {probe.focused && (
-                      <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                        {t('probes.focused')}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Probe text */}
-                  <p className={`text-sm text-neutral-200 leading-relaxed ${!isExpanded ? "line-clamp-2" : ""}`}>
-                    {probe.text}
-                  </p>
-
-                  {/* Step context - shown when expanded */}
-                  {isExpanded && (
-                    <div className="mt-3 pt-3 border-t border-neutral-800">
-                      <p className="text-[10px] text-neutral-500">
-                        {stepContext}
-                      </p>
-                    </div>
-                  )}
-                </button>
-
-                {/* Actions - shown when expanded and in active view */}
-                {isExpanded && viewMode === "active" && (
-                  <div className="px-4 pb-4 flex gap-2">
-                    <button
-                      onClick={() => onToggleFocus?.(probe.id, !probe.focused)}
-                      className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-colors ${
-                        probe.focused
-                          ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                          : "bg-neutral-800 text-neutral-400 border border-neutral-700 hover:bg-neutral-700"
-                      }`}
-                    >
-                      {probe.focused ? t('probes.unfocus') : t('probes.focus')}
-                    </button>
-                    <button
-                      onClick={() => onArchiveProbe?.(probe.id)}
-                      disabled={isArchiving}
-                      className="flex-1 py-2.5 rounded-lg text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 disabled:opacity-50 transition-colors"
-                    >
-                      {isArchiving ? (
-                        <span className="flex items-center justify-center gap-1.5">
-                          <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          {t('probes.archiving')}
-                        </span>
-                      ) : (
-                        <span className="flex items-center justify-center gap-1.5">
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                          {t('probes.markComplete')}
-                        </span>
-                      )}
-                    </button>
-                  </div>
-                )}
+            {isGeneratingProbe ? (
+              <div className="flex items-center gap-2">
+                <div className="w-3.5 h-3.5 border border-neutral-700 border-t-amber-500/70 rounded-full animate-spin" />
+                <span className="text-xs text-neutral-500">{t('probes.generatingProbe')}</span>
               </div>
-            );
-          })
-        )}
-        {/* Probe generation spinner at bottom of list */}
-        {isGeneratingProbe && viewMode === "active" && displayedProbes.length > 0 && (
-          <div className="flex items-center gap-2.5 p-3 rounded-xl bg-neutral-800/50 border border-neutral-700/30 animate-pulse">
-            <div className="w-4 h-4 border-2 border-neutral-600 border-t-cyan-500 rounded-full animate-spin shrink-0" />
-            <span className="text-xs text-neutral-500">{t('probes.generatingProbe')}</span>
+            ) : (
+              <p className="text-xs text-neutral-600 max-w-[240px]">
+                {t('probes.waitingForTutor')}
+              </p>
+            )}
           </div>
+        ) : (
+          <>
+            {/* Carousel nav arrows - left */}
+            {canGoPrev && (
+              <button
+                onClick={goPrev}
+                className="absolute left-1 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-neutral-900/80 border border-neutral-800 text-neutral-400 active:bg-neutral-800 active:text-white backdrop-blur-sm transition-all flex items-center justify-center"
+                aria-label={t('probes.previous')}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+            {/* Carousel nav arrows - right */}
+            {canGoNext && (
+              <button
+                onClick={goNext}
+                className="absolute right-1 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-neutral-900/80 border border-neutral-800 text-neutral-400 active:bg-neutral-800 active:text-white backdrop-blur-sm transition-all flex items-center justify-center"
+                aria-label={t('probes.next')}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+
+            {/* Tutor + message group — centered vertically in available space */}
+            <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-5 overflow-y-auto">
+              {/* Avatar */}
+              <div className="shrink-0 flex flex-col items-center">
+                <div className="relative">
+                  <div className="w-28 h-28 rounded-full bg-gradient-to-br from-amber-500/15 via-neutral-800 to-neutral-900 border border-neutral-800 flex items-center justify-center overflow-hidden">
+                    <span className="text-3xl font-serif text-neutral-200">{avatarInitial}</span>
+                  </div>
+                  {/* Soft glow */}
+                  <div className="absolute inset-0 rounded-full shadow-[0_0_30px_rgba(245,158,11,0.08)] pointer-events-none" />
+                </div>
+                <div className="mt-2">
+                  <span className="text-sm font-medium text-neutral-200">{displayTutorName}</span>
+                </div>
+              </div>
+
+              {/* The message */}
+              <div className="relative max-w-[52ch] px-2">
+                <span
+                  className="absolute -top-4 -left-1 text-5xl font-serif text-neutral-800 select-none pointer-events-none leading-none"
+                  aria-hidden="true"
+                >
+                  &ldquo;
+                </span>
+                <p className="relative text-xl leading-relaxed tracking-tight text-center text-neutral-200">
+                  {currentProbe.text}
+                </p>
+              </div>
+            </div>
+
+            {/* Action row */}
+            <div className="shrink-0 pt-4">
+              <button
+                onClick={() => onArchiveProbe?.(currentProbe.id)}
+                disabled={archivingProbeId === currentProbe.id}
+                className="w-full py-3.5 px-4 text-sm font-medium rounded-xl bg-neutral-100 text-neutral-900 active:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              >
+                {archivingProbeId === currentProbe.id ? (
+                  <svg className="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+                <span>{t('probes.done')}</span>
+              </button>
+
+              {/* Carousel dots */}
+              {activeProbes.length > 1 && (
+                <div className="flex items-center justify-center gap-1.5 mt-3">
+                  {activeProbes.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCurrentIndex(i)}
+                      className={`h-1.5 rounded-full transition-all ${
+                        i === currentIndex
+                          ? "w-5 bg-neutral-300"
+                          : "w-1.5 bg-neutral-700 active:bg-neutral-600"
+                      }`}
+                      aria-label={`${t('probes.goToProbe')} ${i + 1}`}
+                    />
+                  ))}
+                  {/* Placeholder dots for remaining empty slots */}
+                  {Array.from({ length: Math.max(0, MAX_PROBES - activeProbes.length) }).map((_, i) => (
+                    <div
+                      key={`ph-${i}`}
+                      className="h-1.5 w-1.5 rounded-full bg-neutral-900 border border-neutral-800"
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Generating indicator */}
+              {isGeneratingProbe && (
+                <div className="flex items-center justify-center gap-2 mt-2">
+                  <div className="w-2 h-2 rounded-full bg-amber-500/70 animate-pulse" />
+                  <span className="text-[10px] text-neutral-500">{t('probes.generatingProbe')}</span>
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
     </div>

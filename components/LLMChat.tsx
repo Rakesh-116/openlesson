@@ -265,22 +265,22 @@ export function LLMChat({ problem, messages: externalMessages, onMessagesChange,
         </>
       )}
 
-      <form onSubmit={handleSubmit} className="p-3 bg-[#0a0a0a]">
-        <div className="flex gap-2 items-end">
+      <form onSubmit={handleSubmit} className="px-4 py-4 bg-[#0a0a0a]">
+        <div className="flex gap-2 items-stretch">
           <textarea
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={t('llmChat.placeholder')}
-            className="flex-1 bg-neutral-900 border border-neutral-700 rounded-2xl px-4 py-3 text-sm text-white placeholder-neutral-500 resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+            className="flex-1 bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-sm text-white placeholder-neutral-500 resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
             rows={1}
             disabled={isLoading}
           />
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="px-4 py-2.5 border border-cyan-500/50 hover:bg-cyan-500/10 disabled:opacity-50 disabled:cursor-not-allowed text-cyan-400 rounded-xl transition-colors"
+            className="px-4 py-3 border border-cyan-500/50 hover:bg-cyan-500/10 disabled:opacity-50 disabled:cursor-not-allowed text-cyan-400 rounded-xl transition-colors flex items-center justify-center"
           >
             {isLoading ? (
               <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

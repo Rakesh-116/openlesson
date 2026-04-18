@@ -15,12 +15,9 @@ import {
   addProbeToSession,
   endSession,
   saveSession,
-  saveSessionAudio,
   saveSessionEEG,
   saveFacialData,
   saveAudioChunk,
-  toggleProbeStarred,
-  updateProbeRevealed,
   pauseSession,
   resumeSession,
   updateSessionStatus,
@@ -37,13 +34,10 @@ import {
   type ObserverMode,
   type Frequency,
   type ToolName,
-  type ToolAction,
   type RequestType,
 } from "@/lib/storage";
 import { playArchiveSound, playStepCompleteSound, playSessionCompleteSound } from "@/lib/sounds";
 import { formatTime } from "@/lib/utils";
-import { AudioVisualizer, RecordingIndicator } from "./AudioVisualizer";
-import { ActiveProbe } from "./ActiveProbe";
 import { ProbesPanel } from "./ProbesPanel";
 import { SessionControlBar } from "./SessionControlBar";
 import { SessionPlanViewer } from "./SessionPlanViewer";
@@ -138,18 +132,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     topic?: string;
   }>>([]);
   const [selectedChunks, setSelectedChunks] = useState<Set<string>>(new Set());
-  const [showRagChunks, setShowRagChunks] = useState(false);
 
   // Prep material cards
   const [prepCards, setPrepCards] = useState<Array<{ id: string; title: string; content: string }>>([]);
   const [prepLoading, setPrepLoading] = useState<string | null>(null);
 
   // Whiteboard
-  const [showWhiteboard, setShowWhiteboard] = useState(false);
   const [whiteboardData, setWhiteboardData] = useState<string | null>(null);
 
   // Notebook
-  const [showNotebook, setShowNotebook] = useState(false);
   const [notebookContent, setNotebookContent] = useState("");
 
 
@@ -168,9 +159,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   // Archive/Focus probe state
   const [archivingProbeId, setArchivingProbeId] = useState<string | null>(null);
-  
-  // Celebration state for step completion
-  const [isCelebrating, setIsCelebrating] = useState(false);
   
   // Plan complete modal (shown when all steps are done)
   const [showPlanCompleteModal, setShowPlanCompleteModal] = useState(false);
@@ -373,7 +361,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const lastProbeTimeRef = useRef(0);
   const isAnalyzingRef = useRef(false);
   const muteTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const probeContainerRef = useRef<HTMLDivElement | null>(null);
   const chunkIndexRef = useRef(0);
   const eegChunkIndexRef = useRef(0);
   const facialChunkIndexRef = useRef(0);
@@ -671,13 +658,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       window.removeEventListener("probe-star-toggled", handleProbeStarToggled);
     };
   }, []);
-
-  // Scroll probe into view when it changes
-  useEffect(() => {
-    if (activeProbe && probeContainerRef.current) {
-      probeContainerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [activeProbe?.id]);
 
   // Load session on mount from Supabase + fire opening probe early
   useEffect(() => {
@@ -1134,19 +1114,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           }
           
           if (isPlanComplete) {
-            setIsCelebrating(true);
             playSessionCompleteSound();
             setTimeout(() => {
-              setIsCelebrating(false);
               setShowPlanCompleteModal(true);
               if (isRecording && !isPaused) {
                 setIsPaused(true);
               }
             }, 1500);
           } else {
-            setIsCelebrating(true);
             playStepCompleteSound();
-            setTimeout(() => setIsCelebrating(false), 1500);
           }
         } else if (planData.probesToArchive && planData.probesToArchive.length > 0) {
           let updatedSession = currentSession;
@@ -1690,45 +1666,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     }
   };
 
-  // Probe navigation
-  const probeCount = session?.probes.length ?? 0;
-  const canGoPrev = viewingProbeIndex > 0;
-  const canGoNext = viewingProbeIndex < probeCount - 1;
-
-  const handlePrevProbe = () => {
-    if (!session || viewingProbeIndex <= 0) return;
-    const newIdx = viewingProbeIndex - 1;
-    setViewingProbeIndex(newIdx);
-    setActiveProbe(session.probes[newIdx]);
-  };
-
-  const handleNextProbe = () => {
-    if (!session || viewingProbeIndex >= session.probes.length - 1) return;
-    const newIdx = viewingProbeIndex + 1;
-    setViewingProbeIndex(newIdx);
-    setActiveProbe(session.probes[newIdx]);
-  };
-
-  const handleToggleStar = async (probeId: string, starred: boolean) => {
-    if (!session) return;
-
-    // Update local state immediately
-    const updatedProbes = session.probes.map((p) =>
-      p.id === probeId ? { ...p, starred } : p
-    );
-    const updatedSession = { ...session, probes: updatedProbes };
-    setSession(updatedSession);
-    sessionRef.current = updatedSession;
-
-    // Update the active probe if it's the one being starred
-    if (activeProbe?.id === probeId) {
-      setActiveProbe({ ...activeProbe, starred });
-    }
-
-    // Persist to DB (non-blocking)
-    toggleProbeStarred(probeId, starred).catch(() => {});
-  };
-
   const handleConfirmEnd = async () => {
     setShowEndDialog(false);
     if (session) {
@@ -1785,18 +1722,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
       if (isLastStep) {
         // All steps done
-        setIsCelebrating(true);
         playSessionCompleteSound();
         setTimeout(() => {
-          setIsCelebrating(false);
           setShowPlanCompleteModal(true);
           if (isRecording && !isPaused) setIsPaused(true);
         }, 1500);
       } else {
         // Step completed, generate local probe for next step
-        setIsCelebrating(true);
         playStepCompleteSound();
-        setTimeout(() => setIsCelebrating(false), 1500);
 
         const newStep = updatedPlan.steps[updatedPlan.currentStepIndex];
         if (newStep) {
@@ -1941,21 +1874,17 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       
       if (allComplete) {
         // Plan fully complete - celebrate and show modal
-        setIsCelebrating(true);
         playSessionCompleteSound();
         setTimeout(() => {
-          setIsCelebrating(false);
           setShowPlanCompleteModal(true);
           if (isRecording && !isPaused) {
             setIsPaused(true);
           }
         }, 1500);
       } else {
-        // Regular step completion - celebrate and generate probe for next step
-        setIsCelebrating(true);
+        // Regular step completion - generate probe for next step
         playStepCompleteSound();
-        setTimeout(() => setIsCelebrating(false), 1500);
-        
+
         // Immediately generate a probe for the new step
         const newStep = updatedPlan.steps?.[updatedPlan.currentStepIndex];
         if (newStep) {
@@ -2235,8 +2164,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   if (isMobile && sessionId) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0a] px-6 text-center gap-5">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
-          <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-neutral-800 to-neutral-900 border border-neutral-800 flex items-center justify-center">
+          <svg className="w-7 h-7 text-neutral-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
           </svg>
         </div>
@@ -2246,7 +2175,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         </div>
         <a
           href={`/session/mobile/${sessionId}`}
-          className="px-6 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-black text-sm font-medium rounded-lg transition-colors"
+          className="px-6 py-2.5 bg-neutral-100 hover:bg-white text-neutral-900 text-sm font-medium rounded-xl transition-colors"
         >
           {t('session.openMobileView')}
         </a>
@@ -2263,7 +2192,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   if (!session || isSaving) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0a] gap-4">
-        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-2 border-neutral-800 border-t-neutral-300 rounded-full" />
         {isSaving && (
           <p className="text-sm text-neutral-500 animate-pulse">{t('session.savingSession')}</p>
         )}
@@ -2274,49 +2203,38 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   return (
     <div className="h-screen flex bg-[#0a0a0a] overflow-hidden">
       {showWelcomeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative z-10 w-[90vw] max-w-lg p-6 bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl">
-            {/* Tutorial banner - hidden for now
-            {showTutorialBanner && (
-              <div className="mb-4 p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 relative">
-                <button
-                  onClick={() => {
-                    setShowTutorialBanner(false);
-                    localStorage.setItem("tutorial-banner-dismissed", "true");
-                  }}
-                  className="absolute top-2 right-2 text-neutral-500 hover:text-neutral-300 transition-colors"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-                <p className="text-xs text-cyan-300 font-medium mb-1">{t('session.tutorialBannerTitle')}</p>
-                <p className="text-[11px] text-neutral-400 mb-2.5 pr-4">{t('session.tutorialBannerDesc')}</p>
-                <button
-                  onClick={() => {
-                    // TODO: navigate to simple tutorial
-                  }}
-                  className="px-3 py-1.5 text-xs font-medium rounded-md bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30 transition-colors"
-                >
-                  {t('session.trySimpleTutorial')}
-                </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
+          <div className="relative z-10 w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden">
+            {/* Header with tutor-style avatar */}
+            <div className="px-6 pt-6 pb-5 border-b border-neutral-800/70">
+              <div className="flex items-center gap-3">
+                <div className="relative shrink-0">
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber-500/15 via-neutral-800 to-neutral-900 border border-neutral-800 flex items-center justify-center overflow-hidden">
+                    <span className="text-lg font-serif text-neutral-200">T</span>
+                  </div>
+                  <div className="absolute inset-0 rounded-full shadow-[0_0_20px_rgba(245,158,11,0.08)] pointer-events-none" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <h2 className="text-base font-semibold text-white leading-tight">{t('session.welcomeTitle')}</h2>
+                  <p className="text-[12px] text-neutral-500 leading-tight mt-0.5">{t('session.welcomeMessage')}</p>
+                </div>
               </div>
-            )}
-            */}
-            <h2 className="text-xl font-semibold text-white mb-4">{t('session.welcomeTitle')}</h2>
+            </div>
 
+            <div className="px-6 py-5">
             {(() => {
               const isSessionReady = sessionPlan && !planLoading && !openingProbeLoading && session?.probes && session.probes.length > 0;
-              
+
               // Phase 1: Language selection (before confirmation)
               if (!languageConfirmed) {
                 const isButtonDisabled = planLoading || isPreparing;
-                
+
                 return (
                   <>
+                    {/* Tutor language */}
                     <div className="mb-4">
-                      <label className="block text-xs text-neutral-400 mb-2">
+                      <label className="block text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-500 mb-2">
                         {t('session.tutorLanguage')}
                       </label>
                       <select
@@ -2326,7 +2244,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                           setTutoringLanguage(newLang);
                         }}
                         disabled={isButtonDisabled}
-                        className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:border-neutral-500 disabled:opacity-50"
+                        className="w-full px-3 py-2.5 bg-neutral-900 border border-neutral-800 rounded-xl text-white text-sm focus:outline-none focus:border-neutral-600 hover:border-neutral-700 disabled:opacity-50 transition-colors"
                       >
                         {tutoringLocales.map((loc) => (
                           <option key={loc} value={loc}>
@@ -2336,67 +2254,49 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                       </select>
                     </div>
 
-                    <div className={`mb-4 p-3 rounded-xl border transition-all ${autoAdvance ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
-                      <label className="flex items-center gap-3 cursor-pointer group">
-                        <div className="relative shrink-0">
-                          <input
-                            type="checkbox"
-                            checked={autoAdvance}
-                            onChange={(e) => setAutoAdvance(e.target.checked)}
-                            className="sr-only"
-                          />
-                          <div className={`w-10 h-5.5 rounded-full transition-colors ${autoAdvance ? 'bg-cyan-500' : 'bg-amber-500'}`}>
-                            <div className={`absolute top-0.5 w-4.5 h-4.5 rounded-full bg-white shadow transition-transform ${autoAdvance ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                          </div>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium leading-tight">
-                            <span className={autoAdvance ? 'text-cyan-400' : 'text-amber-400'}>
-                              {autoAdvance ? t('session.autoAdvanceOn') : t('session.manualMode')}
-                            </span>
-                          </span>
-                          <span className="text-xs text-neutral-500 leading-tight mt-0.5">
-                            {autoAdvance 
-                              ? t('session.aiDecidesMoveForward') 
-                              : t('session.youClickToAdvance')}
-                          </span>
-                        </div>
-                      </label>
-                    </div>
+                    {/* Auto-advance toggle (neutral style) */}
+                    <button
+                      type="button"
+                      onClick={() => !isButtonDisabled && setAutoAdvance(!autoAdvance)}
+                      disabled={isButtonDisabled}
+                      className="w-full mb-3 p-3 rounded-xl border bg-neutral-900 border-neutral-800 hover:bg-neutral-800/60 hover:border-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-3 text-left"
+                    >
+                      <div className="relative shrink-0 w-9 h-5 rounded-full bg-neutral-700">
+                        <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-neutral-100 shadow transition-transform ${autoAdvance ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-medium text-neutral-200 leading-tight">
+                          {autoAdvance ? t('session.autoAdvanceOn') : t('session.manualMode')}
+                        </span>
+                        <span className="text-[11px] text-neutral-500 leading-tight mt-0.5">
+                          {autoAdvance
+                            ? t('session.aiDecidesMoveForward')
+                            : t('session.youClickToAdvance')}
+                        </span>
+                      </div>
+                    </button>
 
-                    {/* Browser Inference Toggle */}
-                    <div className={`mb-4 p-3 rounded-xl border transition-all ${
-                      localInferenceEnabled 
-                        ? 'bg-purple-500/5 border-purple-500/20' 
-                        : 'bg-neutral-800/30 border-neutral-700/50'
-                    }`}>
-                      <label className={`flex items-center gap-3 ${webGPUAvailable ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'} group`}>
-                        <div className="relative shrink-0">
-                          <input
-                            type="checkbox"
-                            checked={localInferenceEnabled}
-                            onChange={(e) => setLocalInferenceEnabled(e.target.checked)}
-                            disabled={!webGPUAvailable}
-                            className="sr-only"
-                          />
-                          <div className={`w-10 h-5.5 rounded-full transition-colors ${localInferenceEnabled ? 'bg-purple-500' : 'bg-neutral-600'}`}>
-                            <div className={`absolute top-0.5 w-4.5 h-4.5 rounded-full bg-white shadow transition-transform ${localInferenceEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                          </div>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium leading-tight">
-                            <span className={localInferenceEnabled ? 'text-purple-400' : 'text-neutral-400'}>
-                              {localInferenceEnabled ? t('session.browserInferenceOn') : t('session.browserInference')}
-                            </span>
-                          </span>
-                          <span className="text-xs text-neutral-500 leading-tight mt-0.5">
-                            {!webGPUAvailable 
-                              ? t('session.webGPUNotAvailable')
-                              : t('session.browserInferenceDesc')}
-                          </span>
-                        </div>
-                      </label>
-                    </div>
+                    {/* Browser Inference Toggle (neutral style) */}
+                    <button
+                      type="button"
+                      onClick={() => webGPUAvailable && !isButtonDisabled && setLocalInferenceEnabled(!localInferenceEnabled)}
+                      disabled={!webGPUAvailable || isButtonDisabled}
+                      className="w-full mb-5 p-3 rounded-xl border bg-neutral-900 border-neutral-800 enabled:hover:bg-neutral-800/60 enabled:hover:border-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-3 text-left"
+                    >
+                      <div className="relative shrink-0 w-9 h-5 rounded-full bg-neutral-700">
+                        <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-neutral-100 shadow transition-transform ${localInferenceEnabled ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-medium text-neutral-200 leading-tight">
+                          {localInferenceEnabled ? t('session.browserInferenceOn') : t('session.browserInference')}
+                        </span>
+                        <span className="text-[11px] text-neutral-500 leading-tight mt-0.5">
+                          {!webGPUAvailable
+                            ? t('session.webGPUNotAvailable')
+                            : t('session.browserInferenceDesc')}
+                        </span>
+                      </div>
+                    </button>
 
                     <button
                       onClick={async () => {
@@ -2559,87 +2459,89 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         }
                       }}
                       disabled={isButtonDisabled}
-                      className={`w-full py-2.5 px-4 font-medium rounded-lg transition-colors ${
-                        localInferenceEnabled
-                          ? 'bg-purple-500 hover:bg-purple-400 text-white disabled:bg-neutral-700 disabled:text-neutral-500'
-                          : 'bg-cyan-500 hover:bg-cyan-400 text-neutral-900 disabled:bg-neutral-700 disabled:text-neutral-500'
-                      }`}
+                      className="w-full py-3 px-4 text-sm font-medium rounded-xl transition-colors bg-neutral-100 text-neutral-900 hover:bg-white disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      {isButtonDisabled ? t('session.preparing') : t('session.confirmSettings')}
+                      {isButtonDisabled ? (
+                        <>
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          {t('session.preparing')}
+                        </>
+                      ) : t('session.confirmSettings')}
                     </button>
 
-                    {/* Inline loading progress (replaces the separate prep modal) */}
+                    {/* Inline loading progress */}
                     {isPreparing && (
-                      <div className="mt-4 p-4 bg-neutral-800/50 rounded-xl border border-neutral-700/50">
-                        {/* Step indicators */}
-                        <div className="space-y-2.5 mb-4">
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                              prepStage !== "plan"
-                                ? 'bg-green-500 text-black'
-                                : 'border border-cyan-500/40 text-cyan-400'
-                            }`}>
-                              {prepStage !== "plan" ? (
-                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                              ) : '1'}
-                            </div>
-                            <span className={`text-xs ${prepStage !== "plan" ? 'text-neutral-500' : 'text-neutral-300'}`}>
-                              {prepStage === "plan" ? t('session.preparingPlan') : t('session.planReady')}
-                            </span>
-                            {prepStage === "plan" && (
-                              <div className="w-3.5 h-3.5 border-2 border-neutral-600 border-t-cyan-500 rounded-full animate-spin ml-auto" />
-                            )}
+                      <div className="mt-4 space-y-2">
+                        {/* Plan prep row */}
+                        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-neutral-900 border border-neutral-800">
+                          <div className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono tabular-nums ${
+                            prepStage !== "plan"
+                              ? 'bg-neutral-100 text-neutral-900'
+                              : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                          }`}>
+                            {prepStage !== "plan" ? (
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            ) : '01'}
                           </div>
-
-                          {localInferenceEnabled && (
-                            <div className="flex items-center gap-2.5">
-                              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                                prepStage === "done"
-                                  ? 'bg-green-500 text-black'
-                                  : prepStage === "model"
-                                    ? 'border border-purple-500/40 text-purple-400'
-                                    : 'border border-neutral-700 text-neutral-600'
-                              }`}>
-                                {prepStage === "done" ? (
-                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                                ) : '2'}
-                              </div>
-                              <span className={`text-xs ${
-                                prepStage === "done" ? 'text-neutral-500' : prepStage === "model" ? 'text-neutral-300' : 'text-neutral-600'
-                              }`}>
-                                {prepStage === "done" ? t('session.localModelLoaded') : prepStage === "model" ? t('session.loadingLocalModel') : t('session.loadLocalModel')}
-                              </span>
-                              {prepStage === "model" && !modelLoadProgress && (
-                                <div className="w-3.5 h-3.5 border-2 border-neutral-600 border-t-purple-500 rounded-full animate-spin ml-auto" />
-                              )}
-                            </div>
+                          <span className={`flex-1 text-xs ${prepStage !== "plan" ? 'text-neutral-500' : 'text-neutral-300'}`}>
+                            {prepStage === "plan" ? t('session.preparingPlan') : t('session.planReady')}
+                          </span>
+                          {prepStage === "plan" && (
+                            <div className="w-3.5 h-3.5 border border-neutral-700 border-t-neutral-300 rounded-full animate-spin" />
                           )}
                         </div>
 
+                        {localInferenceEnabled && (
+                          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-neutral-900 border border-neutral-800">
+                            <div className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono tabular-nums ${
+                              prepStage === "done"
+                                ? 'bg-neutral-100 text-neutral-900'
+                                : prepStage === "model"
+                                  ? 'bg-neutral-800 text-neutral-300 border border-neutral-700'
+                                  : 'bg-neutral-900 text-neutral-600 border border-neutral-800'
+                            }`}>
+                              {prepStage === "done" ? (
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                              ) : '02'}
+                            </div>
+                            <span className={`flex-1 text-xs ${
+                              prepStage === "done" ? 'text-neutral-500' : prepStage === "model" ? 'text-neutral-300' : 'text-neutral-600'
+                            }`}>
+                              {prepStage === "done" ? t('session.localModelLoaded') : prepStage === "model" ? t('session.loadingLocalModel') : t('session.loadLocalModel')}
+                            </span>
+                            {prepStage === "model" && !modelLoadProgress && (
+                              <div className="w-3.5 h-3.5 border border-neutral-700 border-t-neutral-300 rounded-full animate-spin" />
+                            )}
+                          </div>
+                        )}
+
                         {/* Progress bar (only during model download) */}
                         {prepStage === "model" && modelLoadProgress && (
-                          <div className="mb-2">
-                            <div className="w-full h-1.5 bg-neutral-700 rounded-full overflow-hidden">
+                          <div className="px-3 pt-1">
+                            <div className="w-full h-1 bg-neutral-800 rounded-full overflow-hidden">
                               <div
-                                className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all duration-500 ease-out"
+                                className="h-full bg-neutral-300 rounded-full transition-all duration-500 ease-out"
                                 style={{ width: `${modelLoadProgress.progress}%` }}
                               />
                             </div>
-                            <div className="flex justify-between mt-1">
+                            <div className="flex justify-between mt-1.5">
                               <span className="text-[10px] text-neutral-500">
                                 {modelLoadProgress.loaded && modelLoadProgress.total
                                   ? `${(modelLoadProgress.loaded / 1024 / 1024).toFixed(0)} / ${(modelLoadProgress.total / 1024 / 1024).toFixed(0)} MB`
                                   : t('session.downloading')}
                               </span>
-                              <span className="text-[10px] text-neutral-500">{modelLoadProgress.progress}%</span>
+                              <span className="text-[10px] text-neutral-500 font-mono tabular-nums">{modelLoadProgress.progress}%</span>
                             </div>
                           </div>
                         )}
 
                         {/* Errors */}
                         {(planError || modelLoadError) && (
-                          <div className="p-2.5 bg-red-500/10 border border-red-500/20 rounded-lg mt-2">
-                            <p className="text-xs text-red-400">{planError || modelLoadError}</p>
+                          <div className="px-3 py-2.5 bg-red-500/5 border border-red-500/20 rounded-xl">
+                            <p className="text-xs text-red-400 leading-relaxed">{planError || modelLoadError}</p>
                           </div>
                         )}
 
@@ -2652,9 +2554,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                               setLocalInferenceEnabled(false);
                               setIsPreparing(false);
                               setPrepStage("done");
-                              // Plan was already done, let them proceed in API mode
                             }}
-                            className="w-full mt-2 py-1.5 text-xs text-neutral-400 hover:text-neutral-300 transition-colors"
+                            className="w-full py-2 text-xs text-neutral-400 hover:text-neutral-200 transition-colors"
                           >
                             {t('session.continueWithoutBrowserInference')}
                           </button>
@@ -2665,20 +2566,21 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   </>
                 );
               }
-              
-              // Phase 2: Ready (already confirmed before, e.g. page refresh) - just show close button
+
+              // Phase 2: Ready (already confirmed before, e.g. page refresh)
               return (
                 <button
                   onClick={() => {
-                    setIsPaused(false); // Reset paused state from previous session load
+                    setIsPaused(false);
                     setShowWelcomeModal(false);
                   }}
-                  className="w-full py-2.5 px-4 font-medium rounded-lg transition-colors bg-white hover:bg-neutral-100 text-neutral-900"
+                  className="w-full py-3 px-4 text-sm font-medium rounded-xl transition-colors bg-neutral-100 text-neutral-900 hover:bg-white"
                 >
                   {t('session.getStarted')}
                 </button>
               );
             })()}
+            </div>
           </div>
         </div>
       )}
@@ -2747,11 +2649,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               {/* Auto / Manual advance toggle */}
               <button
                 onClick={() => setAutoAdvance(!autoAdvance)}
-                className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-medium border transition-colors ${
-                  autoAdvance
-                    ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/15"
-                    : "bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/15"
-                }`}
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-medium text-neutral-300 hover:text-white bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 transition-colors"
                 title={autoAdvance ? t('sessionPlan.aiControlsAdvancement') : t('sessionPlan.youControlAdvancement')}
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -2762,8 +2660,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   )}
                 </svg>
                 <span>{autoAdvance ? t('sessionPlan.autoAdvance') : t('sessionPlan.manualMode')}</span>
-                <div className={`relative w-7 h-3.5 rounded-full transition-colors ${autoAdvance ? 'bg-cyan-500' : 'bg-amber-500'}`}>
-                  <div className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white shadow transition-transform ${autoAdvance ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+                <div className="relative w-7 h-3.5 rounded-full bg-neutral-700">
+                  <div className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-neutral-100 shadow transition-transform ${autoAdvance ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
                 </div>
               </button>
               <div className="w-px h-5 bg-neutral-800 mx-1" />
@@ -2871,7 +2769,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                       <div className="h-full p-4 overflow-auto">
                         {ragLoading && (
                           <div className="flex flex-col items-center justify-center h-64">
-                            <div className="w-6 h-6 border border-neutral-700 border-t-cyan-500 rounded-full animate-spin mb-3" />
+                            <div className="w-6 h-6 border border-neutral-800 border-t-neutral-300 rounded-full animate-spin mb-3" />
                             <p className="text-sm text-neutral-500">{t('session.findingChunks')}</p>
                           </div>
                         )}
@@ -2880,7 +2778,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                             <p className="text-sm text-neutral-500">{t('session.noChunksFound')}</p>
                             <button
                               onClick={() => runRagMatching()}
-                              className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-medium rounded-lg transition-all"
+                              className="px-4 py-2 bg-neutral-100 hover:bg-white text-neutral-900 text-sm font-medium rounded-xl transition-colors"
                             >
                               {t('common.retry')}
                             </button>
@@ -2892,7 +2790,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                               <h3 className="text-sm font-medium text-white">{t('session.matchingChunks')}</h3>
                               <span className="text-xs text-neutral-500">{t('session.chunksFound', { count: ragChunks.length })}</span>
                             </div>
-                            
+
                             {/* Modifier input */}
                             <div className="flex gap-2">
                               <input
@@ -2900,12 +2798,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                                 value={ragModifier}
                                 onChange={(e) => setRagModifier(e.target.value)}
                                 placeholder={t('session.addModifier')}
-                                className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-cyan-500"
+                                className="flex-1 px-3 py-2 bg-neutral-900 border border-neutral-800 hover:border-neutral-700 rounded-xl text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-600 transition-colors"
                               />
                               <button
                                 onClick={() => runRagMatching(ragModifier)}
                                 disabled={ragLoading || !ragModifier.trim()}
-                                className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-500/50 disabled:cursor-not-allowed text-black font-medium rounded-lg transition-all"
+                                className="px-4 py-2 bg-neutral-100 hover:bg-white disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed text-neutral-900 text-sm font-medium rounded-xl transition-colors"
                               >
                                 {t('common.retry')}
                               </button>
@@ -2917,17 +2815,17 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                                 const isSelected = ragSelectedChunks.has(chunk.id);
                                 const isExpanded = ragExpandedChunks.has(chunk.id);
                                 const similarityPct = Math.round((chunk.similarity || 0) * 100);
-                                
+
                                 return (
                                   <div
                                     key={chunk.id}
                                     className={`rounded-xl border transition-all ${
-                                      isSelected 
-                                        ? "border-cyan-500/50 bg-cyan-500/5" 
-                                        : "border-neutral-800 bg-neutral-900/30"
+                                      isSelected
+                                        ? "bg-neutral-800/70 border-neutral-700"
+                                        : "bg-neutral-900 border-neutral-800 hover:bg-neutral-800/50 hover:border-neutral-700"
                                     }`}
                                   >
-                                    <div 
+                                    <div
                                       className="p-3 flex items-start gap-3 cursor-pointer"
                                       onClick={() => {
                                         if (isExpanded) {
@@ -2952,15 +2850,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                                           }
                                           setRagSelectedChunks(newSelected);
                                         }}
-                                        className="mt-1 w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-cyan-500 focus:ring-cyan-500/50"
+                                        className="mt-1 w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-neutral-200 focus:ring-neutral-600/50"
                                       />
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
                                           <span className="text-xs font-medium text-white">{t('session.chunk', { idx: idx + 1 })}</span>
-                                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${
-                                            similarityPct > 50 
-                                              ? "bg-cyan-500/20 text-cyan-400" 
-                                              : "bg-neutral-700 text-neutral-400"
+                                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono tabular-nums ${
+                                            similarityPct > 50
+                                              ? "bg-neutral-100 text-neutral-900"
+                                              : "bg-neutral-800 text-neutral-400"
                                           }`}>
                                             {t('session.match', { percent: similarityPct })}
                                           </span>
@@ -3040,9 +2938,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                     )}
                     </div>
                     {(activeTool === "grokipedia" || activeTool === "exercise" || activeTool === "reading") && (
-                      <div className="h-full p-4 overflow-auto">
+                      <div className="h-full flex flex-col">
                         {activeTool === "grokipedia" && showGrokipediaOnly && session?.problem && (
-                          <div className="flex flex-col items-center justify-center h-full gap-6">
+                          <div className="flex-1 min-h-0 p-4 overflow-auto flex flex-col items-center justify-center gap-6">
                             <div className="text-center">
                               <h3 className="text-lg font-medium text-white mb-2">{t('session.grokipedia')}</h3>
                               <p className="text-sm text-neutral-400">{t('session.grokipediaDesc')}</p>
@@ -3051,7 +2949,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                               href={`https://grokipedia.com/search?q=${encodeURIComponent(session.problem)}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-medium rounded-xl transition-all inline-flex items-center gap-2"
+                              className="px-6 py-3 bg-neutral-100 hover:bg-white text-neutral-900 text-sm font-medium rounded-xl transition-colors inline-flex items-center gap-2"
                             >
                               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <circle cx="12" cy="12" r="10" />
@@ -3062,71 +2960,81 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                           </div>
                         )}
                         {((activeTool === "grokipedia" && !showGrokipediaOnly) || activeTool === "exercise" || activeTool === "reading") && !prepToolContent && !prepToolLoading && (
-                          <div className="flex flex-col items-center justify-center h-full gap-4">
+                          <div className="flex-1 min-h-0 p-4 flex flex-col items-center justify-center gap-4">
                             <button
                               onClick={() => loadPrepToolContent(activeTool)}
-                              className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-medium rounded-xl transition-all"
+                              className="px-6 py-3 bg-neutral-100 hover:bg-white text-neutral-900 text-sm font-medium rounded-xl transition-colors"
                             >
                               {activeTool === "exercise" ? t('session.loadPractice') : t('session.loadTheory')}
                             </button>
                           </div>
                         )}
                         {prepToolLoading && (
-                          <div className="flex flex-col items-center justify-center h-full">
-                            <div className="w-6 h-6 border border-neutral-700 border-t-cyan-500 rounded-full animate-spin mb-3" />
+                          <div className="flex-1 min-h-0 p-4 flex flex-col items-center justify-center">
+                            <div className="w-6 h-6 border border-neutral-800 border-t-neutral-300 rounded-full animate-spin mb-3" />
                             <p className="text-sm text-neutral-500">{t('common.loading')}</p>
                           </div>
                         )}
                         {prepToolContent && !prepToolLoading && (
-                          <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
-                            <div className="flex items-center justify-between mb-4">
-                              <h3 className="text-lg font-medium text-white">{prepToolContent.title}</h3>
-                              {(activeTool === "exercise" || activeTool === "reading") && (
-                                <button
-                                  onClick={() => loadPrepToolContent(activeTool)}
-                                  className="px-3 py-1.5 text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white rounded-lg transition-colors"
-                                >
-                                  {t('session.loadAnother')}
-                                </button>
-                              )}
+                          (activeTool === "exercise" || activeTool === "reading") ? (
+                            <>
+                              <div className="flex-1 min-h-0 overflow-auto p-4">
+                                <h3 className="text-lg font-medium text-white mb-4">{prepToolContent.title}</h3>
+                                <div className={`prose prose-invert prose-sm max-w-none text-neutral-300 ${activeTool === "exercise" ? "[&_p]:mb-4 [&_p]:leading-relaxed [&_ol]:mb-4 [&_ol]:pl-5 [&_ol]:space-y-3 [&_ul]:mb-4 [&_ul]:pl-5 [&_ul]:space-y-3 [&_li]:leading-relaxed [&_h1]:text-white [&_h1]:text-base [&_h1]:font-semibold [&_h1]:mt-6 [&_h1]:mb-3 [&_h2]:text-white [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mt-5 [&_h2]:mb-2 [&_h3]:text-neutral-200 [&_h3]:text-sm [&_h3]:font-medium [&_h3]:mt-4 [&_h3]:mb-2 [&_strong]:text-white [&_hr]:my-4 [&_hr]:border-neutral-700" : ""}`}>
+                                  <ReactMarkdown
+                                    remarkPlugins={[remarkGfm, remarkMath]}
+                                    rehypePlugins={[rehypeKatex]}
+                                    components={activeTool === "reading" ? {
+                                      a: ({ href, children }) => (
+                                        <a
+                                          href={href}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="no-underline inline-flex items-center gap-1.5 px-3 py-1.5 my-1 rounded-lg bg-neutral-900 text-white border border-neutral-700 hover:bg-neutral-800 hover:border-neutral-600 transition-all text-sm font-medium"
+                                        >
+                                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                          </svg>
+                                          {children}
+                                        </a>
+                                      ),
+                                    } : undefined}
+                                  >
+                                    {prepToolContent.content}
+                                  </ReactMarkdown>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex-1 min-h-0 p-4 overflow-auto">
+                              <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                  <h3 className="text-lg font-medium text-white">{prepToolContent.title}</h3>
+                                </div>
+                                <div className="prose prose-invert prose-sm max-w-none text-neutral-300">
+                                  <ReactMarkdown
+                                    remarkPlugins={[remarkGfm, remarkMath]}
+                                    rehypePlugins={[rehypeKatex]}
+                                  >
+                                    {prepToolContent.content}
+                                  </ReactMarkdown>
+                                </div>
+                                {activeTool === "grokipedia" && session?.problem && (
+                                  <a
+                                    href={`https://grokipedia.com/search?q=${encodeURIComponent(session.problem)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-4 inline-flex items-center gap-2 text-white hover:text-neutral-300 text-sm"
+                                  >
+                                    {t('session.openGrokipedia')}
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                  </a>
+                                )}
+                              </div>
                             </div>
-                            <div className={`prose prose-invert prose-sm max-w-none text-neutral-300 ${activeTool === "exercise" ? "[&_p]:mb-4 [&_p]:leading-relaxed [&_ol]:mb-4 [&_ol]:pl-5 [&_ol]:space-y-3 [&_ul]:mb-4 [&_ul]:pl-5 [&_ul]:space-y-3 [&_li]:leading-relaxed [&_h1]:text-white [&_h1]:text-base [&_h1]:font-semibold [&_h1]:mt-6 [&_h1]:mb-3 [&_h2]:text-white [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mt-5 [&_h2]:mb-2 [&_h3]:text-neutral-200 [&_h3]:text-sm [&_h3]:font-medium [&_h3]:mt-4 [&_h3]:mb-2 [&_strong]:text-white [&_hr]:my-4 [&_hr]:border-neutral-700" : ""}`}>
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm, remarkMath]}
-                                rehypePlugins={[rehypeKatex]}
-                                components={activeTool === "reading" ? {
-                                  a: ({ href, children }) => (
-                                    <a
-                                      href={href}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="no-underline inline-flex items-center gap-1.5 px-3 py-1.5 my-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/25 hover:bg-blue-500/20 hover:border-blue-500/40 hover:text-blue-300 transition-all text-sm font-medium"
-                                    >
-                                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                      </svg>
-                                      {children}
-                                    </a>
-                                  ),
-                                } : undefined}
-                              >
-                                {prepToolContent.content}
-                              </ReactMarkdown>
-                            </div>
-                            {activeTool === "grokipedia" && session?.problem && (
-                              <a
-                                href={`https://grokipedia.com/search?q=${encodeURIComponent(session.problem)}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="mt-4 inline-flex items-center gap-2 text-cyan-400 hover:text-cyan-300 text-sm"
-                              >
-                                {t('session.openGrokipedia')}
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                </svg>
-                              </a>
-                            )}
-                          </div>
+                          )
                         )}
                       </div>
                     )}
@@ -3150,10 +3058,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                         onArchiveProbe={handleArchiveProbe}
                         onToggleFocus={handleToggleFocus}
                         onToolSelect={(tool) => setActiveTool(tool as Tool)}
+                        onOpenResources={handleStepResources}
+                        onOpenPractice={handleStepPractice}
+                        onAskAssistant={handleStepAskAssistant}
                         archivingProbeId={archivingProbeId}
                         isInitializing={planLoading || openingProbeLoading}
                         isGeneratingProbe={isGeneratingProbe}
                         sessionPlan={sessionPlan}
+                        isSessionActive={isRecording && !isPaused}
                       />
                     </div>
                   }
@@ -3202,15 +3114,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         </div>
       </div>
       {showEndDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 max-w-md mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 w-full max-w-md">
             <h3 className="text-base font-semibold text-white mb-2">{t('session.tutorSuggestsEnd')}</h3>
             <p className="text-neutral-400 mb-5 text-sm leading-relaxed">{endReason}</p>
             <div className="flex gap-2.5">
-              <button onClick={() => setShowEndDialog(false)} className="flex-1 py-2.5 text-sm text-neutral-400 border border-neutral-700 hover:border-neutral-500 rounded-xl transition-colors">
+              <button onClick={() => setShowEndDialog(false)} className="flex-1 py-2.5 text-sm text-neutral-300 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 hover:border-neutral-700 hover:text-white rounded-xl transition-colors">
                 {t('common.keepGoing')}
               </button>
-              <button onClick={handleConfirmEnd} className="flex-1 py-2.5 text-sm text-white bg-white/10 hover:bg-white/15 rounded-xl transition-colors">
+              <button onClick={handleConfirmEnd} className="flex-1 py-2.5 text-sm font-medium text-neutral-900 bg-neutral-100 hover:bg-white rounded-xl transition-colors">
                 {t('sessionEnd.endSession')}
               </button>
             </div>
@@ -3222,31 +3134,35 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
       {/* Plan Complete Modal - shown when all steps are done */}
       {showPlanCompleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative z-10 w-[90vw] max-w-lg p-6 bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
-                <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
+          <div className="relative z-10 w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="px-6 pt-6 pb-5 border-b border-neutral-800/70">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-neutral-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h2 className="text-base font-semibold text-white">{t('session.sessionComplete')}</h2>
               </div>
-              <h2 className="text-xl font-semibold text-white">{t('session.sessionComplete')}</h2>
             </div>
-            
-            <p className="text-neutral-400 text-sm mb-6">
-              {t('session.congratulationsComplete')}
-            </p>
 
-            <button
-              onClick={() => {
-                setShowPlanCompleteModal(false);
-                handleConfirmEnd();
-              }}
-              className="w-full py-2.5 px-4 bg-white hover:bg-neutral-100 text-neutral-900 font-medium rounded-lg transition-colors"
-            >
-              {t('sessionEnd.endSession')}
-            </button>
+            <div className="px-6 py-5">
+              <p className="text-neutral-400 text-sm leading-relaxed mb-5">
+                {t('session.congratulationsComplete')}
+              </p>
+
+              <button
+                onClick={() => {
+                  setShowPlanCompleteModal(false);
+                  handleConfirmEnd();
+                }}
+                className="w-full py-3 px-4 text-sm font-medium bg-neutral-100 hover:bg-white text-neutral-900 rounded-xl transition-colors"
+              >
+                {t('sessionEnd.endSession')}
+              </button>
+            </div>
           </div>
         </div>
       )}

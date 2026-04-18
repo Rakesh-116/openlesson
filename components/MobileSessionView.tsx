@@ -1464,12 +1464,13 @@ export function MobileSessionView({
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-sm">
-          <div className="w-14 h-14 flex items-center justify-center mb-6 mx-auto">
-            <img 
-              src="/op_logo.jpg" 
-              alt="Logo" 
-              className="w-full h-full object-contain"
-            />
+          <div className="mb-6 mx-auto flex items-center justify-center">
+            <div className="relative">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-500/15 via-neutral-800 to-neutral-900 border border-neutral-800 flex items-center justify-center overflow-hidden">
+                <span className="text-xl font-serif text-neutral-200">T</span>
+              </div>
+              <div className="absolute inset-0 rounded-full shadow-[0_0_25px_rgba(245,158,11,0.08)] pointer-events-none" />
+            </div>
           </div>
           
           <h1 className="text-xl font-semibold text-white text-center mb-2">
@@ -1479,35 +1480,39 @@ export function MobileSessionView({
             {t('session.welcomeMessage')}
           </p>
           
-          {/* Step indicators */}
+          {/* Step indicators (neutral) */}
           <div className="flex items-center justify-center gap-2 mb-6">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-              languageConfirmed ? 'bg-cyan-500 text-black' : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-mono tabular-nums transition-colors ${
+              languageConfirmed
+                ? 'bg-neutral-100 text-neutral-900'
+                : 'bg-neutral-800 text-neutral-300 border border-neutral-700'
             }`}>
               1
             </div>
-            <div className={`w-12 h-0.5 ${languageConfirmed ? 'bg-cyan-500' : 'bg-neutral-700'}`} />
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-              languageConfirmed && isSessionReady ? 'bg-cyan-500 text-black' : 
-              languageConfirmed ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' :
-              'bg-neutral-800 text-white border border-neutral-700'
+            <div className={`w-12 h-px ${languageConfirmed ? 'bg-neutral-300' : 'bg-neutral-800'}`} />
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-mono tabular-nums transition-colors ${
+              languageConfirmed && isSessionReady
+                ? 'bg-neutral-100 text-neutral-900'
+                : languageConfirmed
+                  ? 'bg-neutral-800 text-neutral-300 border border-neutral-700'
+                  : 'bg-neutral-900 text-neutral-600 border border-neutral-800'
             }`}>
               2
             </div>
           </div>
-          
+
           {planError && (
-            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
-              <p className="text-xs text-red-400">{planError}</p>
+            <div className="mb-4 p-3 bg-red-500/5 border border-red-500/20 rounded-xl">
+              <p className="text-xs text-red-400 leading-relaxed">{planError}</p>
             </div>
           )}
-          
+
           {/* Phase 1: Language selection */}
           {!languageConfirmed && (
             <>
               <div className="mb-4">
-                <label className="block text-xs text-neutral-400 mb-2">
-                  Tutor language
+                <label className="block text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-500 mb-2">
+                  {t('session.tutorLanguage')}
                 </label>
                 <select
                   value={tutoringLanguage}
@@ -1515,7 +1520,7 @@ export function MobileSessionView({
                     setTutoringLanguage(e.target.value as SupportedLocale);
                   }}
                   disabled={isButtonDisabled}
-                  className="w-full px-3 py-3 bg-neutral-800 border border-neutral-700 rounded-xl text-white text-sm focus:outline-none focus:border-neutral-500 disabled:opacity-50"
+                  className="w-full px-3 py-3 bg-neutral-900 border border-neutral-800 hover:border-neutral-700 rounded-xl text-white text-sm focus:outline-none focus:border-neutral-600 disabled:opacity-50 transition-colors"
                 >
                   {supportedLocales.map((loc) => (
                     <option key={loc} value={loc}>
@@ -1525,149 +1530,134 @@ export function MobileSessionView({
                 </select>
               </div>
 
-              <div className={`mb-5 p-3.5 rounded-xl border transition-all ${autoAdvance ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
-                <label className="flex items-center gap-3 cursor-pointer group">
-                  <div className="relative shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={autoAdvance}
-                      onChange={(e) => setAutoAdvance(e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`w-11 h-6 rounded-full transition-colors ${autoAdvance ? 'bg-cyan-500' : 'bg-amber-500'}`}>
-                      <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${autoAdvance ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                    </div>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium leading-tight">
-                      <span className={autoAdvance ? 'text-cyan-400' : 'text-amber-400'}>
-                        {autoAdvance ? 'Auto-advance ON' : 'Manual mode'}
-                      </span>
-                    </span>
-                    <span className="text-xs text-neutral-500 leading-tight mt-0.5">
-                      {autoAdvance 
-                        ? 'AI decides when to move forward' 
-                        : 'You click to advance — AI analyzes but you decide'}
-                    </span>
-                  </div>
-                </label>
-              </div>
-              
-              {/* Browser Inference Toggle */}
-              <div className={`mb-5 p-3.5 rounded-xl border transition-all ${
-                localInferenceEnabled 
-                  ? 'bg-purple-500/5 border-purple-500/20' 
-                  : 'bg-neutral-800/30 border-neutral-700/50'
-              }`}>
-                <label className={`flex items-center gap-3 ${webGPUAvailable ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'} group`}>
-                  <div className="relative shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={localInferenceEnabled}
-                      onChange={(e) => setLocalInferenceEnabled(e.target.checked)}
-                      disabled={!webGPUAvailable}
-                      className="sr-only"
-                    />
-                    <div className={`w-11 h-6 rounded-full transition-colors ${localInferenceEnabled ? 'bg-purple-500' : 'bg-neutral-600'}`}>
-                      <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${localInferenceEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                    </div>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium leading-tight">
-                      <span className={localInferenceEnabled ? 'text-purple-400' : 'text-neutral-400'}>
-                        {localInferenceEnabled ? 'Browser Inference ON' : 'Browser Inference'}
-                      </span>
-                    </span>
-                    <span className="text-xs text-neutral-500 leading-tight mt-0.5">
-                      {!webGPUAvailable 
-                        ? 'WebGPU not available in this browser'
-                        : 'A less capable tutor but a faster, more real-time experience'}
-                    </span>
-                  </div>
-                </label>
-              </div>
+              {/* Auto-advance toggle (neutral) */}
+              <button
+                type="button"
+                onClick={() => !isButtonDisabled && setAutoAdvance(!autoAdvance)}
+                disabled={isButtonDisabled}
+                className="w-full mb-3 p-3.5 rounded-xl border bg-neutral-900 border-neutral-800 active:bg-neutral-800/60 active:border-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-3 text-left"
+              >
+                <div className="relative shrink-0 w-11 h-6 rounded-full bg-neutral-700">
+                  <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-neutral-100 shadow transition-transform ${autoAdvance ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-medium text-neutral-200 leading-tight">
+                    {autoAdvance ? t('session.autoAdvanceOn') : t('session.manualMode')}
+                  </span>
+                  <span className="text-[11px] text-neutral-500 leading-tight mt-0.5">
+                    {autoAdvance
+                      ? t('session.aiDecidesMoveForward')
+                      : t('session.youClickToAdvance')}
+                  </span>
+                </div>
+              </button>
+
+              {/* Browser Inference Toggle (neutral) */}
+              <button
+                type="button"
+                onClick={() => webGPUAvailable && !isButtonDisabled && setLocalInferenceEnabled(!localInferenceEnabled)}
+                disabled={!webGPUAvailable || isButtonDisabled}
+                className="w-full mb-5 p-3.5 rounded-xl border bg-neutral-900 border-neutral-800 enabled:active:bg-neutral-800/60 enabled:active:border-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-3 text-left"
+              >
+                <div className="relative shrink-0 w-11 h-6 rounded-full bg-neutral-700">
+                  <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-neutral-100 shadow transition-transform ${localInferenceEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-medium text-neutral-200 leading-tight">
+                    {localInferenceEnabled ? t('session.browserInferenceOn') : t('session.browserInference')}
+                  </span>
+                  <span className="text-[11px] text-neutral-500 leading-tight mt-0.5">
+                    {!webGPUAvailable
+                      ? t('session.webGPUNotAvailable')
+                      : t('session.browserInferenceDesc')}
+                  </span>
+                </div>
+              </button>
 
               <button
                 onClick={prepareSession}
                 disabled={isButtonDisabled}
-                className={`w-full py-3.5 px-4 font-medium rounded-xl transition-colors ${
-                  localInferenceEnabled
-                    ? 'bg-purple-500 hover:bg-purple-400 text-white disabled:bg-neutral-700 disabled:text-neutral-500'
-                    : 'bg-cyan-500 hover:bg-cyan-400 text-black disabled:bg-neutral-700 disabled:text-neutral-500'
-                }`}
+                className="w-full py-3.5 px-4 text-sm font-medium rounded-xl transition-colors bg-neutral-100 text-neutral-900 active:bg-white disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {isButtonDisabled ? 'Preparing...' : 'Confirm Settings'}
+                {isButtonDisabled ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    {t('session.preparing')}
+                  </>
+                ) : t('session.confirmSettings')}
               </button>
 
               {/* Inline loading progress */}
               {isPreparing && (
-                <div className="mt-4 p-4 bg-neutral-800/50 rounded-xl border border-neutral-700/50">
-                  <div className="space-y-2.5 mb-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                        prepStage !== "plan"
-                          ? 'bg-green-500 text-black'
-                          : 'border border-cyan-500/40 text-cyan-400'
-                      }`}>
-                        {prepStage !== "plan" ? (
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                        ) : '1'}
-                      </div>
-                      <span className={`text-xs ${prepStage !== "plan" ? 'text-neutral-500' : 'text-neutral-300'}`}>
-                        {prepStage === "plan" ? 'Preparing session plan...' : 'Session plan ready'}
-                      </span>
-                      {prepStage === "plan" && (
-                        <div className="w-3.5 h-3.5 border-2 border-neutral-600 border-t-cyan-500 rounded-full animate-spin ml-auto" />
-                      )}
+                <div className="mt-4 space-y-2">
+                  {/* Plan prep row */}
+                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-neutral-900 border border-neutral-800">
+                    <div className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono tabular-nums ${
+                      prepStage !== "plan"
+                        ? 'bg-neutral-100 text-neutral-900'
+                        : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                    }`}>
+                      {prepStage !== "plan" ? (
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                      ) : '01'}
                     </div>
-
-                    {localInferenceEnabled && (
-                      <div className="flex items-center gap-2.5">
-                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                          prepStage === "done"
-                            ? 'bg-green-500 text-black'
-                            : prepStage === "model"
-                              ? 'border border-purple-500/40 text-purple-400'
-                              : 'border border-neutral-700 text-neutral-600'
-                        }`}>
-                          {prepStage === "done" ? (
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                          ) : '2'}
-                        </div>
-                        <span className={`text-xs ${
-                          prepStage === "done" ? 'text-neutral-500' : prepStage === "model" ? 'text-neutral-300' : 'text-neutral-600'
-                        }`}>
-                          {prepStage === "done" ? 'Local model loaded' : prepStage === "model" ? 'Loading local model...' : 'Load local model'}
-                        </span>
-                        {prepStage === "model" && !modelLoadProgress && (
-                          <div className="w-3.5 h-3.5 border-2 border-neutral-600 border-t-purple-500 rounded-full animate-spin ml-auto" />
-                        )}
-                      </div>
+                    <span className={`flex-1 text-xs ${prepStage !== "plan" ? 'text-neutral-500' : 'text-neutral-300'}`}>
+                      {prepStage === "plan" ? t('session.preparingPlan') : t('session.planReady')}
+                    </span>
+                    {prepStage === "plan" && (
+                      <div className="w-3.5 h-3.5 border border-neutral-700 border-t-neutral-300 rounded-full animate-spin" />
                     )}
                   </div>
 
+                  {localInferenceEnabled && (
+                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-neutral-900 border border-neutral-800">
+                      <div className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono tabular-nums ${
+                        prepStage === "done"
+                          ? 'bg-neutral-100 text-neutral-900'
+                          : prepStage === "model"
+                            ? 'bg-neutral-800 text-neutral-300 border border-neutral-700'
+                            : 'bg-neutral-900 text-neutral-600 border border-neutral-800'
+                      }`}>
+                        {prepStage === "done" ? (
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        ) : '02'}
+                      </div>
+                      <span className={`flex-1 text-xs ${
+                        prepStage === "done" ? 'text-neutral-500' : prepStage === "model" ? 'text-neutral-300' : 'text-neutral-600'
+                      }`}>
+                        {prepStage === "done" ? t('session.localModelLoaded') : prepStage === "model" ? t('session.loadingLocalModel') : t('session.loadLocalModel')}
+                      </span>
+                      {prepStage === "model" && !modelLoadProgress && (
+                        <div className="w-3.5 h-3.5 border border-neutral-700 border-t-neutral-300 rounded-full animate-spin" />
+                      )}
+                    </div>
+                  )}
+
                   {prepStage === "model" && modelLoadProgress && (
-                    <div className="mb-2">
-                      <div className="w-full h-1.5 bg-neutral-700 rounded-full overflow-hidden">
+                    <div className="px-3 pt-1">
+                      <div className="w-full h-1 bg-neutral-800 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all duration-500 ease-out"
+                          className="h-full bg-neutral-300 rounded-full transition-all duration-500 ease-out"
                           style={{ width: `${modelLoadProgress.progress}%` }}
                         />
                       </div>
-                      <div className="flex justify-between mt-1">
+                      <div className="flex justify-between mt-1.5">
                         <span className="text-[10px] text-neutral-500">
                           {modelLoadProgress.loaded && modelLoadProgress.total
                             ? `${(modelLoadProgress.loaded / 1024 / 1024).toFixed(0)} / ${(modelLoadProgress.total / 1024 / 1024).toFixed(0)} MB`
-                            : 'Downloading...'}
+                            : t('session.downloading')}
                         </span>
-                        <span className="text-[10px] text-neutral-500">{modelLoadProgress.progress}%</span>
+                        <span className="text-[10px] text-neutral-500 font-mono tabular-nums">{modelLoadProgress.progress}%</span>
                       </div>
                     </div>
                   )}
 
                   {(planError || modelLoadError) && (
-                    <div className="p-2.5 bg-red-500/10 border border-red-500/20 rounded-lg mt-2">
-                      <p className="text-xs text-red-400">{planError || modelLoadError}</p>
+                    <div className="px-3 py-2.5 bg-red-500/5 border border-red-500/20 rounded-xl">
+                      <p className="text-xs text-red-400 leading-relaxed">{planError || modelLoadError}</p>
                     </div>
                   )}
 
@@ -1680,9 +1670,9 @@ export function MobileSessionView({
                         setIsPreparing(false);
                         setPrepStage("done");
                       }}
-                      className="w-full mt-2 py-1.5 text-xs text-neutral-400 hover:text-neutral-300 transition-colors"
+                      className="w-full py-2 text-xs text-neutral-400 active:text-neutral-200 transition-colors"
                     >
-                      Continue without browser inference
+                      {t('session.continueWithoutBrowserInference')}
                     </button>
                   )}
                 </div>
@@ -1692,19 +1682,19 @@ export function MobileSessionView({
               {prepStage === "done" && languageConfirmed && !isPreparing && (
                 <button
                   onClick={() => setShowWelcomeModal(false)}
-                  className="mt-4 w-full py-3.5 px-4 font-medium rounded-xl transition-colors bg-white hover:bg-neutral-100 text-neutral-900"
+                  className="mt-4 w-full py-3.5 px-4 text-sm font-medium rounded-xl transition-colors bg-neutral-100 text-neutral-900 active:bg-white"
                 >
                   {t('session.getStarted')}
                 </button>
               )}
             </>
           )}
-          
+
           {/* Phase 2: Ready (already confirmed before) */}
           {languageConfirmed && (
             <button
               onClick={() => setShowWelcomeModal(false)}
-              className="w-full py-3.5 px-4 font-medium rounded-xl transition-colors bg-white hover:bg-neutral-100 text-neutral-900"
+              className="w-full py-3.5 px-4 text-sm font-medium rounded-xl transition-colors bg-neutral-100 text-neutral-900 active:bg-white"
             >
               {t('session.getStarted')}
             </button>
@@ -1849,13 +1839,6 @@ export function MobileSessionView({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {(isRecording || elapsedSeconds > 0) && (
-              <div className="px-2 py-1 bg-neutral-900 border border-neutral-800 rounded-md">
-                <span className="text-xs font-mono text-white tabular-nums">
-                  {formatTime(elapsedSeconds)}
-                </span>
-              </div>
-            )}
             <button
               onClick={() => router.push('/dashboard')}
               className="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:text-white hover:bg-neutral-800 transition-colors"
@@ -1879,7 +1862,7 @@ export function MobileSessionView({
           {micStatus === "idle" && !isRecording && (
             <button
               onClick={handleStartSession}
-              className="w-full py-2 px-3 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl text-xs font-medium text-white flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-cyan-500/20"
+              className="w-full py-2 px-3 bg-neutral-100 text-neutral-900 rounded-xl text-xs font-medium flex items-center justify-center gap-2 active:bg-white active:scale-[0.98] transition-all"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
@@ -1889,8 +1872,8 @@ export function MobileSessionView({
           )}
 
           {micStatus === "checking" && (
-            <div className="w-full py-2 px-3 bg-neutral-800 border border-neutral-700 rounded-xl flex items-center justify-center gap-2">
-              <div className="w-4 h-4 border-2 border-neutral-600 border-t-cyan-500 rounded-full animate-spin" />
+            <div className="w-full py-2 px-3 bg-neutral-900 border border-neutral-800 rounded-xl flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border border-neutral-700 border-t-neutral-300 rounded-full animate-spin" />
               <span className="text-xs text-neutral-400">{t('session.checkingMic')}</span>
             </div>
           )}
@@ -1908,58 +1891,55 @@ export function MobileSessionView({
           )}
 
           {isRecording && (
-            <div className="flex gap-2">
-              {isPaused ? (
-                <>
-                  <button
-                    onClick={resumeRecording}
-                    className="flex-1 py-2 px-3 bg-green-500/10 border border-green-500/30 rounded-xl text-xs font-medium text-green-400 flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                    </svg>
-                    {t('session.resume')}
-                  </button>
-                  <button
-                    onClick={() => setShowEndConfirm(true)}
-                    className="flex-1 py-2 px-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs font-medium text-red-400 flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-                    </svg>
-                    {t('session.end')}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={pauseRecording}
-                    className="flex-1 py-2 px-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs font-medium text-amber-400 flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {t('session.pause')}
-                  </button>
-                  <button
-                    onClick={() => setShowEndConfirm(true)}
-                    className="flex-1 py-2 px-3 bg-neutral-800 border border-neutral-700 rounded-xl text-xs font-medium text-neutral-400 flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-                    </svg>
-                    {t('session.end')}
-                  </button>
-                </>
-              )}
+            <div className="flex items-center justify-center gap-1.5">
+              {/* Play / Resume */}
+              <button
+                onClick={resumeRecording}
+                disabled={!isPaused}
+                className={`flex items-center justify-center w-10 h-10 rounded-lg transition-all active:scale-[0.95] ${
+                  !isPaused
+                    ? "text-green-500/20"
+                    : "text-green-400 bg-green-500/10"
+                }`}
+                title={t('session.resume')}
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </button>
+
+              {/* Pause */}
+              <button
+                onClick={pauseRecording}
+                disabled={isPaused}
+                className={`flex items-center justify-center w-10 h-10 rounded-lg transition-all active:scale-[0.95] ${
+                  isPaused
+                    ? "text-amber-500/20"
+                    : "text-amber-400 bg-amber-500/10"
+                }`}
+                title={t('session.pause')}
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 4h4v16H6zm8 0h4v16h-4z" />
+                </svg>
+              </button>
+
+              {/* Stop / End */}
+              <button
+                onClick={() => setShowEndConfirm(true)}
+                className="flex items-center justify-center w-10 h-10 rounded-lg transition-all active:scale-[0.95] text-red-400 bg-red-500/10"
+                title={t('session.end')}
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <rect x="6" y="6" width="12" height="12" rx="1" />
+                </svg>
+              </button>
             </div>
           )}
 
           {isSaving && (
             <div className="flex items-center justify-center gap-2 py-2">
-              <div className="w-4 h-4 border-2 border-neutral-600 border-t-cyan-500 rounded-full animate-spin" />
+              <div className="w-4 h-4 border border-neutral-700 border-t-neutral-300 rounded-full animate-spin" />
               <span className="text-xs text-neutral-400">{t('session.savingSession')}</span>
             </div>
           )}
@@ -1968,22 +1948,22 @@ export function MobileSessionView({
 
       {/* End Session Confirmation Modal */}
       {showEndConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 max-w-sm w-full">
             <h3 className="text-sm font-semibold text-white mb-2">{t('sessionEnd.confirmEndTitle')}</h3>
             <p className="text-neutral-400 mb-4 text-xs leading-relaxed">
               {t('sessionEnd.confirmEndMessage')}
             </p>
             <div className="flex gap-2">
-              <button 
-                onClick={() => setShowEndConfirm(false)} 
-                className="flex-1 py-2 text-xs text-neutral-400 border border-neutral-700 hover:border-neutral-500 rounded-lg transition-colors"
+              <button
+                onClick={() => setShowEndConfirm(false)}
+                className="flex-1 py-2.5 text-xs text-neutral-300 bg-neutral-900 border border-neutral-800 active:bg-neutral-800 active:border-neutral-700 active:text-white rounded-xl transition-colors"
               >
                 {t('common.keepGoing')}
               </button>
-              <button 
-                onClick={stopRecording} 
-                className="flex-1 py-2 text-xs text-white bg-white/10 hover:bg-white/15 rounded-lg transition-colors"
+              <button
+                onClick={stopRecording}
+                className="flex-1 py-2.5 text-xs font-medium text-neutral-900 bg-neutral-100 active:bg-white rounded-xl transition-colors"
               >
                 {t('sessionEnd.endSession')}
               </button>
@@ -1994,34 +1974,38 @@ export function MobileSessionView({
 
       {/* Plan Complete Modal */}
       {showPlanCompleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 max-w-sm w-full">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-9 h-9 rounded-full bg-green-500/20 flex items-center justify-center">
-                <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-sm w-full overflow-hidden">
+            <div className="px-5 pt-5 pb-4 border-b border-neutral-800/70">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-neutral-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="text-base font-semibold text-white">{t('session.sessionComplete')}</h3>
               </div>
-              <h3 className="text-base font-semibold text-white">{t('session.sessionComplete')}</h3>
             </div>
-            <p className="text-neutral-400 text-xs mb-5 leading-relaxed">
-              {t('session.congratulationsComplete')}
-            </p>
-            <button
-              onClick={() => {
-                setShowPlanCompleteModal(false);
-                stopRecording();
-              }}
-              className="w-full py-2.5 px-4 bg-white hover:bg-neutral-100 text-neutral-900 font-medium text-sm rounded-lg transition-colors"
-            >
-              {t('sessionEnd.endSession')}
-            </button>
-            <button
-              onClick={() => setShowPlanCompleteModal(false)}
-              className="w-full mt-2 py-2 px-4 text-xs text-neutral-400 hover:text-white transition-colors"
-            >
-              {t('common.keepGoing')}
-            </button>
+            <div className="px-5 py-5">
+              <p className="text-neutral-400 text-xs mb-5 leading-relaxed">
+                {t('session.congratulationsComplete')}
+              </p>
+              <button
+                onClick={() => {
+                  setShowPlanCompleteModal(false);
+                  stopRecording();
+                }}
+                className="w-full py-3 px-4 bg-neutral-100 active:bg-white text-neutral-900 font-medium text-sm rounded-xl transition-colors"
+              >
+                {t('sessionEnd.endSession')}
+              </button>
+              <button
+                onClick={() => setShowPlanCompleteModal(false)}
+                className="w-full mt-2 py-2 px-4 text-xs text-neutral-400 active:text-white transition-colors"
+              >
+                {t('common.keepGoing')}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2042,7 +2026,7 @@ export function MobileSessionView({
             <button
               onClick={() => setFlashEnabled(!flashEnabled)}
               className={`w-10 h-10 flex items-center justify-center rounded-full ${
-                flashEnabled ? "bg-cyan-500 text-black" : "bg-white/10 text-white"
+                flashEnabled ? "bg-neutral-100 text-neutral-900" : "bg-white/10 text-white"
               }`}
             >
               <svg className="w-6 h-6" fill={flashEnabled ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -2098,7 +2082,7 @@ export function MobileSessionView({
                 </button>
                 <button
                   onClick={confirmCapture}
-                  className="flex-1 py-4 bg-cyan-500 text-black font-medium rounded-2xl flex items-center justify-center gap-2"
+                  className="flex-1 py-4 bg-neutral-100 text-neutral-900 font-medium rounded-2xl flex items-center justify-center gap-2 active:bg-white"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -2133,7 +2117,7 @@ export function MobileSessionView({
                 onClick={() => setActiveTab(index)}
                 className={`flex items-center gap-1 px-4 py-1 rounded-lg transition-all ${
                   activeTab === index
-                    ? "text-cyan-400"
+                    ? "text-white"
                     : "text-neutral-500"
                 }`}
               >

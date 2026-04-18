@@ -1,230 +1,249 @@
 "use client";
 
-import { useMemo } from "react";
-import { type Probe, type RequestType, type ToolName } from "@/lib/storage";
+import { useEffect, useMemo, useState } from "react";
+import { type Probe, type ToolName } from "@/lib/storage";
 import { useI18n } from "@/lib/i18n";
 
 const MAX_PROBES = 5;
-
-// Tool labels for display
-function getToolLabel(tool: string, t: (key: string) => string): string {
-  const labels: Record<string, string> = {
-    chat: t('tools.teachingAssistant'),
-    canvas: t('tools.canvas'),
-    notebook: t('tools.notebook'),
-    grokipedia: t('tools.grokipedia'),
-    plan: t('probes.session'),
-    rag: t('tools.ragMatches'),
-    exercise: t('tools.practice'),
-    reading: t('tools.theory'),
-    help: t('tools.help'),
-  };
-  return labels[tool] || tool;
-}
-
-// Type badge styling based on request type
-function getTypeBadgeStyles(type: RequestType): { bg: string; text: string; border: string } {
-  switch (type) {
-    case "question":
-      return { bg: "bg-blue-500/15", text: "text-blue-400", border: "border-blue-500/20" };
-    case "task":
-      return { bg: "bg-purple-500/15", text: "text-purple-400", border: "border-purple-500/20" };
-    case "suggestion":
-      return { bg: "bg-green-500/15", text: "text-green-400", border: "border-green-500/20" };
-    case "checkpoint":
-      return { bg: "bg-amber-500/15", text: "text-amber-400", border: "border-amber-500/20" };
-    case "feedback":
-      return { bg: "bg-cyan-500/15", text: "text-cyan-400", border: "border-cyan-500/20" };
-    default:
-      return { bg: "bg-neutral-500/15", text: "text-neutral-400", border: "border-neutral-500/20" };
-  }
-}
 
 interface ProbesPanelProps {
   probes: Probe[];
   onArchiveProbe?: (probeId: string) => Promise<void>;
   onToggleFocus?: (probeId: string, focused: boolean) => void;
   onToolSelect?: (tool: ToolName) => void;
+  onOpenResources?: (text: string) => void;
+  onOpenPractice?: (text: string) => void;
+  onAskAssistant?: (text: string) => void;
   archivingProbeId?: string | null;
   isInitializing?: boolean;
   isGeneratingProbe?: boolean;
   sessionPlan?: { steps?: Array<{ id: string; order: number; description: string }> } | null;
+  isSessionActive?: boolean;
+  tutorName?: string;
 }
 
 export function ProbesPanel({
   probes,
   onArchiveProbe,
-  onToggleFocus,
-  onToolSelect,
+  onOpenResources,
+  onOpenPractice,
+  onAskAssistant,
   archivingProbeId,
   isInitializing = false,
   isGeneratingProbe = false,
-  sessionPlan,
+  isSessionActive = false,
+  tutorName,
 }: ProbesPanelProps) {
   const { t } = useI18n();
 
   const activeProbes = useMemo(() => probes.filter(p => !p.archived), [probes]);
 
-  const formatTimestamp = (timestamp: number) => {
-    const totalSeconds = Math.floor(timestamp / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-  };
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Keep index in bounds when list changes
+  useEffect(() => {
+    if (currentIndex >= activeProbes.length && activeProbes.length > 0) {
+      setCurrentIndex(activeProbes.length - 1);
+    } else if (activeProbes.length === 0) {
+      setCurrentIndex(0);
+    }
+  }, [activeProbes.length, currentIndex]);
+
+  const displayTutorName = tutorName || t('probes.tutor');
+  const currentProbe = activeProbes[currentIndex];
+  const total = Math.max(activeProbes.length, 1);
+  const canGoPrev = currentIndex > 0;
+  const canGoNext = currentIndex < activeProbes.length - 1;
+
+  const goPrev = () => setCurrentIndex(i => Math.max(0, i - 1));
+  const goNext = () => setCurrentIndex(i => Math.min(activeProbes.length - 1, i + 1));
+
+  // Tutor avatar — stylized monogram placeholder
+  const avatarInitial = displayTutorName.charAt(0).toUpperCase();
 
   return (
-    <div className="flex-1 min-w-0 flex flex-col bg-[#0a0a0a] h-full overflow-hidden">
-      {/* Section Title */}
-      <div className="px-4 pt-3 pb-2 shrink-0">
-        <h2 className="text-sm font-semibold text-white">{t('probes.guidingTasks')}</h2>
-      </div>
+    <div className="relative flex-1 min-w-0 flex flex-col bg-[#0a0a0a] h-full overflow-hidden">
+      {/* Position counter (top-right corner) */}
+      {activeProbes.length > 0 && (
+        <div className="absolute top-3 right-4 z-10 font-mono text-[10px] text-neutral-600 tabular-nums pointer-events-none">
+          {String(currentIndex + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}
+        </div>
+      )}
 
-      {/* 5 Probe Slots - filled + empty */}
-      <div className="flex-1 min-h-0 px-3 pb-3 flex flex-col gap-2 overflow-hidden">
+      {/* Main message area */}
+      <div className="relative flex-1 min-h-0 flex flex-col px-4 py-4 overflow-hidden">
         {isInitializing && activeProbes.length === 0 ? (
-          <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3">
-            <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+          <div className="flex-1 flex flex-col items-center justify-center gap-3">
+            <div className="w-6 h-6 border border-neutral-800 border-t-amber-500/70 rounded-full animate-spin" />
             <p className="text-xs text-neutral-500">{t('probes.preparing')}</p>
           </div>
-        ) : (
-          Array.from({ length: MAX_PROBES }).map((_, i) => {
-            const probe = activeProbes[i];
-            const isGeneratingThisSlot = isGeneratingProbe && !probe && i === activeProbes.length;
-
-            if (!probe) {
-              // Empty / generating slot
-              return (
-                <div
-                  key={`empty-${i}`}
-                  className="flex-1 min-h-0 p-3 rounded-lg border-2 border-dashed border-neutral-700 bg-neutral-800/40 flex items-center justify-center gap-2"
-                >
-                  {isGeneratingThisSlot ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-neutral-600 border-t-cyan-500 rounded-full animate-spin" />
-                      <span className="text-xs text-neutral-400">{t('probes.generatingProbe')}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-700/60 text-[10px] font-bold text-neutral-400">
-                        {i + 1}
-                      </span>
-                      <span className="text-xs text-neutral-400">{t('session.emptySlot')}</span>
-                    </>
-                  )}
-                </div>
-              );
-            }
-
-            const planStep = probe.planStepId
-              ? sessionPlan?.steps?.find(s => s.id === probe.planStepId)
-              : null;
-            const stepContext = planStep
-              ? t('probes.stepContext', { order: planStep.order, description: planStep.description })
-              : t('probes.general');
-
-            const requestType = probe.requestType || "question";
-            const typeBadge = getTypeBadgeStyles(requestType);
-            const isArchiving = archivingProbeId === probe.id;
-
-            return (
-              <div
-                key={probe.id}
-                onClick={() => onToggleFocus?.(probe.id, !probe.focused)}
-                className={`
-                  group relative p-3 rounded-lg transition-all duration-300 cursor-pointer
-                  flex-1 min-h-0 overflow-y-auto
-                  ${probe.focused
-                    ? "bg-amber-500/10 border border-amber-500/30"
-                    : "bg-neutral-900/50 border border-neutral-800/50 hover:border-neutral-700"
-                  }
-                  ${isArchiving ? "animate-slide-out-right opacity-0" : ""}
-                `}
-              >
-                {/* Probe Header */}
-                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                  <span className="text-[10px] font-mono text-neutral-500">
-                    {formatTimestamp(probe.timestamp)}
-                  </span>
-                  <span className={`px-1.5 py-0.5 text-[9px] font-medium rounded ${typeBadge.bg} ${typeBadge.text} border ${typeBadge.border}`}>
-                    {requestType}
-                  </span>
-                  <span className="text-[9px] text-neutral-600 truncate max-w-[100px]" title={stepContext}>
-                    {stepContext}
-                  </span>
-
-                  {/* Done Button */}
-                  <div className="ml-auto flex items-center gap-1">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onArchiveProbe?.(probe.id);
-                      }}
-                      disabled={isArchiving}
-                      className="flex items-center gap-1 px-2 py-1 rounded text-neutral-500 hover:text-green-400 hover:bg-green-500/10 transition-colors disabled:opacity-50 text-xs"
-                      title={t('session.markAsDone')}
-                    >
-                      {isArchiving ? (
-                        <>
-                          <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                          <span className="text-green-400">{t('probes.validating')}</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                          <span>{t('probes.done')}</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Probe Text */}
-                <p className="text-sm text-neutral-300 leading-snug">
-                  {probe.text}
-                </p>
-
-                {/* Task hint */}
-                {requestType === "task" && (
-                  <p className="text-[10px] text-purple-400/70 mt-1.5 italic">
-                    {t('probes.useToolsHint')}
-                  </p>
-                )}
-
-                {/* Tool Suggestions */}
-                {probe.suggestedTools && probe.suggestedTools.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    <span className="text-[9px] text-neutral-500 self-center mr-1">{t('probes.tryHint')}</span>
-                    {probe.suggestedTools.map(tool => (
-                      <button
-                        key={tool}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onToolSelect?.(tool);
-                        }}
-                        className="px-2 py-0.5 text-[10px] font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-full hover:bg-cyan-500/20 hover:border-cyan-500/40 transition-colors"
-                      >
-                        {getToolLabel(tool, t)}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Focused indicator */}
-                {probe.focused && (
-                  <div className="mt-2 text-[9px] text-amber-400/80 flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
-                    </svg>
-                    {t('probes.focusedHint')}
-                  </div>
-                )}
+        ) : !currentProbe ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center">
+            {/* Silent tutor avatar */}
+            <div className="relative">
+              <div className="w-28 h-28 rounded-full bg-gradient-to-br from-neutral-800 to-neutral-900 border border-neutral-800 flex items-center justify-center opacity-50">
+                <span className="text-3xl font-serif text-neutral-600">{avatarInitial}</span>
               </div>
-            );
-          })
+            </div>
+            {isGeneratingProbe ? (
+              <div className="flex items-center gap-2">
+                <div className="w-3.5 h-3.5 border border-neutral-700 border-t-amber-500/70 rounded-full animate-spin" />
+                <span className="text-xs text-neutral-500">{t('probes.generatingProbe')}</span>
+              </div>
+            ) : (
+              <p className="text-xs text-neutral-600 max-w-[240px]">
+                {t('probes.waitingForTutor')}
+              </p>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Carousel nav arrows - left */}
+            {canGoPrev && (
+              <button
+                onClick={goPrev}
+                className="absolute left-1 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-neutral-900/80 border border-neutral-800 text-neutral-400 hover:bg-neutral-800 hover:text-white backdrop-blur-sm transition-all flex items-center justify-center"
+                aria-label={t('probes.previous')}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+            {/* Carousel nav arrows - right */}
+            {canGoNext && (
+              <button
+                onClick={goNext}
+                className="absolute right-1 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-neutral-900/80 border border-neutral-800 text-neutral-400 hover:bg-neutral-800 hover:text-white backdrop-blur-sm transition-all flex items-center justify-center"
+                aria-label={t('probes.next')}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+
+            {/* Tutor + message group — centered vertically in available space */}
+            <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-5 overflow-y-auto">
+              {/* Avatar - stylized placeholder that can be replaced with a real image later */}
+              <div className="shrink-0 flex flex-col items-center">
+                <div className="relative">
+                  <div className="w-28 h-28 rounded-full bg-gradient-to-br from-amber-500/15 via-neutral-800 to-neutral-900 border border-neutral-800 flex items-center justify-center overflow-hidden">
+                    <span className="text-3xl font-serif text-neutral-200">{avatarInitial}</span>
+                  </div>
+                  {/* Soft glow */}
+                  <div className="absolute inset-0 rounded-full shadow-[0_0_30px_rgba(245,158,11,0.08)] pointer-events-none" />
+                </div>
+                <div className="mt-2">
+                  <span className="text-sm font-medium text-neutral-200">{displayTutorName}</span>
+                </div>
+              </div>
+
+              {/* The message */}
+              <div className="relative max-w-[52ch] px-2">
+                {/* Subtle decorative quote mark */}
+                <span
+                  className="absolute -top-4 -left-1 text-5xl font-serif text-neutral-800 select-none pointer-events-none leading-none"
+                  aria-hidden="true"
+                >
+                  &ldquo;
+                </span>
+                <p className="relative text-xl leading-relaxed tracking-tight text-center text-neutral-200">
+                  {currentProbe.text}
+                </p>
+              </div>
+            </div>
+
+            {/* Action row */}
+            <div className="shrink-0 pt-4">
+              <div className="grid grid-cols-4 gap-2.5 @container">
+                <button
+                  onClick={() => onOpenResources?.(currentProbe.text)}
+                  disabled={!isSessionActive}
+                  title={t('sessionPlan.resources')}
+                  className="py-3 px-3 text-[12px] font-medium rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:bg-neutral-800 hover:border-neutral-700 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                  <span className="hidden @[20rem]:inline truncate">{t('sessionPlan.resources')}</span>
+                </button>
+                <button
+                  onClick={() => onOpenPractice?.(currentProbe.text)}
+                  disabled={!isSessionActive}
+                  title={t('sessionPlan.practice')}
+                  className="py-3 px-3 text-[12px] font-medium rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:bg-neutral-800 hover:border-neutral-700 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                  <span className="hidden @[20rem]:inline truncate">{t('sessionPlan.practice')}</span>
+                </button>
+                <button
+                  onClick={() => onAskAssistant?.(currentProbe.text)}
+                  disabled={!isSessionActive}
+                  title={t('sessionPlan.ask')}
+                  className="py-3 px-3 text-[12px] font-medium rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:bg-neutral-800 hover:border-neutral-700 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                  <span className="hidden @[20rem]:inline truncate">{t('sessionPlan.ask')}</span>
+                </button>
+                <button
+                  onClick={() => onArchiveProbe?.(currentProbe.id)}
+                  disabled={archivingProbeId === currentProbe.id}
+                  title={t('session.markAsDone')}
+                  className="py-3 px-3 text-[12px] font-medium rounded-xl bg-neutral-100 text-neutral-900 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                >
+                  {archivingProbeId === currentProbe.id ? (
+                    <svg className="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                  <span className="hidden @[20rem]:inline truncate">{t('probes.done')}</span>
+                </button>
+              </div>
+
+              {/* Carousel dots */}
+              {activeProbes.length > 1 && (
+                <div className="flex items-center justify-center gap-1.5 mt-3">
+                  {activeProbes.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCurrentIndex(i)}
+                      className={`h-1.5 rounded-full transition-all ${
+                        i === currentIndex
+                          ? "w-5 bg-neutral-300"
+                          : "w-1.5 bg-neutral-700 hover:bg-neutral-600"
+                      }`}
+                      aria-label={`${t('probes.goToProbe')} ${i + 1}`}
+                    />
+                  ))}
+                  {/* Placeholder dots for remaining empty slots */}
+                  {Array.from({ length: Math.max(0, MAX_PROBES - activeProbes.length) }).map((_, i) => (
+                    <div
+                      key={`ph-${i}`}
+                      className="h-1.5 w-1.5 rounded-full bg-neutral-900 border border-neutral-800"
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Generating indicator */}
+              {isGeneratingProbe && (
+                <div className="flex items-center justify-center gap-2 mt-2">
+                  <div className="w-2 h-2 rounded-full bg-amber-500/70 animate-pulse" />
+                  <span className="text-[10px] text-neutral-500">{t('probes.generatingProbe')}</span>
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
     </div>
