@@ -1345,29 +1345,44 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       transferHealthRef.current = { audio: { sent: 0, saved: 0, failed: 0 }, eeg: { sent: 0, saved: 0, failed: 0 }, facial: { sent: 0, saved: 0, failed: 0 } };
       setTransferHealth({ audio: { sent: 0, saved: 0, failed: 0 }, eeg: { sent: 0, saved: 0, failed: 0 }, facial: { sent: 0, saved: 0, failed: 0 } });
 
-      // Reuse the mic-checked stream, or request a new one
-      let mediaStream = micStreamRef.current;
-      if (!mediaStream || mediaStream.getTracks().some(t => t.readyState === "ended")) {
-        mediaStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            sampleRate: 48000,
-          },
-        });
-      }
-      micStreamRef.current = null; // hand off ownership
-      setStream(mediaStream);
+      // Try to get mic — audio is optional, session can run without it
+      let mediaStream: MediaStream | null = micStreamRef.current;
+      try {
+        if (!mediaStream || mediaStream.getTracks().some(t => t.readyState === "ended")) {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              sampleRate: 48000,
+            },
+          });
+        }
+        micStreamRef.current = null; // hand off ownership
+        setStream(mediaStream);
 
-      const recorder = new AudioRecorder({
-        chunkDurationMs: 60000,
-        maxBufferDurationMs: 300000,
-        // Audio saving is handled by runStorageHeartbeat every 5s via getRecentAudio()
-        // No onChunk save needed — avoids duplicate audio entries in session_audio table
-      });
-      recorderRef.current = recorder;
-      await recorder.start(mediaStream);
+        const recorder = new AudioRecorder({
+          chunkDurationMs: 60000,
+          maxBufferDurationMs: 300000,
+        });
+        recorderRef.current = recorder;
+        await recorder.start(mediaStream);
+      } catch (micErr) {
+        console.warn("[SessionView] Mic unavailable, starting session without audio:", micErr);
+        setError(t('session.micNotFound'));
+        mediaStream = null;
+        micStreamRef.current = null;
+        recorderRef.current = null;
+        setStream(null);
+      }
+
+      // Always start the session regardless of mic availability
       setIsRecording(true);
+      setIsPaused(false);
+
+      // Sync DB status to active
+      if (session) {
+        updateSessionStatus(session.id, "active").catch(() => {});
+      }
 
       const startTime = Date.now();
       timerRef.current = setInterval(() => {
@@ -1393,6 +1408,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       }, 1000);
 
     } catch (err) {
+      console.error("[SessionView] startRecording failed:", err);
       setError(t('session.micError'));
     }
   };
@@ -1524,23 +1540,28 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     if (!session) return;
 
     try {
-      // Resume audio stream
-      let mediaStream = pausedAudioStreamRef.current;
-      const tracksStillActive = mediaStream?.getTracks().some(t => t.readyState === "live");
-      if (!mediaStream || !tracksStillActive) {
-        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      }
-      setStream(mediaStream);
+      // Try to resume audio stream — mic is optional
+      try {
+        let mediaStream = pausedAudioStreamRef.current;
+        const tracksStillActive = mediaStream?.getTracks().some(t => t.readyState === "live");
+        if (!mediaStream || !tracksStillActive) {
+          mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+        setStream(mediaStream);
 
-      const AudioRecorderClass = (await import("@/lib/audio")).AudioRecorder;
-      const recorder = new AudioRecorderClass({
-        chunkDurationMs: 60000,
-        maxBufferDurationMs: 300000,
-        // Audio saving is handled by runStorageHeartbeat every 5s via getRecentAudio()
-        // No onChunk save needed — avoids duplicate audio entries in session_audio table
-      });
-      await recorder.start(mediaStream);
-      recorderRef.current = recorder;
+        const AudioRecorderClass = (await import("@/lib/audio")).AudioRecorder;
+        const recorder = new AudioRecorderClass({
+          chunkDurationMs: 60000,
+          maxBufferDurationMs: 300000,
+        });
+        await recorder.start(mediaStream);
+        recorderRef.current = recorder;
+      } catch (micErr) {
+        console.warn("[SessionView] Mic unavailable on resume, continuing without audio:", micErr);
+        setError(t('session.micNotFound'));
+        recorderRef.current = null;
+        setStream(null);
+      }
 
       setIsRecording(true);
       setIsPaused(false);
@@ -1577,7 +1598,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           const existingStream = pausedScreenStreamRef.current;
           const streamStillActive = existingStream?.getVideoTracks().some(t => t.readyState === "live");
           if (streamStillActive) {
-            // Try to restart with existing stream if tracks are still active
             try {
               await screenCaptureRef.current.start();
               setIsScreenCapturing(true);
@@ -1586,7 +1606,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               wasScreenCapturingRef.current = false;
             }
           } else {
-            // Screen sharing was stopped by user, can't auto-resume
             wasScreenCapturingRef.current = false;
           }
         }
@@ -1603,6 +1622,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       }
 
     } catch (err) {
+      console.error("[SessionView] handleResume failed:", err);
       setError(t('session.micError'));
     }
   };
@@ -2549,6 +2569,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
                           // All done - close modal and enter session
                           setPrepStage("done");
+                          setIsPaused(false); // Reset paused state from previous session load
                           setShowWelcomeModal(false);
                         } catch (err) {
                           console.error("Failed to prepare session:", err);
@@ -2670,7 +2691,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               // Phase 2: Ready (already confirmed before, e.g. page refresh) - just show close button
               return (
                 <button
-                  onClick={() => setShowWelcomeModal(false)}
+                  onClick={() => {
+                    setIsPaused(false); // Reset paused state from previous session load
+                    setShowWelcomeModal(false);
+                  }}
                   className="w-full py-2.5 px-4 font-medium rounded-lg transition-colors bg-white hover:bg-neutral-100 text-neutral-900"
                 >
                   {t('session.getStarted')}
@@ -2704,6 +2728,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Error banner */}
+        {error && !showWelcomeModal && (
+          <div className="px-4 py-2 bg-red-500/10 border-b border-red-500/30 flex items-center gap-2">
+            <span className="text-xs text-red-400">{error}</span>
+            <button onClick={() => setError(null)} className="ml-auto text-red-400/60 hover:text-red-400 text-xs">✕</button>
+          </div>
+        )}
         {/* Session control bar */}
         {!showWelcomeModal && (
           <SessionControlBar

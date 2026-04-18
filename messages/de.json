@@ -675,6 +675,7 @@
     "checkingMic": "Mikrofon wird überprüft...",
     "micDenied": "Mikrofonzugriff verweigert. Bitte erlaube und versuche es erneut.",
     "micError": "Mikrofon konnte nicht erreicht werden. Bitte erlaube und versuche es erneut.",
+    "micNotFound": "Kein Mikrofon erkannt. Sitzung ohne Audio gestartet — Mikrofon anschließen zum Aufnehmen.",
     "tools": "Werkzeuge",
     "studentMonitoring": "Schülerüberwachung",
     "sessionPaused": "Sitzung pausiert",

@@ -728,6 +728,7 @@
     "checkingMic": "Checking microphone...",
     "micDenied": "Microphone access denied. Please allow microphone permission and try again.",
     "micError": "Could not access microphone. Please grant permission and try again.",
+    "micNotFound": "No microphone detected. Session started without audio — connect a mic to enable recording.",
     "tools": "Tools",
     "studentMonitoring": "Student Monitoring",
     "sessionPaused": "Session paused",

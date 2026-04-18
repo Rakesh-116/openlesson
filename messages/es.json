@@ -727,6 +727,7 @@
     "checkingMic": "Verificando micrófono...",
     "micDenied": "Acceso al micrófono denegado. Por favor permite el permiso e intenta de nuevo.",
     "micError": "No se pudo acceder al micrófono. Por favor concede permiso e intenta de nuevo.",
+    "micNotFound": "No se detectó micrófono. Sesión iniciada sin audio — conecta un micrófono para grabar.",
     "tools": "Herramientas",
     "studentMonitoring": "Monitoreo del Estudiante",
     "sessionPaused": "Sesión pausada",

@@ -417,7 +417,7 @@ export async function startSession(sessionId: string): Promise<void> {
   const supabase = createClient();
   await supabase
     .from("sessions")
-    .update({ status: "paused" })
+    .update({ status: "active" })
     .eq("id", sessionId);
 }
 

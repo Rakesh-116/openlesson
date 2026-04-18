@@ -675,6 +675,7 @@
     "checkingMic": "正在检查麦克风...",
     "micDenied": "麦克风访问被拒绝。请允许麦克风权限并重试。",
     "micError": "无法访问麦克风。请授予权限并重试。",
+    "micNotFound": "未检测到麦克风。会话已在无音频状态下启动——连接麦克风以启用录音。",
     "tools": "工具",
     "studentMonitoring": "学生监控",
     "sessionPaused": "课程已暂停",

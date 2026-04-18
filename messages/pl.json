@@ -675,6 +675,7 @@
     "checkingMic": "Sprawdzanie mikrofonu...",
     "micDenied": "Dostęp do mikrofonu odmówiony. Pozwól i spróbuj ponownie.",
     "micError": "Nie można uzyskać dostępu do mikrofonu. Pozwól i spróbuj ponownie.",
+    "micNotFound": "Nie wykryto mikrofonu. Sesja rozpoczęta bez dźwięku — podłącz mikrofon, aby nagrywać.",
     "tools": "Narzędzia",
     "studentMonitoring": "Monitorowanie ucznia",
     "sessionPaused": "Sesja zapauzowana",

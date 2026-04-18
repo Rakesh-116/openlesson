@@ -624,6 +624,7 @@
     "checkingMic": "Đang kiểm tra mic...",
     "micDenied": "Quyền mic bị từ chối. Vui lòng cho phép và thử lại.",
     "micError": "Không thể truy cập mic. Vui lòng cấp quyền và thử lại.",
+    "micNotFound": "Không tìm thấy mic. Phiên đã bắt đầu không có âm thanh — kết nối mic để ghi âm.",
     "tools": "Công cụ",
     "studentMonitoring": "Theo dõi học sinh",
     "sessionPaused": "Phiên đã tạm dừng",
