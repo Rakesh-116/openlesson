@@ -33,6 +33,8 @@ import { createClient } from "@/lib/supabase/client";
 import { playStepCompleteSound, playSessionCompleteSound } from "@/lib/sounds";
 import { LocalInferenceManager, type InitProgress, type LocalAnalysisContext } from "@/lib/local-inference";
 import { LocalContextBuffer } from "@/lib/local-context";
+import { useSessionHeartbeat, type StorageHeartbeatResult, type AnalysisHeartbeatResult } from "@/lib/useSessionHeartbeat";
+import { retryWithResult } from "@/lib/retry";
 // ModelLoadingModal no longer used -- loading UI is inline in welcome modal
 import type { RequestType } from "@/lib/storage";
 
@@ -136,8 +138,6 @@ export function MobileSessionView({
   const [whiteboardData, setWhiteboardData] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
-  const [storageBeat, setStorageBeat] = useState(0);
-  const [analysisBeat, setAnalysisBeat] = useState(0);
   const [isCelebrating, setIsCelebrating] = useState(false);
   const [showPlanCompleteModal, setShowPlanCompleteModal] = useState(false);
 
@@ -167,10 +167,8 @@ export function MobileSessionView({
   const recorderRef = useRef<AudioRecorder | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerBaseRef = useRef<number>(0);
-  const analysisRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chunkIndexRef = useRef(0);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
-  const heartbeatSecondRef = useRef(0);
   const whiteboardDataRef = useRef<string | null>(null);
   const sessionRef = useRef<Session | null>(session);
   const sessionPlanRef = useRef<SessionPlan | null>(sessionPlan);
@@ -305,20 +303,37 @@ export function MobileSessionView({
   };
 
   // Storage heartbeat - saves audio & whiteboard (every 5s)
-  const runStorageHeartbeat = useCallback(async () => {
+  const runStorageHeartbeat = useCallback(async (): Promise<StorageHeartbeatResult> => {
     const currentSession = sessionRef.current;
-    if (!currentSession) return;
+    if (!currentSession) return {};
+
+    const result: StorageHeartbeatResult = {};
 
     try {
       if (recorderRef.current) {
         const audio = recorderRef.current.getRecentAudio(5000);
         if (audio && audio.size > 100) {
+          result.audio = { attempted: true, saved: false };
           const idx = chunkIndexRef.current++;
-          await saveAudioChunk(currentSession.id, audio, idx, Date.now()).catch(err => {
-            console.error("[Mobile] Failed to save audio chunk:", err);
-          });
+          const saveResult = await retryWithResult(
+            () => saveAudioChunk(currentSession.id, audio, idx, Date.now()),
+            { maxRetries: 2, baseDelayMs: 500 },
+          );
+          result.audio.saved = saveResult.success && !!saveResult.data;
         }
       }
+
+      // Transcribe any pending audio chunks (decoupled from analysis)
+      try {
+        await fetch("/api/transcribe-chunks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: currentSession.id }),
+        });
+      } catch (err) {
+        console.warn("[Mobile] Background transcription error:", err);
+      }
+
       if (whiteboardDataRef.current) {
         const dataStr = whiteboardDataRef.current;
         const whiteboardKey = `canvas_${currentSession.id}`;
@@ -327,8 +342,11 @@ export function MobileSessionView({
           await logToolUsage(currentSession.id, 'canvas', 'canvas_draw', Date.now(), { data: dataStr });
         }
       }
+
+      return result;
     } catch (err) {
       console.warn("[Mobile] Storage heartbeat error:", err);
+      return { error: String(err) };
     }
   }, []);
 
@@ -423,32 +441,25 @@ export function MobileSessionView({
     }
   }, [tutoringLanguage]);
 
-  // Analysis heartbeat - transcribe, analyze, create probes, handle step transitions (every 10s)
-  const runAnalysisHeartbeat = useCallback(async () => {
+  // Analysis heartbeat - analyze, create probes, handle step transitions (every 10s)
+  // Transcription is now decoupled — it runs on the storage heartbeat cycle.
+  const runAnalysisHeartbeat = useCallback(async (): Promise<AnalysisHeartbeatResult> => {
+    const startMs = Date.now();
+
     // Route to local analysis if enabled
     if (localInferenceEnabledRef.current) {
-      return runLocalAnalysisHeartbeat();
+      await runLocalAnalysisHeartbeat();
+      return { success: true, durationMs: Date.now() - startMs };
     }
 
     const currentSession = sessionRef.current;
     const currentPlan = sessionPlanRef.current;
-    if (!currentSession || !currentPlan) return;
-    if (isAnalyzingRef.current) return;
+    if (!currentSession || !currentPlan) return { success: true, durationMs: 0 };
+    if (isAnalyzingRef.current) return { success: true, durationMs: 0 };
 
     isAnalyzingRef.current = true;
 
     try {
-      // Transcribe pending audio BEFORE analysis
-      try {
-        await fetch("/api/transcribe-chunks", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: currentSession.id }),
-        });
-      } catch (err) {
-        console.warn("[Mobile] Pre-analysis transcription error:", err);
-      }
-
       const openProbes = currentSession.probes.filter((p: Probe) => !p.archived);
       const focusedProbes = openProbes.filter((p: Probe) => p.focused).map((p: Probe) => ({ id: p.id, text: p.text }));
 
@@ -467,12 +478,11 @@ export function MobileSessionView({
       });
 
       if (!res.ok) {
-        console.error("[Mobile] Analysis service unavailable:", res.status);
-        return;
+        return { success: false, durationMs: Date.now() - startMs, error: "Analysis service unavailable" };
       }
 
       const planData = await res.json();
-      if (!planData) return;
+      if (!planData) return { success: true, durationMs: Date.now() - startMs };
 
       // --- Process plan update response (parity with desktop) ---
 
@@ -590,48 +600,33 @@ export function MobileSessionView({
           lastProbeTimeRef.current = Date.now();
         }
       }
+
+      return { success: true, durationMs: Date.now() - startMs, gapScore: planData.gapScore };
     } catch (err) {
       console.error("[Mobile] Analysis error:", err);
+      return { success: false, durationMs: Date.now() - startMs, error: String(err) };
     } finally {
       isAnalyzingRef.current = false;
       setIsGeneratingProbe(false);
     }
   }, []);
 
-  // Heartbeat effect - runs when recording and handles storage/analysis beats
+  // ---- Mobile Heartbeat Hook ----
+  const heartbeat = useSessionHeartbeat({
+    storageIntervalMs: 5000,
+    analysisIntervalMs: 10000,
+    onStorageHeartbeat: runStorageHeartbeat,
+    onAnalysisHeartbeat: runAnalysisHeartbeat,
+  });
+
+  // Heartbeat lifecycle - managed by the hook, controlled by recording state
   useEffect(() => {
-    if (!isRecording || isPaused) {
-      if (analysisRef.current) {
-        clearInterval(analysisRef.current);
-        analysisRef.current = null;
-      }
-      return;
+    if (isRecording && !isPaused) {
+      heartbeat.resume();
+    } else {
+      heartbeat.pause();
     }
-
-    // Start heartbeat interval
-    analysisRef.current = setInterval(() => {
-      const second = heartbeatSecondRef.current;
-
-      if (second % 5 === 0) {
-        runStorageHeartbeat();
-      }
-
-      if (second % 10 === 0) {
-        runAnalysisHeartbeat();
-      }
-
-      setStorageBeat(second % 5);
-      setAnalysisBeat(second % 10);
-      heartbeatSecondRef.current = (second + 1) % 10;
-    }, 1000);
-
-    return () => {
-      if (analysisRef.current) {
-        clearInterval(analysisRef.current);
-        analysisRef.current = null;
-      }
-    };
-  }, [isRecording, isPaused, runStorageHeartbeat, runAnalysisHeartbeat]);
+  }, [isRecording, isPaused, heartbeat]);
 
   // Check microphone permission
   const checkMicrophone = useCallback(async () => {
@@ -850,7 +845,6 @@ export function MobileSessionView({
   // Stop recording and end session
   const stopRecording = useCallback(async () => {
     if (timerRef.current) clearInterval(timerRef.current);
-    if (analysisRef.current) clearInterval(analysisRef.current);
 
     // Clean up local inference if active
     if (localInferenceEnabledRef.current) {
@@ -858,9 +852,8 @@ export function MobileSessionView({
       localContextRef.current?.clear();
     }
 
-    // Final heartbeat to save remaining data and analyze last audio
-    await runStorageHeartbeat();
-    await (localInferenceEnabledRef.current ? Promise.resolve() : runAnalysisHeartbeat());
+    // Stop heartbeat system (waits for in-flight analysis, runs final flush)
+    await heartbeat.stop();
 
     await recorderRef.current?.stop();
     recorderRef.current = null;
@@ -881,7 +874,7 @@ export function MobileSessionView({
     await saveSession(finalSession);
     
     router.push(`/results?id=${finalSession.id}`);
-  }, [session, elapsedSeconds, router]);
+  }, [session, elapsedSeconds, router, heartbeat]);
 
   // Pause recording
   const pauseRecording = useCallback(async () => {
@@ -1852,35 +1845,7 @@ export function MobileSessionView({
               {isRecording && !isPaused ? t('session.recording') : isPaused ? t('session.paused') : t('session.session')}
             </span>
             
-            {/* Heartbeat indicators */}
-            {isRecording && (
-              <div className="flex items-center gap-1.5 ml-2">
-                {/* Storage heartbeat */}
-                <div className="flex items-center gap-0.5">
-                  <span className="text-[8px] text-cyan-500/60 uppercase">S</span>
-                  {[0, 1, 2, 3, 4].map((i) => (
-                    <div
-                      key={`storage-${i}`}
-                      className={`w-1 h-1 rounded-sm transition-colors ${
-                        i <= storageBeat ? "bg-cyan-500" : "bg-neutral-700"
-                      }`}
-                    />
-                  ))}
-                </div>
-                {/* Analysis heartbeat */}
-                <div className="flex items-center gap-0.5">
-                  <span className="text-[8px] text-purple-500/60 uppercase">A</span>
-                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
-                    <div
-                      key={`analysis-${i}`}
-                      className={`w-1 h-1 rounded-sm transition-colors ${
-                        i <= analysisBeat ? "bg-purple-500" : "bg-neutral-700"
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+
           </div>
 
           <div className="flex items-center gap-2 shrink-0">

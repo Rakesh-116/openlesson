@@ -66,6 +66,8 @@ import {
   openPopOutWindow, 
   type SessionAction 
 } from "@/lib/broadcast-sync";
+import { useSessionHeartbeat, type StorageHeartbeatResult, type AnalysisHeartbeatResult } from "@/lib/useSessionHeartbeat";
+import { retryWithResult } from "@/lib/retry";
 import { useI18n } from "@/lib/i18n";
 import { tutoringLocales, tutoringLanguageNames } from "@/lib/tutoring-languages";
 
@@ -181,13 +183,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
-
-  // Error tracking for recording pipeline
-  const [pipelineErrors, setPipelineErrors] = useState<{
-    analysis?: string;
-    transcription?: string;
-    storage?: string;
-  }>({});
 
   // Local inference
   const [localInferenceEnabled, setLocalInferenceEnabled] = useState(false);
@@ -371,19 +366,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const logsRef = useRef<LogEntry[]>([]);
 
-  // Data transfer health tracking
-  const [transferHealth, setTransferHealth] = useState<{
-    audio: { sent: number; saved: number; failed: number };
-    eeg: { sent: number; saved: number; failed: number };
-    facial: { sent: number; saved: number; failed: number };
-  }>({ audio: { sent: 0, saved: 0, failed: 0 }, eeg: { sent: 0, saved: 0, failed: 0 }, facial: { sent: 0, saved: 0, failed: 0 } });
-
   // Refs for interval callbacks
   const recorderRef = useRef<AudioRecorder | null>(null);
   const sessionRef = useRef<Session | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const heartbeatSecondRef = useRef(0);
   const lastProbeTimeRef = useRef(0);
   const isAnalyzingRef = useRef(false);
   const muteTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -391,7 +377,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const chunkIndexRef = useRef(0);
   const eegChunkIndexRef = useRef(0);
   const facialChunkIndexRef = useRef(0);
-  const transferHealthRef = useRef({ audio: { sent: 0, saved: 0, failed: 0 }, eeg: { sent: 0, saved: 0, failed: 0 }, facial: { sent: 0, saved: 0, failed: 0 } });
   const observerModeRef = useRef(observerMode);
   const frequencyRef = useRef(frequency);
   const isMutedRef = useRef(isMuted);
@@ -403,10 +388,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const autoAdvanceRef = useRef(autoAdvance);
   const museStatusRef = useRef(museStatus);
   const isWebcamEnabledRef = useRef(isWebcamEnabled);
-
-  // Heartbeat state for UI display
-  const [storageBeat, setStorageBeat] = useState(0);
-  const [analysisBeat, setAnalysisBeat] = useState(0);
 
   // Screen capture
   const screenCaptureRef = useRef<{ captureNow: () => Promise<Blob | null>; start: () => Promise<boolean>; stop: () => void; isCapturing: () => boolean; getStream: () => MediaStream | null } | null>(null);
@@ -1017,44 +998,35 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   }, [tutoringLanguage]);
 
   // ---- Analysis Heartbeat (10s) ----
-  const runAnalysisHeartbeat = useCallback(async () => {
+  // Returns structured result for the heartbeat hook to track health.
+  // Transcription is now decoupled — it runs on the storage heartbeat cycle,
+  // so transcripts are already available when analysis fires.
+  const runAnalysisHeartbeat = useCallback(async (): Promise<AnalysisHeartbeatResult> => {
+    const startMs = Date.now();
+
     // Route to local analysis if enabled
     if (localInferenceEnabledRef.current) {
-      return runLocalAnalysisHeartbeat();
+      await runLocalAnalysisHeartbeat();
+      return { success: true, durationMs: Date.now() - startMs };
     }
 
     const currentSession = sessionRef.current;
 
-    if (!currentSession) return;
-    if (observerModeRef.current === "off") return;
-    if (isMutedRef.current) return;
-    if (isAnalyzingRef.current) return;
+    if (!currentSession) return { success: true, durationMs: 0 };
+    if (observerModeRef.current === "off") return { success: true, durationMs: 0 };
+    if (isMutedRef.current) return { success: true, durationMs: 0 };
+    if (isAnalyzingRef.current) return { success: true, durationMs: 0 };
 
     isAnalyzingRef.current = true;
     setIsAnalyzing(true);
 
     try {
-      // Transcribe any pending audio chunks BEFORE analysis so the tutoring model sees latest speech
-      if (currentSession && isRecordingRef.current) {
-        try {
-          await fetch("/api/transcribe-chunks", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessionId: currentSession.id }),
-          });
-        } catch (err) {
-          console.warn("Pre-analysis transcription error:", err);
-        }
-      }
-
       const openProbes = currentSession.probes.filter(p => !p.archived);
       const focusedProbes = openProbes.filter(p => p.focused).map(p => ({ id: p.id, text: p.text }));
       const currentPlan = sessionPlanRef.current;
 
       if (!currentPlan) {
-        isAnalyzingRef.current = false;
-        setIsAnalyzing(false);
-        return;
+        return { success: true, durationMs: Date.now() - startMs };
       }
 
       // Helper to validate plan data
@@ -1081,13 +1053,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         }),
       });
 
-      setPipelineErrors(prev => ({ ...prev, analysis: undefined, transcription: undefined }));
-
       if (!res.ok) {
-        setPipelineErrors(prev => ({ ...prev, analysis: "Analysis service unavailable" }));
-        isAnalyzingRef.current = false;
-        setIsAnalyzing(false);
-        return;
+        return { success: false, durationMs: Date.now() - startMs, error: "Analysis service unavailable" };
       }
 
       const planData = await res.json();
@@ -1234,8 +1201,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           }
         }
       }
+
+      return { success: true, durationMs: Date.now() - startMs, gapScore: planData.gapScore };
     } catch (err) {
       console.error("Analysis error:", err);
+      return { success: false, durationMs: Date.now() - startMs, error: String(err) };
     } finally {
       isAnalyzingRef.current = false;
       setIsAnalyzing(false);
@@ -1244,29 +1214,44 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   }, []);
 
   // ---- Storage Heartbeat (5s) ----
-  const runStorageHeartbeat = useCallback(async () => {
+  // Returns structured result for the heartbeat hook to track health
+  const runStorageHeartbeat = useCallback(async (): Promise<StorageHeartbeatResult> => {
     const currentSession = sessionRef.current;
     const recorder = recorderRef.current;
     const currentMuseStatus = museStatusRef.current;
     const currentWebcamEnabled = isWebcamEnabledRef.current;
 
-    if (!currentSession || !isRecordingRef.current) return;
+    if (!currentSession || !isRecordingRef.current) {
+      return {};
+    }
+
+    const result: StorageHeartbeatResult = {};
 
     try {
-      // Audio: get recent 5 seconds and save
+      // Audio: get recent 5 seconds and save (with retry)
       if (recorder) {
         const recentAudio = recorder.getRecentAudio(5000);
         if (recentAudio && recentAudio.size > 100) {
+          result.audio = { attempted: true, saved: false };
           const idx = chunkIndexRef.current++;
-          try {
-            const savedPath = await saveAudioChunk(currentSession.id, recentAudio, idx, Date.now());
-            if (savedPath) {
-              transferHealthRef.current.audio.saved++;
-            }
-          } catch (err) {
-            transferHealthRef.current.audio.failed++;
-          }
-          setTransferHealth({ ...transferHealthRef.current });
+          const saveResult = await retryWithResult(
+            () => saveAudioChunk(currentSession.id, recentAudio, idx, Date.now()),
+            { maxRetries: 2, baseDelayMs: 500 },
+          );
+          result.audio.saved = saveResult.success && !!saveResult.data;
+        }
+      }
+
+      // Transcribe any pending audio chunks (decoupled from analysis — runs on storage cycle)
+      if (currentSession && isRecordingRef.current) {
+        try {
+          await fetch("/api/transcribe-chunks", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId: currentSession.id }),
+          });
+        } catch (err) {
+          console.warn("Background transcription error:", err);
         }
       }
 
@@ -1286,37 +1271,66 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         }
       }
 
-      // EEG: flush buffer if streaming
+      // EEG: flush buffer if streaming (with retry)
       if (currentSession && currentMuseStatus === "streaming" && eegBufferRef.current.size > 0) {
+        result.eeg = { attempted: true, saved: false };
+        // Snapshot and CLEAR the buffer before async save to prevent duplicate data
         const channels: Record<string, number[]> = {};
         for (const [ch, samples] of eegBufferRef.current.entries()) {
           channels[ch] = samples.slice();
         }
+        eegBufferRef.current.clear();
+
         const eegIdx = eegChunkIndexRef.current++;
-        try {
-          await saveSessionEEG(currentSession.id, { channels, bandPowers }, museClientRef.current?.deviceName, eegIdx, Date.now());
-          transferHealthRef.current.eeg.saved++;
-        } catch (err) {
-          transferHealthRef.current.eeg.failed++;
-        }
-        setTransferHealth({ ...transferHealthRef.current });
+        const saveResult = await retryWithResult(
+          () => saveSessionEEG(currentSession.id, { channels, bandPowers }, museClientRef.current?.deviceName, eegIdx, Date.now()),
+          { maxRetries: 2, baseDelayMs: 500 },
+        );
+        result.eeg.saved = saveResult.success;
       }
 
-      // Facial: flush buffer if webcam enabled
+      // Facial: flush buffer if webcam enabled (with retry)
       if (currentSession && currentWebcamEnabled && facialBufferRef.current.length > 0) {
+        result.facial = { attempted: true, saved: false };
+        // Snapshot and CLEAR the buffer before async save to prevent duplicate data
+        const facialSnapshot = [...facialBufferRef.current];
+        facialBufferRef.current = [];
+
         const facialIdx = facialChunkIndexRef.current++;
-        try {
-          await saveFacialData(currentSession.id, facialBufferRef.current, facialIdx, Date.now());
-          transferHealthRef.current.facial.saved++;
-        } catch (err) {
-          transferHealthRef.current.facial.failed++;
-        }
-        setTransferHealth({ ...transferHealthRef.current });
+        const saveResult = await retryWithResult(
+          () => saveFacialData(currentSession.id, facialSnapshot, facialIdx, Date.now()),
+          { maxRetries: 2, baseDelayMs: 500 },
+        );
+        result.facial.saved = saveResult.success;
       }
+
+      return result;
     } catch (err) {
       console.error("Storage heartbeat error:", err);
+      return { error: String(err) };
     }
   }, []);
+
+  // ---- Heartbeat Hook ----
+  // Centralizes scheduling, reentrancy guards, health tracking, adaptive throttling,
+  // and structured logging. Replaces the inline setInterval logic.
+  const addHeartbeatLog = useCallback((entry: Omit<LogEntry, "id">) => {
+    const logEntry: LogEntry = { ...entry, id: `hb_${Date.now()}_${Math.random().toString(36).slice(2, 6)}` };
+    logsRef.current.push(logEntry);
+    // Keep log buffer bounded
+    if (logsRef.current.length > 500) {
+      logsRef.current = logsRef.current.slice(-400);
+    }
+    setLogs([...logsRef.current]);
+  }, []);
+
+  const heartbeat = useSessionHeartbeat({
+    storageIntervalMs: STORAGE_INTERVAL_MS,
+    analysisIntervalMs: ANALYSIS_INTERVAL_MS,
+    onStorageHeartbeat: runStorageHeartbeat,
+    onAnalysisHeartbeat: runAnalysisHeartbeat,
+    onLog: addHeartbeatLog,
+  });
 
   const checkMicrophone = async () => {
     setMicStatus("checking");
@@ -1340,10 +1354,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const startRecording = async () => {
     try {
       setError(null);
-
-      // Reset transfer health on new recording
-      transferHealthRef.current = { audio: { sent: 0, saved: 0, failed: 0 }, eeg: { sent: 0, saved: 0, failed: 0 }, facial: { sent: 0, saved: 0, failed: 0 } };
-      setTransferHealth({ audio: { sent: 0, saved: 0, failed: 0 }, eeg: { sent: 0, saved: 0, failed: 0 }, facial: { sent: 0, saved: 0, failed: 0 } });
 
       // Try to get mic — audio is optional, session can run without it
       let mediaStream: MediaStream | null = micStreamRef.current;
@@ -1389,23 +1399,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
       }, 1000);
 
-      // Start dual heartbeat: storage every 5s, analysis every 10s
-      heartbeatIntervalRef.current = setInterval(() => {
-        const second = heartbeatSecondRef.current;
-        
-        if (second % 5 === 0) {
-          runStorageHeartbeat();
-        }
-        
-        if (second % 10 === 0) {
-          runAnalysisHeartbeat();
-        }
-        
-        setStorageBeat(second % 5);
-        setAnalysisBeat(second % 10);
-        
-        heartbeatSecondRef.current = (second + 1) % 10;
-      }, 1000);
+      // Start the heartbeat system (handles scheduling, reentrancy, health tracking)
+      heartbeat.start();
 
     } catch (err) {
       console.error("[SessionView] startRecording failed:", err);
@@ -1415,7 +1410,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   const stopRecording = async () => {
     if (timerRef.current) clearInterval(timerRef.current);
-    if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
 
     // Clean up local inference if active
     if (localInferenceEnabledRef.current) {
@@ -1423,9 +1417,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       localContextRef.current?.clear();
     }
 
-    // Trigger final heartbeat to save all remaining data
-    await runStorageHeartbeat();
-    await (localInferenceEnabledRef.current ? Promise.resolve() : runAnalysisHeartbeat());
+    // Stop heartbeat system (waits for in-flight analysis, runs final flush)
+    await heartbeat.stop();
 
     const recorder = recorderRef.current;
     
@@ -1450,7 +1443,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     // Persist to Supabase
     await saveSession(finalSession);
 
-    // Save EEG data before navigating
+    // Save any remaining EEG data before navigating
     if (museStatus === "streaming" && eegBufferRef.current.size > 0) {
       const channels: Record<string, number[]> = {};
       for (const [ch, samples] of eegBufferRef.current.entries()) {
@@ -1496,7 +1489,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   const handlePause = async () => {
     if (timerRef.current) clearInterval(timerRef.current);
-    if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
+    heartbeat.pause();
 
     // Track what was active before pause (for auto-resume)
     wasRecordingRef.current = !!recorderRef.current;
@@ -1573,23 +1566,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
       }, 1000);
 
-      // Start dual heartbeat: storage every 5s, analysis every 10s
-      heartbeatIntervalRef.current = setInterval(() => {
-        const second = heartbeatSecondRef.current;
-        
-        if (second % 5 === 0) {
-          runStorageHeartbeat();
-        }
-        
-        if (second % 10 === 0) {
-          runAnalysisHeartbeat();
-        }
-        
-        setStorageBeat(second % 5);
-        setAnalysisBeat(second % 10);
-        
-        heartbeatSecondRef.current = (second + 1) % 10;
-      }, 1000);
+      // Resume heartbeat system (counter resets for immediate flush)
+      heartbeat.resume();
 
       // Auto-resume data sources that were active before pause
       // Screen capture
@@ -1868,7 +1846,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             setViewingProbeIndex(updatedSession.probes.length - 1);
             lastProbeTimeRef.current = Date.now();
           } else {
-            setPipelineErrors(prev => ({ ...prev, analysis: "Local inference failed to generate a probe for this step." }));
+            console.warn("[LocalInference] Failed to generate a probe for this step.");
           }
         }
       }
@@ -2110,7 +2088,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           setViewingProbeIndex(updatedSession.probes.length - 1);
           lastProbeTimeRef.current = Date.now();
         } else {
-          setPipelineErrors(prev => ({ ...prev, analysis: "Local inference failed to generate a probe for this step." }));
+          console.warn("[LocalInference] Failed to generate a probe for this step.");
         }
       }
       return;
@@ -2243,7 +2221,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
-      if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
+      heartbeat.pause(); // synchronous cleanup — stop interval immediately
       if (muteTimerRef.current) clearTimeout(muteTimerRef.current);
       if (micStreamRef.current) {
         micStreamRef.current.getTracks().forEach(t => t.stop());
@@ -2735,17 +2713,92 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             <button onClick={() => setError(null)} className="ml-auto text-red-400/60 hover:text-red-400 text-xs">✕</button>
           </div>
         )}
-        {/* Session control bar */}
+        {/* Session control bar + layout preset buttons */}
         {!showWelcomeModal && (
-          <SessionControlBar
-            isRecording={isRecording}
-            isPaused={isPaused}
-            elapsedSeconds={elapsedSeconds}
-            onStartRecording={startRecording}
-            onStopRecording={stopRecording}
-            onPause={handlePause}
-            onResume={handleResume}
-          />
+          <div className="relative flex items-center">
+            <div className="flex-1 min-w-0">
+              <SessionControlBar
+                isRecording={isRecording}
+                isPaused={isPaused}
+                elapsedSeconds={elapsedSeconds}
+                onStartRecording={startRecording}
+                onStopRecording={stopRecording}
+                onPause={handlePause}
+                onResume={handleResume}
+              />
+            </div>
+            {/* Quick layout preset buttons - absolute so they don't disturb centering of control bar */}
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 shrink-0 flex items-center gap-1 z-10">
+              {/* Auto / Manual advance toggle */}
+              <button
+                onClick={() => setAutoAdvance(!autoAdvance)}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-medium border transition-colors ${
+                  autoAdvance
+                    ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/15"
+                    : "bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/15"
+                }`}
+                title={autoAdvance ? t('sessionPlan.aiControlsAdvancement') : t('sessionPlan.youControlAdvancement')}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  {autoAdvance ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+                  )}
+                </svg>
+                <span>{autoAdvance ? t('sessionPlan.autoAdvance') : t('sessionPlan.manualMode')}</span>
+                <div className={`relative w-7 h-3.5 rounded-full transition-colors ${autoAdvance ? 'bg-cyan-500' : 'bg-amber-500'}`}>
+                  <div className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white shadow transition-transform ${autoAdvance ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+                </div>
+              </button>
+              <div className="w-px h-5 bg-neutral-800 mx-1" />
+              <button
+                onClick={() => {
+                  resizablePaneRef.current?.setLayout({ leftWidth: 33.333, collapsedSide: null });
+                  resizablePaneRef2.current?.setLayout({ leftWidth: 50, collapsedSide: null });
+                }}
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-medium text-neutral-400 hover:text-white bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 transition-colors"
+                title={t('session.layoutEqual')}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <rect x="3" y="5" width="5.5" height="14" rx="1" />
+                  <rect x="9.25" y="5" width="5.5" height="14" rx="1" />
+                  <rect x="15.5" y="5" width="5.5" height="14" rx="1" />
+                </svg>
+                <span>{t('session.layoutEqual')}</span>
+              </button>
+              <button
+                onClick={() => {
+                  resizablePaneRef.current?.setLayout({ leftWidth: 50, collapsedSide: null });
+                  resizablePaneRef2.current?.setLayout({ collapsedSide: "right" });
+                }}
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-medium text-neutral-400 hover:text-white bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 transition-colors"
+                title={t('session.layoutHidePlan')}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <rect x="3" y="5" width="8" height="14" rx="1" />
+                  <rect x="12" y="5" width="8" height="14" rx="1" />
+                  <path strokeLinecap="round" d="M15 8l5 5M20 8l-5 5" />
+                </svg>
+                <span>{t('session.layoutHidePlan')}</span>
+              </button>
+              <button
+                onClick={() => {
+                  resizablePaneRef.current?.setLayout({ collapsedSide: "left" });
+                  resizablePaneRef2.current?.setLayout({ leftWidth: 50, collapsedSide: null });
+                }}
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-medium text-neutral-400 hover:text-white bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 transition-colors"
+                title={t('session.layoutHideTools')}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <rect x="3" y="5" width="8" height="14" rx="1" />
+                  <rect x="12" y="5" width="8" height="14" rx="1" />
+                  <path strokeLinecap="round" d="M4 8l5 5M9 8l-5 5" />
+                </svg>
+                <span>{t('session.layoutHideTools')}</span>
+              </button>
+            </div>
+          </div>
         )}
         <div className="flex-1 flex min-h-0 overflow-hidden">
           {/* Resizable 3-pane split view */}
@@ -2963,7 +3016,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                     {activeTool === "logs" && (
                       <LogsTool
                         logs={logs}
-                        transferHealth={transferHealth}
+                        transferHealth={heartbeat.transferHealth}
                         onClear={() => {
                           logsRef.current = [];
                           setLogs([]);

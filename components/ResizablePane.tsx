@@ -25,6 +25,7 @@ function ChevronRight({ className }: { className?: string }) {
 export interface ResizablePaneHandle {
   expandLeft: () => void;
   expandRight: () => void;
+  setLayout: (opts: { leftWidth?: number; collapsedSide?: CollapsedSide }) => void;
 }
 
 interface ResizablePaneProps {
@@ -173,7 +174,19 @@ export const ResizablePane = forwardRef<ResizablePaneHandle, ResizablePaneProps>
     expandRight: () => {
       if (collapsedSide === "right") expand();
     },
-  }), [collapsedSide, expand]);
+    setLayout: ({ leftWidth: newLeftWidth, collapsedSide: newCollapsed }) => {
+      setIsTransitioning(true);
+      const nextCollapsed = newCollapsed === undefined ? null : newCollapsed;
+      if (typeof newLeftWidth === "number") {
+        const clamped = Math.max(minLeftWidth, Math.min(100 - minRightWidth, newLeftWidth));
+        setLeftWidth(clamped);
+        savedLeftWidthRef.current = clamped;
+      }
+      setCollapsedSide(nextCollapsed);
+      persistState(savedLeftWidthRef.current, nextCollapsed);
+      setTimeout(() => setIsTransitioning(false), 250);
+    },
+  }), [collapsedSide, expand, minLeftWidth, minRightWidth, persistState]);
 
   // --- Double-click to reset to 50/50 ---
   const handleDoubleClick = useCallback(() => {

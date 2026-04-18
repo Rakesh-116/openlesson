@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useMemo } from "react";
+import { useMemo } from "react";
 import { type Probe, type RequestType, type ToolName } from "@/lib/storage";
 import { useI18n } from "@/lib/i18n";
+
+const MAX_PROBES = 5;
 
 // Tool labels for display
 function getToolLabel(tool: string, t: (key: string) => string): string {
@@ -46,7 +48,6 @@ interface ProbesPanelProps {
   archivingProbeId?: string | null;
   isInitializing?: boolean;
   isGeneratingProbe?: boolean;
-  feedbackItems?: Array<{ id: string; text: string; timestamp: number }>;
   sessionPlan?: { steps?: Array<{ id: string; order: number; description: string }> } | null;
 }
 
@@ -58,23 +59,11 @@ export function ProbesPanel({
   archivingProbeId,
   isInitializing = false,
   isGeneratingProbe = false,
-  feedbackItems = [],
   sessionPlan,
 }: ProbesPanelProps) {
   const { t } = useI18n();
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const activeProbes = useMemo(() => probes.filter(p => !p.archived), [probes]);
-
-  const filteredFeedback = useMemo(() => {
-    return feedbackItems.filter(f => f.text && f.text !== "null");
-  }, [feedbackItems]);
-
-  useEffect(() => {
-    if (containerRef.current && probes.length > 0) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
-    }
-  }, [probes.length]);
 
   const formatTimestamp = (timestamp: number) => {
     const totalSeconds = Math.floor(timestamp / 1000);
@@ -90,26 +79,42 @@ export function ProbesPanel({
         <h2 className="text-sm font-semibold text-white">{t('probes.guidingTasks')}</h2>
       </div>
 
-      {/* Probes List */}
-      <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto px-3 pb-3 space-y-2">
-        {activeProbes.length === 0 && filteredFeedback.length === 0 ? (
-          isInitializing ? (
-            <div className="flex flex-col items-center justify-center py-8 gap-3">
-              <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
-              <p className="text-xs text-neutral-500">{t('probes.preparing')}</p>
-            </div>
-          ) : isGeneratingProbe ? (
-            <div className="flex flex-col items-center justify-center py-8 gap-3">
-              <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
-              <p className="text-xs text-neutral-500">{t('probes.generatingProbe')}</p>
-            </div>
-          ) : (
-            <p className="text-xs text-neutral-600 text-center py-4">
-              {t('probes.noActiveProbes')}
-            </p>
-          )
+      {/* 5 Probe Slots - filled + empty */}
+      <div className="flex-1 min-h-0 px-3 pb-3 flex flex-col gap-2 overflow-hidden">
+        {isInitializing && activeProbes.length === 0 ? (
+          <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3">
+            <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+            <p className="text-xs text-neutral-500">{t('probes.preparing')}</p>
+          </div>
         ) : (
-          activeProbes.map((probe) => {
+          Array.from({ length: MAX_PROBES }).map((_, i) => {
+            const probe = activeProbes[i];
+            const isGeneratingThisSlot = isGeneratingProbe && !probe && i === activeProbes.length;
+
+            if (!probe) {
+              // Empty / generating slot
+              return (
+                <div
+                  key={`empty-${i}`}
+                  className="flex-1 min-h-0 p-3 rounded-lg border-2 border-dashed border-neutral-700 bg-neutral-800/40 flex items-center justify-center gap-2"
+                >
+                  {isGeneratingThisSlot ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-neutral-600 border-t-cyan-500 rounded-full animate-spin" />
+                      <span className="text-xs text-neutral-400">{t('probes.generatingProbe')}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-700/60 text-[10px] font-bold text-neutral-400">
+                        {i + 1}
+                      </span>
+                      <span className="text-xs text-neutral-400">{t('session.emptySlot')}</span>
+                    </>
+                  )}
+                </div>
+              );
+            }
+
             const planStep = probe.planStepId
               ? sessionPlan?.steps?.find(s => s.id === probe.planStepId)
               : null;
@@ -127,6 +132,7 @@ export function ProbesPanel({
                 onClick={() => onToggleFocus?.(probe.id, !probe.focused)}
                 className={`
                   group relative p-3 rounded-lg transition-all duration-300 cursor-pointer
+                  flex-1 min-h-0 overflow-y-auto
                   ${probe.focused
                     ? "bg-amber-500/10 border border-amber-500/30"
                     : "bg-neutral-900/50 border border-neutral-800/50 hover:border-neutral-700"
@@ -219,38 +225,6 @@ export function ProbesPanel({
               </div>
             );
           })
-        )}
-
-        {/* Feedback Section */}
-        {filteredFeedback.length > 0 && (
-          <>
-            <div className="text-[10px] font-medium text-purple-400 uppercase tracking-wider pt-2">
-              {t('probes.aiFeedback')}
-            </div>
-            {filteredFeedback.map((feedback) => (
-              <div
-                key={feedback.id}
-                className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/30"
-              >
-                <div className="flex items-start gap-2 mb-1.5">
-                  <span className="text-[10px] font-mono text-purple-500/70">
-                    {formatTimestamp(feedback.timestamp)}
-                  </span>
-                </div>
-                <p className="text-sm text-purple-200 leading-snug">
-                  {feedback.text}
-                </p>
-              </div>
-            ))}
-          </>
-        )}
-
-        {/* Probe generation spinner */}
-        {isGeneratingProbe && activeProbes.length > 0 && (
-          <div className="flex items-center gap-2.5 p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/30 animate-pulse">
-            <div className="w-4 h-4 border-2 border-neutral-600 border-t-cyan-500 rounded-full animate-spin shrink-0" />
-            <span className="text-xs text-neutral-500">{t('probes.generatingProbe')}</span>
-          </div>
         )}
       </div>
     </div>

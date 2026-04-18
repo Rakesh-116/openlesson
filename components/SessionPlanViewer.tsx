@@ -188,10 +188,6 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
     );
   }
 
-  const completedSteps = plan.steps.filter((s) => s.status === "completed").length;
-  const totalSteps = plan.steps.length;
-  const progressPercent = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
-
   const typeIcons: Record<string, React.ReactNode> = {
     question: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -231,55 +227,13 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
 
   return (
     <div className="h-full w-full flex flex-col p-4 overflow-hidden">
-      {/* Progress bar */}
-      <div className="mb-3">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-neutral-500">{t('sessionPlan.progress')}</span>
-          <span className="text-xs font-medium text-white">
-            {completedSteps}/{totalSteps} {t('sessionPlan.steps')}
-          </span>
-        </div>
-        <div className="h-2 bg-neutral-800 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
+      {/* Section title */}
+      <div className="mb-2 shrink-0">
+        <h2 className="text-sm font-semibold text-white">{t('session.sessionPlan')}</h2>
       </div>
 
-      {/* Auto/Manual toggle */}
-      {onToggleAutoAdvance && (
-        <div className={`mb-3 p-2.5 rounded-lg border transition-all ${autoAdvance ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
-          <button
-            onClick={() => onToggleAutoAdvance(!autoAdvance)}
-            className="w-full flex items-center justify-between"
-          >
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {autoAdvance ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
-                )}
-              </svg>
-              <div className="flex flex-col items-start">
-                <span className={`text-xs font-medium ${autoAdvance ? 'text-cyan-400' : 'text-amber-400'}`}>
-                  {autoAdvance ? t('sessionPlan.autoAdvance') : t('sessionPlan.manualMode')}
-                </span>
-                <span className="text-[10px] text-neutral-500">
-                  {autoAdvance ? t('sessionPlan.aiControlsAdvancement') : t('sessionPlan.youControlAdvancement')}
-                </span>
-              </div>
-            </div>
-            <div className={`relative w-10 h-5 rounded-full transition-colors ${autoAdvance ? 'bg-cyan-500' : 'bg-amber-500'}`}>
-              <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${autoAdvance ? 'translate-x-5' : 'translate-x-0.5'}`} />
-            </div>
-          </button>
-        </div>
-      )}
-
       {/* Steps list */}
-      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden space-y-1 pr-1">
+      <div className="flex-1 min-h-0 min-w-0 overflow-hidden flex flex-col gap-1 pr-1">
         {plan.steps.map((step, idx) => {
           const isActive = step.status === "in_progress";
           const isCompleted = step.status === "completed";
@@ -292,7 +246,7 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
               <button
                 key={step.id}
                 onClick={() => toggleStep(step.id)}
-                className={`relative w-full px-3 py-2 rounded-lg border transition-all text-left ${
+                className={`relative w-full flex-1 min-h-0 px-3 py-2.5 rounded-lg border transition-all text-left ${
                   isActive
                     ? "bg-cyan-500/10 border-cyan-500/30"
                     : isCompleted
@@ -342,7 +296,9 @@ export function SessionPlanViewer({ plan, loading, error, onAdvanceStep, onRollb
           return (
             <div
               key={step.id}
-              className={`relative p-3 rounded-lg border transition-all ${
+              className={`relative p-3 rounded-lg border transition-all min-h-0 overflow-y-auto ${
+                isActive ? "flex-[1.3_1_0%]" : "flex-1"
+              } ${
                 isActive
                   ? "bg-cyan-500/10 border-cyan-500/30"
                   : isCompleted
