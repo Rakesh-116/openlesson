@@ -65,17 +65,17 @@ const languageNames = tutoringLanguageNames;
 
 const tabIcons = [
   (
-    <svg key="probes" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg key="probes" className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
     </svg>
   ),
   (
-    <svg key="plan" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg key="plan" className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
     </svg>
   ),
   (
-    <svg key="canvas" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg key="canvas" className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
     </svg>
   ),
@@ -2106,8 +2106,8 @@ export function MobileSessionView({
 
       {/* Bottom Tab Bar */}
       <div
-        className="shrink-0 py-1.5 px-4 bg-neutral-900 border-t border-neutral-800"
-        style={{ paddingBottom: "max(6px, env(safe-area-inset-bottom))" }}
+        className="shrink-0 py-2 px-4 bg-neutral-900 border-t border-neutral-800"
+        style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}
       >
         <div className="max-w-md mx-auto">
           <div className="flex items-center justify-around">
@@ -2115,14 +2115,15 @@ export function MobileSessionView({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(index)}
-                className={`flex items-center gap-1 px-4 py-1 rounded-lg transition-all ${
+                aria-label={tab.label}
+                title={tab.label}
+                className={`flex items-center justify-center w-14 h-12 rounded-lg transition-all active:scale-[0.95] ${
                   activeTab === index
                     ? "text-white"
                     : "text-neutral-500"
                 }`}
               >
                 {tabIcons[index]}
-                <span className="text-[10px] font-medium">{tab.label}</span>
               </button>
             ))}
           </div>
