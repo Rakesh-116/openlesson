@@ -379,7 +379,7 @@ export function MobileWhiteboardCanvas({
   }, [pendingImage, onPendingImageUsed]);
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0a0a]">
+    <div className="flex flex-col h-full bg-[#0a0a0a]" data-no-swipe="true">
       {/* Canvas - fills space above toolbar */}
       <div 
         ref={containerRef} 

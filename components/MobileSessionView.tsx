@@ -2165,6 +2165,11 @@ function SwipeableTabContent({ tabs, activeTab, onTabChange }: SwipeableTabConte
     if (!container) return;
 
     const handleTouchStart = (e: TouchEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('[data-no-swipe="true"]')) {
+        touchStartRef.current = null;
+        return;
+      }
       const touch = e.touches[0];
       touchStartRef.current = {
         x: touch.clientX,
