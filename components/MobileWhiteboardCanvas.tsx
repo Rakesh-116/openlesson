@@ -513,30 +513,32 @@ export function MobileWhiteboardCanvas({
         </div>
 
         {/* Main toolbar */}
-        <div className="flex items-center justify-between px-1.5 py-1.5">
+        <div className="flex items-center justify-between px-2 py-2">
           {/* Draw/Erase */}
-          <div className="flex gap-1">
+          <div className="flex gap-1.5">
             <button
               onClick={() => { setTool("draw"); }}
-              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
+              className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all active:scale-[0.95] ${
                 tool === "draw" 
                   ? "bg-cyan-500 text-black" 
                   : "bg-neutral-800 text-neutral-400"
               }`}
+              aria-label="Draw"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
               </svg>
             </button>
             <button
               onClick={() => setTool("eraser")}
-              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
+              className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all active:scale-[0.95] ${
                 tool === "eraser" 
                   ? "bg-amber-500 text-black" 
                   : "bg-neutral-800 text-neutral-400"
               }`}
+              aria-label="Erase"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </button>
@@ -545,13 +547,14 @@ export function MobileWhiteboardCanvas({
           {/* Palette toggle */}
           <button
             onClick={() => setShowPalette(!showPalette)}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
+            className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all active:scale-[0.95] ${
               showPalette
                 ? "bg-cyan-500 text-black"
                 : "bg-neutral-800 text-neutral-400"
             }`}
+            aria-label="Palette"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
             </svg>
           </button>
@@ -559,9 +562,10 @@ export function MobileWhiteboardCanvas({
           {/* Camera */}
           <button
             onClick={() => onOpenCamera?.()}
-            className="w-9 h-9 rounded-lg bg-neutral-800 text-neutral-400 flex items-center justify-center"
+            className="w-12 h-12 rounded-lg bg-neutral-800 text-neutral-400 flex items-center justify-center active:scale-[0.95] transition-transform"
+            aria-label="Camera"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
@@ -570,9 +574,10 @@ export function MobileWhiteboardCanvas({
           {/* Gallery */}
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="w-9 h-9 rounded-lg bg-neutral-800 text-neutral-400 flex items-center justify-center"
+            className="w-12 h-12 rounded-lg bg-neutral-800 text-neutral-400 flex items-center justify-center active:scale-[0.95] transition-transform"
+            aria-label="Gallery"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </button>
@@ -580,9 +585,10 @@ export function MobileWhiteboardCanvas({
           {/* Clear */}
           <button
             onClick={clearCanvas}
-            className="w-9 h-9 rounded-lg bg-red-500/20 text-red-400 flex items-center justify-center"
+            className="w-12 h-12 rounded-lg bg-red-500/20 text-red-400 flex items-center justify-center active:scale-[0.95] transition-transform"
+            aria-label="Clear"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
           </button>
