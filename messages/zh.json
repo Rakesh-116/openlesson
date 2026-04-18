@@ -681,6 +681,7 @@
     "layoutEqual": "均分",
     "layoutHidePlan": "隐藏计划",
     "layoutHideTools": "隐藏工具",
+    "backToDashboard": "返回仪表板",
     "sessionPaused": "课程已暂停",
     "sessionNotActive": "课程未启动",
     "resumeMonitoringToUse": "恢复监控以使用ILE工具",

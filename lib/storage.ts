@@ -1969,7 +1969,20 @@ interface DeduplicatorCache {
   [key: string]: string;
 }
 
+const MAX_DEDUP_CACHE_SIZE = 100;
 const deduplicatorCache: DeduplicatorCache = {};
+
+/** Evict oldest entries when cache exceeds MAX_DEDUP_CACHE_SIZE */
+function evictDedupCache(): void {
+  const keys = Object.keys(deduplicatorCache);
+  if (keys.length > MAX_DEDUP_CACHE_SIZE) {
+    // Remove the first (oldest) entries to get back under the limit
+    const toRemove = keys.slice(0, keys.length - MAX_DEDUP_CACHE_SIZE);
+    for (const key of toRemove) {
+      delete deduplicatorCache[key];
+    }
+  }
+}
 
 async function hashContent(content: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -1996,6 +2009,7 @@ export async function saveWithDedupString(
   }
 
   deduplicatorCache[key] = hash;
+  evictDedupCache();
   return { saved: true, skipped: false, hash };
 }
 
@@ -2013,6 +2027,7 @@ export async function saveWithDedupBlob(
   }
 
   deduplicatorCache[key] = hash;
+  evictDedupCache();
   return { saved: true, skipped: false, hash };
 }
 

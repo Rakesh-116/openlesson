@@ -6,7 +6,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, errorResponse } from "@/lib/agent-v2/auth";
 import { createProof, serializeProof, createSessionBatchProof } from "@/lib/agent-v2/proofs";
+import { isSolanaConfigured, anchorBatchOnChain } from "@/lib/agent-v2/solana";
+import { getOrCreateUserWallet } from "@/lib/agent-v2/solana-custodial";
 import { generateReport } from "@/lib/openrouter";
+import type { ProofBatch } from "@/lib/agent-v2/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
@@ -265,6 +268,74 @@ export async function POST(
       user_id: auth.user_id,
     });
 
+    // ── Anchor batch on Solana (if configured) ─────────────────────────
+    let batchAnchor: { tx_signature: string; slot: number; timestamp: string } | null = null;
+
+    if (batchProof && isSolanaConfigured()) {
+      try {
+        // Fetch the full batch record
+        const { data: batchRecord } = await supabase
+          .from("agent_proof_batches")
+          .select("*")
+          .eq("id", batchProof.batch_id)
+          .single();
+
+        if (batchRecord) {
+          await getOrCreateUserWallet(supabase, auth.user_id);
+          const { data: walletRow } = await supabase
+            .from("user_solana_wallets")
+            .select("pubkey, encrypted_private_key")
+            .eq("user_id", auth.user_id)
+            .single();
+
+          if (walletRow) {
+            const result = await anchorBatchOnChain(
+              batchRecord as ProofBatch,
+              { pubkey: walletRow.pubkey, encryptedPrivateKey: walletRow.encrypted_private_key },
+            );
+
+            if (result) {
+              batchAnchor = {
+                tx_signature: result.txSignature,
+                slot: result.slot,
+                timestamp: result.timestamp,
+              };
+
+              // Update batch record with anchor data
+              await supabase
+                .from("agent_proof_batches")
+                .update({
+                  anchored: true,
+                  anchor_tx_signature: result.txSignature,
+                  anchor_slot: result.slot,
+                  anchor_timestamp: result.timestamp,
+                })
+                .eq("id", batchProof.batch_id);
+
+              // Update wallet stats
+              const { data: walletStats } = await supabase
+                .from("user_solana_wallets")
+                .select("total_anchored_batches")
+                .eq("user_id", auth.user_id)
+                .single();
+
+              await supabase
+                .from("user_solana_wallets")
+                .update({
+                  total_anchored_batches: (walletStats?.total_anchored_batches || 0) + 1,
+                  last_anchor_at: result.timestamp,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("user_id", auth.user_id);
+            }
+          }
+        }
+      } catch (anchorErr) {
+        // Batch anchoring is non-critical — log and continue
+        console.error("[v2/sessions/:id/end] Batch anchoring error:", anchorErr);
+      }
+    }
+
     // ── Create end-session proof ───────────────────────────────────────
     const proof = await createProof(supabase, {
       type: "session_ended",
@@ -312,6 +383,14 @@ export async function POST(
         ? {
             batch_id: batchProof.batch_id,
             merkle_root: batchProof.merkle_root,
+            ...(batchAnchor
+              ? {
+                  anchored: true,
+                  anchor_tx_signature: batchAnchor.tx_signature,
+                  anchor_slot: batchAnchor.slot,
+                  anchor_timestamp: batchAnchor.timestamp,
+                }
+              : { anchored: false }),
           }
         : null,
     });

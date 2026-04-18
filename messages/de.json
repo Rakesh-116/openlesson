@@ -681,6 +681,7 @@
     "layoutEqual": "Gleichmäßig",
     "layoutHidePlan": "Plan ausblenden",
     "layoutHideTools": "Werkzeuge ausblenden",
+    "backToDashboard": "Zurück zum Dashboard",
     "sessionPaused": "Sitzung pausiert",
     "sessionNotActive": "Sitzung nicht aktiv",
     "resumeMonitoringToUse": "Überwachung fortsetzen, um die ILE-Werkzeuge zu nutzen",

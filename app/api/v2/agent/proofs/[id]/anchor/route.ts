@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, errorResponse } from "@/lib/agent-v2/auth";
 import { serializeProof } from "@/lib/agent-v2/proofs";
+import { isSolanaConfigured, anchorProofOnChain } from "@/lib/agent-v2/solana";
+import { getOrCreateUserWallet } from "@/lib/agent-v2/solana-custodial";
 import type { Proof } from "@/lib/agent-v2/types";
 
 export const runtime = "nodejs";
@@ -62,26 +64,70 @@ export async function POST(req: NextRequest, context: RouteContext) {
       });
     }
 
-    // ── Simulate anchoring ───────────────────────────────────────────
-    // The Solana program is not yet deployed. For now, we mark the proof
-    // as anchored with a simulated placeholder transaction.
-    //
-    // In production, this would:
-    //   1. Build a Solana transaction with the proof fingerprint
-    //   2. Submit to the OpenLesson on-chain program
-    //   3. Wait for confirmation
-    //   4. Store the real tx_signature, slot, and timestamp
+    // ── Anchor on Solana (or simulate if not configured) ────────────
+    let txSignature: string;
+    let anchorSlot: number;
+    let anchorTimestamp: string;
+    let simulated = false;
 
-    const simulatedTxSignature = `sim_${proof.fingerprint.replace("sha256:", "").slice(0, 32)}`;
-    const simulatedSlot = Math.floor(Date.now() / 400); // Approximate Solana slot
-    const anchorTimestamp = new Date().toISOString();
+    if (isSolanaConfigured()) {
+      // Real Solana anchoring
+      // getOrCreateUserWallet ensures the wallet row exists; then we
+      // fetch the encrypted key to pass to anchorProofOnChain
+      await getOrCreateUserWallet(supabase, auth.user_id);
+      const { data: walletRow } = await supabase
+        .from("user_solana_wallets")
+        .select("pubkey, encrypted_private_key")
+        .eq("user_id", auth.user_id)
+        .single();
+
+      if (!walletRow) {
+        return errorResponse(500, "anchor_failed", "Could not load custodial wallet");
+      }
+
+      const result = await anchorProofOnChain(
+        proof as Proof,
+        auth.user_id,
+        { pubkey: walletRow.pubkey, encryptedPrivateKey: walletRow.encrypted_private_key },
+      );
+
+      if (!result) {
+        return errorResponse(500, "anchor_failed", "Solana anchoring returned no result");
+      }
+
+      txSignature = result.txSignature;
+      anchorSlot = result.slot;
+      anchorTimestamp = result.timestamp;
+
+      // Update wallet stats (non-critical, best-effort)
+      const { data: walletStats } = await supabase
+        .from("user_solana_wallets")
+        .select("total_anchored_proofs")
+        .eq("user_id", auth.user_id)
+        .single();
+
+      await supabase
+        .from("user_solana_wallets")
+        .update({
+          total_anchored_proofs: (walletStats?.total_anchored_proofs || 0) + 1,
+          last_anchor_at: anchorTimestamp,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", auth.user_id);
+    } else {
+      // Simulated anchoring (Solana not configured)
+      simulated = true;
+      txSignature = `sim_${proof.fingerprint.replace("sha256:", "").slice(0, 32)}`;
+      anchorSlot = Math.floor(Date.now() / 400);
+      anchorTimestamp = new Date().toISOString();
+    }
 
     const { data: updated, error: updateErr } = await supabase
       .from("agent_proofs")
       .update({
         anchored: true,
-        anchor_tx_signature: simulatedTxSignature,
-        anchor_slot: simulatedSlot,
+        anchor_tx_signature: txSignature,
+        anchor_slot: anchorSlot,
         anchor_timestamp: anchorTimestamp,
       })
       .eq("id", proofId)
@@ -95,17 +141,24 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
     return NextResponse.json({
       status: "anchored",
-      message:
-        "Proof has been anchored (simulated). On-chain anchoring will be available when the Solana program is deployed.",
+      ...(simulated
+        ? {
+            message:
+              "Proof has been anchored (simulated). Configure Solana env vars for on-chain anchoring.",
+          }
+        : {
+            message: "Proof has been anchored on Solana.",
+          }),
       proof: {
         ...serializeProof(updated as Proof),
         data_hash: updated.data_hash,
       },
       anchor: {
-        tx_signature: simulatedTxSignature,
-        slot: simulatedSlot,
+        tx_signature: txSignature,
+        slot: anchorSlot,
         timestamp: anchorTimestamp,
-        simulated: true,
+        simulated,
+        ...(simulated ? {} : { network: process.env.SOLANA_NETWORK }),
       },
     });
   } catch (err) {

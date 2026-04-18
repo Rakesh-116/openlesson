@@ -734,6 +734,7 @@
     "layoutEqual": "Equal",
     "layoutHidePlan": "Hide Plan",
     "layoutHideTools": "Hide Tools",
+    "backToDashboard": "Back to Dashboard",
     "sessionPaused": "Session paused",
     "sessionNotActive": "Session not active",
     "resumeMonitoringToUse": "Resume monitoring to use the ILE tools",

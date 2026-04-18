@@ -733,6 +733,7 @@
     "layoutEqual": "Equitativo",
     "layoutHidePlan": "Ocultar plan",
     "layoutHideTools": "Ocultar herramientas",
+    "backToDashboard": "Volver al panel",
     "sessionPaused": "Sesión pausada",
     "sessionNotActive": "Sesión no activa",
     "resumeMonitoringToUse": "Reanuda el monitoreo para usar las herramientas ILE",

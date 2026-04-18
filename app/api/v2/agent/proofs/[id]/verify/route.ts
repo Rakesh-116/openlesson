@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, errorResponse } from "@/lib/agent-v2/auth";
 import { calculateFingerprint } from "@/lib/agent-v2/proofs";
+import { isSolanaConfigured, verifyProofOnChain } from "@/lib/agent-v2/solana";
 
 export const runtime = "nodejs";
 
@@ -94,14 +95,51 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
     // ── Anchor verification ──────────────────────────────────────────
     let anchorValid: boolean | null = null;
+    let anchorDetails: Record<string, unknown> = {};
+
     if (proof.anchored && proof.anchor_tx_signature) {
-      // In production, this would verify against the Solana blockchain.
-      // For now, we confirm the anchor fields are present and consistent.
-      anchorValid = !!(
-        proof.anchor_tx_signature &&
-        proof.anchor_slot &&
-        proof.anchor_timestamp
-      );
+      if (isSolanaConfigured() && !proof.anchor_tx_signature.startsWith("sim_")) {
+        // Real on-chain verification
+        const onChainResult = await verifyProofOnChain(
+          proofId,
+          proof.fingerprint as string
+        );
+
+        if (onChainResult) {
+          anchorValid = onChainResult.exists && onChainResult.fingerprintMatch;
+          anchorDetails = {
+            on_chain_verified: true,
+            on_chain_exists: onChainResult.exists,
+            on_chain_fingerprint_match: onChainResult.fingerprintMatch,
+            on_chain_fingerprint: onChainResult.onChainFingerprint,
+            on_chain_slot: onChainResult.anchorSlot,
+            on_chain_timestamp: onChainResult.anchorTimestamp
+              ? new Date(onChainResult.anchorTimestamp * 1000).toISOString()
+              : null,
+          };
+        } else {
+          // Solana call failed — fall back to field-presence check
+          anchorValid = !!(
+            proof.anchor_tx_signature &&
+            proof.anchor_slot &&
+            proof.anchor_timestamp
+          );
+          anchorDetails = { on_chain_verified: false };
+        }
+      } else {
+        // Simulated anchor or Solana not configured — check fields are present
+        anchorValid = !!(
+          proof.anchor_tx_signature &&
+          proof.anchor_slot &&
+          proof.anchor_timestamp
+        );
+        anchorDetails = {
+          on_chain_verified: false,
+          ...(proof.anchor_tx_signature?.startsWith("sim_")
+            ? { simulated: true }
+            : {}),
+        };
+      }
     }
 
     // ── Overall verification result ──────────────────────────────────
@@ -129,6 +167,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
               tx_signature: proof.anchor_tx_signature || null,
               slot: proof.anchor_slot || null,
               timestamp: proof.anchor_timestamp || null,
+              ...anchorDetails,
             }
           : { valid: null, message: "Proof has not been anchored" },
       },

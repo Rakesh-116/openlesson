@@ -175,25 +175,44 @@ export async function POST(request: NextRequest) {
 
     const transcribedIndices = new Set((existingTranscripts || []).map((t: { chunk_index: number }) => t.chunk_index));
 
+    // Filter to only untranscribed chunks and cap at 5 per request to bound work
+    const MAX_CHUNKS_PER_REQUEST = 5;
+    const chunksToTranscribe = audioChunks
+      .filter((chunk: { chunk_index: number }) => !transcribedIndices.has(chunk.chunk_index))
+      .slice(0, MAX_CHUNKS_PER_REQUEST);
+
+    if (chunksToTranscribe.length === 0) {
+      return NextResponse.json({ transcribed: 0 });
+    }
+
+    // Process chunks in parallel with concurrency limit of 3
+    const CONCURRENCY_LIMIT = 3;
     let transcribedCount = 0;
-    for (const chunk of audioChunks) {
-      if (!transcribedIndices.has(chunk.chunk_index)) {
-        console.log(`[transcribe-chunks] Transcribing chunk ${chunk.chunk_index}`);
-        const transcript = await transcribeChunk(
-          supabase, 
-          chunk.storage_path, 
-          chunk.session_id, 
-          chunk.chunk_index, 
-          chunk.timestamp_ms,
-          user.id
-        );
-        if (transcript) {
+    
+    for (let i = 0; i < chunksToTranscribe.length; i += CONCURRENCY_LIMIT) {
+      const batch = chunksToTranscribe.slice(i, i + CONCURRENCY_LIMIT);
+      const results = await Promise.allSettled(
+        batch.map((chunk: { storage_path: string; session_id: string; chunk_index: number; timestamp_ms: number }) => {
+          console.log(`[transcribe-chunks] Transcribing chunk ${chunk.chunk_index}`);
+          return transcribeChunk(
+            supabase,
+            chunk.storage_path,
+            chunk.session_id,
+            chunk.chunk_index,
+            chunk.timestamp_ms,
+            user.id
+          );
+        })
+      );
+      
+      for (const result of results) {
+        if (result.status === "fulfilled" && result.value) {
           transcribedCount++;
         }
       }
     }
 
-    return NextResponse.json({ transcribed: transcribedCount });
+    return NextResponse.json({ transcribed: transcribedCount, pending: audioChunks.length - transcribedIndices.size - transcribedCount });
   } catch (error) {
     console.error("Transcribe chunks error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

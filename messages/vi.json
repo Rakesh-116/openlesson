@@ -681,6 +681,7 @@
     "layoutEqual": "Chia đều",
     "layoutHidePlan": "Ẩn kế hoạch",
     "layoutHideTools": "Ẩn công cụ",
+    "backToDashboard": "Về Bảng điều khiển",
     "sessionPaused": "Phiên đã tạm dừng",
     "sessionNotActive": "Phiên không hoạt động",
     "resumeMonitoringToUse": "Tiếp tục theo dõi để sử dụng công cụ ILE",
