@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { getSessions, deleteSession, getLearningPlans, type Session, type LearningPlan } from "@/lib/storage";
+import { getSessions, deleteSession, restartSession, getLearningPlans, type Session, type LearningPlan } from "@/lib/storage";
 import { DEFAULT_PROMPTS, PROMPT_META, type PromptKey, type UserPrompts } from "@/lib/openrouter";
 
 import { useI18n } from "@/lib/i18n";
@@ -265,6 +265,17 @@ export default function DashboardPage() {
     if (!confirm(t('dashboard.deleteSessionConfirm'))) return;
     await deleteSession(id);
     setSessions((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const handleStartOverSession = async (id: string) => {
+    if (!confirm(t('dashboard.startOverConfirm'))) return;
+    try {
+      await restartSession(id);
+      router.push(`/session?id=${id}`);
+    } catch (err) {
+      console.error("Failed to restart session:", err);
+      alert(t('dashboard.startOverError'));
+    }
   };
 
   const handleSaveModels = async () => {
@@ -566,6 +577,22 @@ export default function DashboardPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                           </svg>
                         </button>
+                        {isCompleted && (
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleStartOverSession(session.id);
+                            }}
+                            className="p-1.5 text-neutral-600 hover:text-amber-400 transition-colors"
+                            title={t('dashboard.startOver')}
+                            aria-label={t('dashboard.startOver')}
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                          </button>
+                        )}
                         <button
                           onClick={(e) => {
                             e.preventDefault();

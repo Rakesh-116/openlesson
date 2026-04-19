@@ -413,6 +413,65 @@ export async function resetSessionProbes(sessionId: string): Promise<void> {
     .eq("session_id", sessionId);
 }
 
+/**
+ * Destructively restart a session: wipes probes, transcripts, plans,
+ * EEG recordings, audio, and resets the session row to `active` while
+ * preserving the original `problem`, `metadata.planTitle`, and ownership.
+ *
+ * This is irreversible — the report, transcript, probes, and recordings
+ * are permanently deleted. Callers should confirm with the user first.
+ */
+export async function restartSession(id: string): Promise<void> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // Fetch audio path to remove from Storage
+  const { data: sessionRow } = await supabase
+    .from("sessions")
+    .select("audio_path")
+    .eq("id", id)
+    .single();
+
+  if (sessionRow?.audio_path) {
+    await supabase.storage.from("session-audio").remove([sessionRow.audio_path]);
+  }
+
+  // Remove EEG blobs from Storage, then their rows
+  const { data: eegRows } = await supabase
+    .from("session_eeg")
+    .select("storage_path")
+    .eq("session_id", id);
+
+  if (eegRows && eegRows.length > 0) {
+    await supabase.storage
+      .from("session-eeg")
+      .remove(eegRows.map((r: { storage_path: string }) => r.storage_path));
+  }
+
+  // Delete children explicitly (no ON DELETE CASCADE triggers on UPDATE)
+  await supabase.from("probes").delete().eq("session_id", id);
+  await supabase.from("session_eeg").delete().eq("session_id", id);
+  await supabase.from("session_transcripts").delete().eq("session_id", id);
+  await supabase.from("session_plans").delete().eq("session_id", id);
+
+  // Reset the session row to a fresh "active" state.
+  // We preserve: problem, user_id, plan linkage, created_at, metadata (minus any run-specific fields).
+  await supabase
+    .from("sessions")
+    .update({
+      status: "active",
+      duration_ms: 0,
+      ended_at: null,
+      audio_path: null,
+      report: null,
+      report_generated_at: null,
+      transcript: null,
+      session_started_at: null,
+    })
+    .eq("id", id);
+}
+
 export async function startSession(sessionId: string): Promise<void> {
   const supabase = createClient();
   await supabase
