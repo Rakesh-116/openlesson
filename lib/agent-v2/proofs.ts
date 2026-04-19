@@ -7,12 +7,51 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ProofType, Proof } from "./types";
 
 /**
+ * Normalize a timestamp to canonical UTC format with "Z" suffix.
+ *
+ * Supabase returns TIMESTAMPTZ as "+00:00" suffix, but we generate
+ * fingerprints with toISOString() which uses "Z". Both are semantically
+ * identical but produce different hashes, so we normalize to "Z" everywhere.
+ */
+export function normalizeTimestamp(ts: string): string {
+  return new Date(ts).toISOString();
+}
+
+/**
+ * Produce a canonical JSON string with recursively sorted keys.
+ * Ensures identical output regardless of JS object key insertion order
+ * or Supabase JSONB key reordering.
+ */
+function canonicalJSON(value: unknown): string {
+  if (value === null || value === undefined) return "null";
+  if (typeof value === "boolean" || typeof value === "number") return JSON.stringify(value);
+  if (typeof value === "string") return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return "[" + value.map(canonicalJSON).join(",") + "]";
+  }
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj).sort();
+    const pairs = keys
+      .filter((k) => obj[k] !== undefined) // skip undefined (matches JSON.stringify)
+      .map((k) => JSON.stringify(k) + ":" + canonicalJSON(obj[k]));
+    return "{" + pairs.join(",") + "}";
+  }
+  return JSON.stringify(value);
+}
+
+/**
  * Calculate a SHA-256 fingerprint for a proof event.
- * Uses canonical JSON serialization (sorted keys, no whitespace).
+ * Uses canonical JSON serialization (recursively sorted keys, no whitespace).
  */
 export function calculateFingerprint(data: Record<string, unknown>): string {
-  const sorted = JSON.stringify(data, Object.keys(data).sort());
-  const hash = crypto.createHash("sha256").update(sorted).digest("hex");
+  // Normalize any timestamp fields to canonical Z-suffix format
+  const normalized = { ...data };
+  if (typeof normalized.timestamp === "string") {
+    normalized.timestamp = normalizeTimestamp(normalized.timestamp);
+  }
+  const canonical = canonicalJSON(normalized);
+  const hash = crypto.createHash("sha256").update(canonical).digest("hex");
   return `sha256:${hash}`;
 }
 

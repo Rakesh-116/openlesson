@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, errorResponse } from "@/lib/agent-v2/auth";
-import { calculateFingerprint } from "@/lib/agent-v2/proofs";
+import { calculateFingerprint, normalizeTimestamp } from "@/lib/agent-v2/proofs";
 import { isSolanaConfigured, verifyProofOnChain } from "@/lib/agent-v2/solana";
 
 export const runtime = "nodejs";
@@ -47,10 +47,11 @@ export async function GET(req: NextRequest, context: RouteContext) {
     }
 
     // ── Recalculate fingerprint from stored data ─────────────────────
+    // Normalize timestamp to canonical Z-suffix format to match creation
     const eventData = (proof.data as Record<string, unknown>) || {};
     const fingerprintData: Record<string, unknown> = {
       type: proof.type,
-      timestamp: proof.timestamp,
+      timestamp: normalizeTimestamp(proof.timestamp),
       user_id: proof.user_id,
       ...(proof.session_id ? { session_id: proof.session_id } : {}),
       ...(proof.plan_id ? { plan_id: proof.plan_id } : {}),
